@@ -58,7 +58,7 @@ export async function getMyEmployee(): Promise<EmployeeWithRelations | null> {
     .maybeSingle();
 
   if (error) return null;
-  return data as EmployeeWithRelations | null;
+  return data as unknown as EmployeeWithRelations | null;
 }
 
 export async function getMyUpdateLogs(limit = 20): Promise<EmployeeUpdateLog[]> {
@@ -138,7 +138,7 @@ export async function updateMyEmployee(data: EmployeeSelfUpdate): Promise<Action
     return { success: false, error: "No employee record linked to your account." };
   }
 
-  const employee = before as EmployeeWithRelations;
+  const employee = before as unknown as EmployeeWithRelations;
 
   if (!data.photo_url && !employee.photo_url) {
     return { success: false, error: "Profile photo is required. Please upload your photo." };

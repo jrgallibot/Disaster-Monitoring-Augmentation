@@ -44,7 +44,7 @@ export async function getEmployees(filters?: {
   const { data, error } = await query;
   if (error) throw new Error(error.message);
 
-  let employees = (data ?? []) as EmployeeWithRelations[];
+  let employees = (data ?? []) as unknown as EmployeeWithRelations[];
 
   if (filters?.search) {
     const term = filters.search.toLowerCase();
@@ -72,7 +72,7 @@ export async function getEmployeeById(
     .single();
 
   if (error) return null;
-  return data as EmployeeWithRelations;
+  return data as unknown as EmployeeWithRelations;
 }
 
 export async function getEmployeeUpdateLogsForAdmin(
@@ -186,7 +186,7 @@ export async function getEmployeeHistoryBundleForAdmin(
       return { success: false, error: employeeError?.message ?? "Employee not found." };
     }
 
-    const employeeRecord = employee as EmployeeWithRelations;
+    const employeeRecord = employee as unknown as EmployeeWithRelations;
 
     const [profileRes, deploymentRes, accomplishmentsRes, attendanceRes] = await Promise.all([
       service
