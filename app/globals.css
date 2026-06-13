@@ -1,0 +1,47 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  :root {
+    --background: 210 40% 98%;
+    --foreground: 210 100% 12%;
+    --card: 0 0% 100%;
+    --card-foreground: 210 100% 12%;
+    --primary: 210 100% 20%;
+    --primary-foreground: 0 0% 100%;
+    --secondary: 210 40% 96%;
+    --secondary-foreground: 210 100% 20%;
+    --muted: 210 30% 94%;
+    --muted-foreground: 210 20% 40%;
+    --accent: 43 68% 47%;
+    --accent-foreground: 0 0% 100%;
+    --destructive: 0 84% 60%;
+    --destructive-foreground: 0 0% 100%;
+    --border: 214 25% 85%;
+    --input: 214 25% 85%;
+    --ring: 210 100% 40%;
+    --radius: 0.375rem;
+  }
+}
+
+@layer base {
+  * {
+    @apply border-border;
+  }
+  body {
+    @apply bg-dswd-light text-foreground antialiased;
+  }
+}
+
+@layer components {
+  .gov-banner {
+    @apply bg-dswd-navy text-white text-xs py-1 px-4;
+  }
+  .gov-card {
+    @apply bg-white border border-dswd-border rounded-lg shadow-sm;
+  }
+  .gov-section-title {
+    @apply text-dswd-navy font-semibold text-lg border-b-2 border-dswd-gold pb-2;
+  }
+}
