@@ -4,7 +4,6 @@ import {
   getEmployeeById,
   getSpecializations,
   getRegions,
-  getStatuses,
 } from "@/lib/actions/employees";
 
 export const dynamic = "force-dynamic";
@@ -15,11 +14,10 @@ interface PageProps {
 
 export default async function EditEmployeePage({ params }: PageProps) {
   const { id } = await params;
-  const [employee, specializations, regions, statuses] = await Promise.all([
+  const [employee, specializations, regions] = await Promise.all([
     getEmployeeById(id),
     getSpecializations(),
     getRegions(),
-    getStatuses(),
   ]);
 
   if (!employee) notFound();
@@ -29,14 +27,13 @@ export default async function EditEmployeePage({ params }: PageProps) {
       <div>
         <h1 className="gov-section-title">Edit Employee</h1>
         <p className="text-sm text-muted-foreground mt-2">
-          Update employee information and deployment status
+          Update employee profile details. Set deployment status from the employees list.
         </p>
       </div>
       <EmployeeForm
         employee={employee}
         specializations={specializations}
         regions={regions}
-        statuses={statuses}
       />
     </div>
   );

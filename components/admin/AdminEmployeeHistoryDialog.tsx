@@ -2,84 +2,69 @@
 
 import { useEffect, useState, useTransition } from "react";
 import { Button } from "@/components/ui/button";
+import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { EmployeeAvatar } from "@/components/shared/EmployeeAvatar";
 import { EmployeeAttendanceList } from "@/components/shared/EmployeeAttendanceList";
 import { EmployeeUpdateLogList } from "@/components/shared/EmployeeUpdateLogList";
-import { getAttendanceForAdmin } from "@/lib/actions/attendance";
-import { getEmployeeUpdateLogsForAdmin } from "@/lib/actions/employees";
+import { EmployeeDeploymentLogList } from "@/components/shared/EmployeeDeploymentLogList";
+import { EmployeeAccomplishmentList } from "@/components/shared/EmployeeAccomplishmentList";
+import { getEmployeeHistoryBundleForAdmin } from "@/lib/actions/employees";
+import { statusRequiresDeploymentLocation } from "@/lib/deployment";
 import { formatCoordinates, getMapUrl, hasValidCoordinates } from "@/lib/geo";
 import { getFullName } from "@/lib/utils";
-import type { EmployeeAttendance, EmployeeUpdateLog, EmployeeWithRelations } from "@/lib/types";
-import { Clock, History, MapPin, X } from "lucide-react";
+import type { EmployeeHistoryBundle, EmployeeWithRelations, LibraryStatus } from "@/lib/types";
+import { Briefcase, ClipboardList, Clock, History, MapPin, X } from "lucide-react";
 
 interface AdminEmployeeHistoryDialogProps {
   employee: EmployeeWithRelations | null;
+  statuses: LibraryStatus[];
   onClose: () => void;
 }
 
 export function AdminEmployeeHistoryDialog({
   employee,
+  statuses,
   onClose,
 }: AdminEmployeeHistoryDialogProps) {
-  const [logs, setLogs] = useState<EmployeeUpdateLog[]>([]);
-  const [attendance, setAttendance] = useState<EmployeeAttendance[]>([]);
-  const [error, setError] = useState<string | null>(null);
+  const [bundle, setBundle] = useState<EmployeeHistoryBundle | null>(null);
+  const [loadError, setLoadError] = useState<string | null>(null);
   const [isPending, startTransition] = useTransition();
-  const [tab, setTab] = useState("updates");
+  const [tab, setTab] = useState("deployment");
 
   useEffect(() => {
     if (!employee) {
-      setLogs([]);
-      setAttendance([]);
-      setError(null);
+      setBundle(null);
+      setLoadError(null);
       return;
     }
 
     startTransition(async () => {
-      setError(null);
+      setLoadError(null);
       try {
-        const [logsResult, attendanceResult] = await Promise.all([
-          getEmployeeUpdateLogsForAdmin(employee.id),
-          getAttendanceForAdmin(employee.id),
-        ]);
-
-        let err: string | null = null;
-
-        if (!logsResult || !logsResult.success) {
-          err = logsResult?.error ?? "Failed to load update history.";
-          setLogs([]);
-        } else {
-          setLogs(logsResult.logs);
+        const result = await getEmployeeHistoryBundleForAdmin(employee.id);
+        if (!result.success) {
+          setLoadError(result.error);
+          setBundle(null);
+          return;
         }
-
-        if (!attendanceResult || !attendanceResult.success) {
-          if (!err) {
-            err = attendanceResult?.error ?? "Failed to load attendance records.";
-          }
-          setAttendance([]);
-        } else {
-          setAttendance(attendanceResult.records);
-        }
-
-        setError(err);
+        setBundle(result.bundle);
       } catch {
-        setError("Failed to load employee records. Please refresh and try again.");
-        setLogs([]);
-        setAttendance([]);
+        setLoadError("Failed to load employee records. Please refresh and try again.");
+        setBundle(null);
       }
     });
-  }, [employee?.id]);
+  }, [employee?.id, employee?.status_id, employee?.deployment_location, employee?.updated_at]);
 
   if (!employee) return null;
 
+  const snapshot = bundle?.employee ?? employee;
   const employeeName = getFullName(
-    employee.first_name,
-    employee.last_name,
-    employee.middle_name
+    snapshot.first_name,
+    snapshot.last_name,
+    snapshot.middle_name
   );
-
-  const isClockedIn = attendance[0]?.action === "time_in";
+  const isClockedIn = bundle?.attendance[0]?.action === "time_in";
 
   return (
     <div
@@ -92,22 +77,35 @@ export function AdminEmployeeHistoryDialog({
       >
         <div className="flex items-start justify-between gap-4 p-5 border-b border-dswd-border">
           <div className="flex items-center gap-4 min-w-0">
-            <EmployeeAvatar photoUrl={employee.photo_url} size={56} />
+            <EmployeeAvatar photoUrl={snapshot.photo_url} size={56} />
             <div className="min-w-0">
               <h2 className="text-lg font-bold text-dswd-navy truncate">{employeeName}</h2>
-              <p className="text-sm font-mono text-muted-foreground">{employee.employee_id}</p>
-              {isClockedIn && (
-                <p className="text-xs text-green-700 font-semibold mt-1">Currently Timed In</p>
+              <p className="text-sm font-mono text-muted-foreground">{snapshot.employee_id}</p>
+              <div className="flex items-center gap-2 flex-wrap mt-2">
+                {snapshot.status ? (
+                  <Badge color={snapshot.status.color}>{snapshot.status.name}</Badge>
+                ) : (
+                  <span className="text-xs text-muted-foreground">No deployment status</span>
+                )}
+                {isClockedIn && (
+                  <span className="text-xs text-green-700 font-semibold">Currently Timed In</span>
+                )}
+              </div>
+              {statusRequiresDeploymentLocation(snapshot.status?.name) && snapshot.deployment_location && (
+                <p className="text-xs text-muted-foreground flex items-center gap-1 mt-1">
+                  <MapPin className="h-3 w-3" />
+                  {snapshot.deployment_location}
+                </p>
               )}
-              {hasValidCoordinates(employee.last_latitude, employee.last_longitude) && (
+              {hasValidCoordinates(snapshot.last_latitude, snapshot.last_longitude) && (
                 <a
-                  href={getMapUrl(employee.last_latitude, employee.last_longitude)!}
+                  href={getMapUrl(snapshot.last_latitude, snapshot.last_longitude)!}
                   target="_blank"
                   rel="noopener noreferrer"
                   className="text-xs text-dswd-blue hover:underline flex items-center gap-1 mt-1"
                 >
                   <MapPin className="h-3 w-3" />
-                  Last location: {formatCoordinates(employee.last_latitude, employee.last_longitude)}
+                  Last location: {formatCoordinates(snapshot.last_latitude, snapshot.last_longitude)}
                 </a>
               )}
             </div>
@@ -118,42 +116,93 @@ export function AdminEmployeeHistoryDialog({
         </div>
 
         <div className="p-5 overflow-y-auto flex-1">
+          {isPending && (
+            <p className="text-sm text-muted-foreground mb-4">Loading employee history...</p>
+          )}
+          {loadError && (
+            <p className="text-sm text-red-600 mb-4">{loadError}</p>
+          )}
+
           <Tabs value={tab} onValueChange={setTab}>
-            <TabsList className="grid w-full grid-cols-2 mb-4">
-              <TabsTrigger value="updates" className="gap-2">
-                <History className="h-4 w-4" />
-                Profile Updates
+            <TabsList className="grid w-full grid-cols-2 sm:grid-cols-4 mb-4 h-auto gap-1">
+              <TabsTrigger value="deployment" className="gap-1 text-xs sm:text-sm">
+                <Briefcase className="h-4 w-4 shrink-0" />
+                Deployment
+                {bundle && (
+                  <span className="text-[10px] bg-dswd-light px-1.5 rounded-full">
+                    {bundle.deploymentLogs.length}
+                  </span>
+                )}
               </TabsTrigger>
-              <TabsTrigger value="attendance" className="gap-2">
-                <Clock className="h-4 w-4" />
-                Time In / Out
+              <TabsTrigger value="updates" className="gap-1 text-xs sm:text-sm">
+                <History className="h-4 w-4 shrink-0" />
+                Profile
+                {bundle && (
+                  <span className="text-[10px] bg-dswd-light px-1.5 rounded-full">
+                    {bundle.profileLogs.length}
+                  </span>
+                )}
+              </TabsTrigger>
+              <TabsTrigger value="accomplishments" className="gap-1 text-xs sm:text-sm">
+                <ClipboardList className="h-4 w-4 shrink-0" />
+                Accomplishments
+                {bundle && (
+                  <span className="text-[10px] bg-dswd-light px-1.5 rounded-full">
+                    {bundle.accomplishments.length}
+                  </span>
+                )}
+              </TabsTrigger>
+              <TabsTrigger value="attendance" className="gap-1 text-xs sm:text-sm">
+                <Clock className="h-4 w-4 shrink-0" />
+                Time In/Out
+                {bundle && (
+                  <span className="text-[10px] bg-dswd-light px-1.5 rounded-full">
+                    {bundle.attendance.length}
+                  </span>
+                )}
               </TabsTrigger>
             </TabsList>
 
-            {isPending && (
-              <p className="text-sm text-muted-foreground mb-4">Loading records...</p>
-            )}
-            {error && (
-              <p className="text-sm text-red-600 mb-4">{error}</p>
-            )}
+            <TabsContent value="deployment">
+              <EmployeeDeploymentLogList
+                employee={snapshot}
+                logs={bundle?.deploymentLogs ?? []}
+                statuses={statuses}
+                tabError={bundle?.errors.deployment}
+                emptyMessage="No deployment status changes logged yet. Update deployment from the Actions column."
+              />
+            </TabsContent>
 
             <TabsContent value="updates">
-              {!isPending && (
-                <EmployeeUpdateLogList
-                  logs={logs}
-                  emptyMessage="This employee has no logged profile updates yet."
-                />
-              )}
+              <EmployeeUpdateLogList
+                logs={bundle?.profileLogs ?? []}
+                tabError={bundle?.errors.profile}
+                emptyMessage="This employee has no logged profile updates yet."
+              />
+            </TabsContent>
+
+            <TabsContent value="accomplishments">
+              <EmployeeAccomplishmentList
+                records={bundle?.accomplishments ?? []}
+                tabError={bundle?.errors.accomplishments}
+                emptyMessage="This employee has no accomplishment updates yet."
+              />
             </TabsContent>
 
             <TabsContent value="attendance">
-              {!isPending && (
-                <EmployeeAttendanceList
-                  records={attendance}
-                  showSelfies
-                  emptyMessage="This employee has no time in/out records yet."
-                />
+              {bundle?.errors.attendance && (
+                <div className="bg-amber-50 border border-amber-200 text-amber-800 px-4 py-3 rounded-md text-sm mb-4">
+                  {bundle.errors.attendance}
+                </div>
               )}
+              <p className="text-xs font-semibold text-dswd-navy uppercase tracking-wide mb-3">
+                Time In / Out History ({bundle?.attendance.length ?? 0})
+              </p>
+              <EmployeeAttendanceList
+                records={bundle?.attendance ?? []}
+                showSelfies
+                emptyMessage="This employee has no time in/out records yet."
+              />
             </TabsContent>
           </Tabs>
         </div>

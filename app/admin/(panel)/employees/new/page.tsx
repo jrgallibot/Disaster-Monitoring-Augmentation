@@ -2,16 +2,14 @@ import { EmployeeForm } from "@/components/admin/EmployeeForm";
 import {
   getSpecializations,
   getRegions,
-  getStatuses,
 } from "@/lib/actions/employees";
 
 export const dynamic = "force-dynamic";
 
 export default async function NewEmployeePage() {
-  const [specializations, regions, statuses] = await Promise.all([
+  const [specializations, regions] = await Promise.all([
     getSpecializations(),
     getRegions(),
-    getStatuses(),
   ]);
 
   return (
@@ -25,7 +23,6 @@ export default async function NewEmployeePage() {
       <EmployeeForm
         specializations={specializations}
         regions={regions}
-        statuses={statuses}
       />
     </div>
   );

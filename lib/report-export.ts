@@ -1,5 +1,5 @@
 import type { AdminDashboardData } from "@/lib/types";
-import { formatDate, getFullName } from "@/lib/utils";
+import { formatDate, getEmployeeTeamLeader, getFullName } from "@/lib/utils";
 
 function escapeCsv(value: string | number | null | undefined): string {
   const text = value == null ? "" : String(value);
@@ -65,7 +65,7 @@ export function downloadAdminReportExcel(data: AdminDashboardData) {
       e.specialization?.name ?? "",
       e.region ? `${e.region.name} (${e.region.code})` : "",
       e.status?.name ?? "",
-      e.team_leader_name ?? "",
+      getEmployeeTeamLeader(e) ?? "",
       e.deployment_location ?? "",
       e.last_latitude ?? "",
       e.last_longitude ?? "",

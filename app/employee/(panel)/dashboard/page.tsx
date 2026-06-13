@@ -1,27 +1,28 @@
 import { redirect } from "next/navigation";
 import { EmployeeAttendancePanel } from "@/components/employee/EmployeeAttendancePanel";
+import { EmployeeAccomplishmentPanel } from "@/components/employee/EmployeeAccomplishmentPanel";
 import { EmployeeStatusForm } from "@/components/employee/EmployeeStatusForm";
 import { getMyAttendance, getMyAttendanceStatus } from "@/lib/actions/attendance";
+import { getMyAccomplishments } from "@/lib/actions/accomplishments";
 import {
   getMyEmployee,
   getMyUpdateLogs,
   getRegionsForEmployee,
   getSpecializationsForEmployee,
-  getStatusesForEmployee,
 } from "@/lib/actions/employee-portal";
 
 export const dynamic = "force-dynamic";
 
 export default async function EmployeeDashboardPage() {
-  const [employee, statuses, specializations, regions, logs, attendanceStatus, attendance] =
+  const [employee, specializations, regions, logs, attendanceStatus, attendance, accomplishments] =
     await Promise.all([
       getMyEmployee(),
-      getStatusesForEmployee(),
       getSpecializationsForEmployee(),
       getRegionsForEmployee(),
       getMyUpdateLogs(),
       getMyAttendanceStatus(),
       getMyAttendance(),
+      getMyAccomplishments(),
     ]);
 
   if (!employee) {
@@ -33,17 +34,17 @@ export default async function EmployeeDashboardPage() {
       <div>
         <h1 className="gov-section-title">My Employee Account</h1>
         <p className="text-sm text-muted-foreground mt-2">
-          Time in/out, update your profile, and keep deployment details current for monitoring.
+          Update your profile first, then record time in/out and submit accomplishments. Deployment status is managed by your administrator.
         </p>
       </div>
-      <EmployeeAttendancePanel status={attendanceStatus} records={attendance} />
       <EmployeeStatusForm
         employee={employee}
-        statuses={statuses}
         specializations={specializations}
         regions={regions}
         logs={logs}
       />
+      <EmployeeAttendancePanel status={attendanceStatus} records={attendance} />
+      <EmployeeAccomplishmentPanel records={accomplishments} />
     </div>
   );
 }

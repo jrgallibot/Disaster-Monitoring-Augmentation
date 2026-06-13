@@ -4,11 +4,16 @@ import { createClient } from "@/lib/supabase/server";
 import { createServiceClient } from "@/lib/supabase/service";
 import { requireAdmin } from "@/lib/actions/auth";
 import { getUserRole } from "@/lib/auth/employee-sync";
+import { getStatusById, statusRequiresDeploymentLocation, validateDeploymentFields } from "@/lib/deployment";
 import type {
   ActionResult,
   AdminDashboardData,
   DashboardStats,
+  EmployeeAccomplishment,
+  EmployeeAttendance,
+  EmployeeDeploymentLog,
   EmployeeFormData,
+  EmployeeHistoryBundle,
   EmployeeUpdateLog,
   EmployeeWithRelations,
   LibraryRegion,
@@ -55,7 +60,7 @@ export async function getEmployees(filters?: {
         e.last_name.toLowerCase().includes(term) ||
         e.employee_id.toLowerCase().includes(term) ||
         (e.deployment_location?.toLowerCase().includes(term) ?? false) ||
-        (e.team_leader_name?.toLowerCase().includes(term) ?? false)
+        (e.region?.team_leader_name?.toLowerCase().includes(term) ?? false)
     );
   }
 
@@ -115,6 +120,187 @@ export async function getEmployeeUpdateLogsForAdmin(
       error: err instanceof Error ? err.message : "Failed to load update history.",
     };
   }
+}
+
+export async function getDeploymentLogsForAdmin(
+  employeeId: string
+): Promise<{ success: true; logs: EmployeeDeploymentLog[] } | { success: false; error: string }> {
+  try {
+    const supabase = await createClient();
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) {
+      return { success: false, error: "You must be logged in as an administrator." };
+    }
+
+    const role = await getUserRole(user.id);
+    if (role !== "admin") {
+      return { success: false, error: "You do not have admin permissions." };
+    }
+
+    const service = createServiceClient();
+    const { data, error } = await service
+      .from("employee_deployment_logs")
+      .select("*")
+      .eq("employee_id", employeeId)
+      .order("created_at", { ascending: false })
+      .limit(100);
+
+    if (error) {
+      if (error.message.includes("employee_deployment_logs")) {
+        return {
+          success: false,
+          error: "Deployment logs table not found. Run migration 010 in Supabase SQL Editor.",
+        };
+      }
+      return { success: false, error: error.message };
+    }
+
+    return { success: true, logs: (data ?? []) as EmployeeDeploymentLog[] };
+  } catch (err) {
+    return {
+      success: false,
+      error: err instanceof Error ? err.message : "Failed to load deployment history.",
+    };
+  }
+}
+
+export async function getEmployeeHistoryBundleForAdmin(
+  employeeId: string
+): Promise<{ success: true; bundle: EmployeeHistoryBundle } | { success: false; error: string }> {
+  try {
+    const supabase = await createClient();
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) {
+      return { success: false, error: "You must be logged in as an administrator." };
+    }
+
+    const role = await getUserRole(user.id);
+    if (role !== "admin") {
+      return { success: false, error: "You do not have admin permissions." };
+    }
+
+    const service = createServiceClient();
+    const errors: EmployeeHistoryBundle["errors"] = {};
+
+    const { data: employee, error: employeeError } = await service
+      .from("employees")
+      .select(EMPLOYEE_SELECT)
+      .eq("id", employeeId)
+      .single();
+
+    if (employeeError || !employee) {
+      return { success: false, error: employeeError?.message ?? "Employee not found." };
+    }
+
+    const employeeRecord = employee as EmployeeWithRelations;
+
+    const [profileRes, deploymentRes, accomplishmentsRes, attendanceRes] = await Promise.all([
+      service
+        .from("employee_update_logs")
+        .select("*")
+        .eq("employee_id", employeeId)
+        .order("created_at", { ascending: false })
+        .limit(50),
+      service
+        .from("employee_deployment_logs")
+        .select("*")
+        .eq("employee_id", employeeId)
+        .order("created_at", { ascending: false })
+        .limit(100),
+      service
+        .from("employee_accomplishments")
+        .select("*")
+        .eq("employee_id", employeeId)
+        .order("created_at", { ascending: false })
+        .limit(100),
+      service
+        .from("employee_attendance")
+        .select("*")
+        .eq("employee_id", employeeId)
+        .order("created_at", { ascending: false })
+        .limit(100),
+    ]);
+
+    let profileLogs: EmployeeUpdateLog[] = [];
+    if (profileRes.error) {
+      errors.profile = profileRes.error.message.includes("employee_update_logs")
+        ? "Profile logs table not found. Run migration 006 in Supabase SQL Editor."
+        : profileRes.error.message;
+    } else {
+      profileLogs = (profileRes.data ?? []) as EmployeeUpdateLog[];
+    }
+
+    let deploymentLogs: EmployeeDeploymentLog[] = [];
+    if (deploymentRes.error) {
+      errors.deployment = deploymentRes.error.message.includes("employee_deployment_logs")
+        ? "Deployment logs table not found. Run migration 010 in Supabase SQL Editor."
+        : deploymentRes.error.message;
+    } else {
+      deploymentLogs = (deploymentRes.data ?? []) as EmployeeDeploymentLog[];
+    }
+
+    let accomplishments: EmployeeAccomplishment[] = [];
+    if (accomplishmentsRes.error) {
+      errors.accomplishments = accomplishmentsRes.error.message.includes("employee_accomplishments")
+        ? "Accomplishments table not found. Run migration 012 in Supabase SQL Editor."
+        : accomplishmentsRes.error.message;
+    } else {
+      accomplishments = (accomplishmentsRes.data ?? []) as EmployeeAccomplishment[];
+    }
+
+    let attendance: EmployeeAttendance[] = [];
+    if (attendanceRes.error) {
+      errors.attendance = attendanceRes.error.message.includes("employee_attendance")
+        ? "Attendance table not found. Run migration 007 in Supabase SQL Editor."
+        : attendanceRes.error.message;
+    } else {
+      attendance = (attendanceRes.data ?? []) as EmployeeAttendance[];
+    }
+
+    return {
+      success: true,
+      bundle: {
+        employee: employeeRecord,
+        profileLogs,
+        deploymentLogs,
+        accomplishments,
+        attendance,
+        errors,
+      },
+    };
+  } catch (err) {
+    return {
+      success: false,
+      error: err instanceof Error ? err.message : "Failed to load employee history.",
+    };
+  }
+}
+
+async function logDeploymentChange(
+  employeeId: string,
+  adminUserId: string,
+  statusId: string | null | undefined,
+  statusName: string,
+  deploymentLocation: string | null | undefined,
+  before: Pick<EmployeeWithRelations, "status_id" | "deployment_location"> | null
+) {
+  const nextStatusId = statusId || null;
+  const nextLocation = deploymentLocation?.trim() || null;
+  const prevStatusId = before?.status_id ?? null;
+  const prevLocation = before?.deployment_location?.trim() || null;
+
+  if (nextStatusId === prevStatusId && nextLocation === prevLocation) {
+    return;
+  }
+
+  const service = createServiceClient();
+  await service.from("employee_deployment_logs").insert({
+    employee_id: employeeId,
+    user_id: adminUserId,
+    status_id: nextStatusId,
+    status_name: statusName,
+    deployment_location: nextLocation,
+  });
 }
 
 export async function getDashboardStats(): Promise<DashboardStats> {
@@ -272,9 +458,6 @@ export async function createEmployee(data: EmployeeFormData): Promise<ActionResu
       address: data.address || null,
       specialization_id: data.specialization_id || null,
       region_id: data.region_id || null,
-      status_id: data.status_id || null,
-      deployment_location: data.deployment_location || null,
-      team_leader_name: data.team_leader_name?.trim() || null,
       notes: data.notes || null,
       photo_url: data.photo_url || null,
     });
@@ -305,9 +488,6 @@ export async function updateEmployee(id: string, data: EmployeeFormData): Promis
         address: data.address || null,
         specialization_id: data.specialization_id || null,
         region_id: data.region_id || null,
-        status_id: data.status_id || null,
-        deployment_location: data.deployment_location || null,
-        team_leader_name: data.team_leader_name?.trim() || null,
         notes: data.notes || null,
         photo_url: data.photo_url || null,
       })
@@ -321,6 +501,66 @@ export async function updateEmployee(id: string, data: EmployeeFormData): Promis
     return { success: true };
   } catch (err) {
     return { success: false, error: err instanceof Error ? err.message : "Failed to update employee" };
+  }
+}
+
+export async function updateEmployeeDeployment(
+  id: string,
+  statusId: string,
+  deploymentLocation?: string
+): Promise<ActionResult> {
+  try {
+    const { user } = await requireAdmin();
+    const statuses = await getStatuses();
+    const deploymentError = validateDeploymentFields(
+      statusId,
+      deploymentLocation,
+      statuses
+    );
+    if (deploymentError) {
+      return { success: false, error: deploymentError };
+    }
+
+    const status = getStatusById(statusId, statuses);
+    if (!status) {
+      return { success: false, error: "Selected deployment status is invalid." };
+    }
+
+    const nextLocation = statusRequiresDeploymentLocation(status.name)
+      ? deploymentLocation?.trim() || null
+      : null;
+
+    const supabase = createServiceClient();
+    const { data: before, error: fetchError } = await supabase
+      .from("employees")
+      .select("status_id, deployment_location")
+      .eq("id", id)
+      .single();
+
+    if (fetchError) return { success: false, error: fetchError.message };
+
+    const { error } = await supabase
+      .from("employees")
+      .update({
+        status_id: statusId,
+        deployment_location: nextLocation,
+      })
+      .eq("id", id);
+
+    if (error) return { success: false, error: error.message };
+
+    await logDeploymentChange(id, user.id, statusId, status.name, nextLocation, before);
+
+    revalidatePath("/");
+    revalidatePath(`/employees/${id}`);
+    revalidatePath("/admin/employees");
+    revalidatePath("/admin/dashboard");
+    return { success: true };
+  } catch (err) {
+    return {
+      success: false,
+      error: err instanceof Error ? err.message : "Failed to update deployment.",
+    };
   }
 }
 
@@ -447,6 +687,7 @@ export async function updateSpecialization(
 export async function createRegion(data: {
   name: string;
   code: string;
+  team_leader_name?: string;
   sort_order?: number;
 }): Promise<ActionResult> {
   try {
@@ -455,6 +696,7 @@ export async function createRegion(data: {
     const { error } = await supabase.from("library_regions").insert({
       name: data.name,
       code: data.code,
+      team_leader_name: data.team_leader_name?.trim() || null,
       sort_order: data.sort_order ?? 0,
     });
     if (error) return { success: false, error: error.message };
@@ -467,17 +709,31 @@ export async function createRegion(data: {
 
 export async function updateRegion(
   id: string,
-  data: { name: string; code: string; sort_order?: number; is_active?: boolean }
+  data: {
+    name: string;
+    code: string;
+    team_leader_name?: string;
+    sort_order?: number;
+    is_active?: boolean;
+  }
 ): Promise<ActionResult> {
   try {
     await requireAdmin();
     const supabase = createServiceClient();
     const { error } = await supabase
       .from("library_regions")
-      .update(data)
+      .update({
+        name: data.name,
+        code: data.code,
+        team_leader_name: data.team_leader_name?.trim() || null,
+        sort_order: data.sort_order,
+        is_active: data.is_active,
+      })
       .eq("id", id);
     if (error) return { success: false, error: error.message };
     revalidatePath("/admin/libraries");
+    revalidatePath("/admin/employees");
+    revalidatePath("/employee/dashboard");
     return { success: true };
   } catch (err) {
     return { success: false, error: err instanceof Error ? err.message : "Failed to update region" };

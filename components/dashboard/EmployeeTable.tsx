@@ -1,7 +1,8 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
@@ -13,11 +14,12 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import { AdminDeploymentUpdateDialog } from "@/components/admin/AdminDeploymentUpdateDialog";
 import { AdminEmployeeHistoryDialog } from "@/components/admin/AdminEmployeeHistoryDialog";
 import { EmployeeAvatar } from "@/components/shared/EmployeeAvatar";
-import { Search, History, MapPin, User } from "lucide-react";
-import { formatCoordinates, getMapUrl, hasValidCoordinates } from "@/lib/geo";
-import { getFullName } from "@/lib/utils";
+import { statusRequiresDeploymentLocation } from "@/lib/deployment";
+import { Search, History, MapPin, User, Briefcase } from "lucide-react";import { formatCoordinates, getMapUrl, hasValidCoordinates } from "@/lib/geo";
+import { getFullName, getEmployeeTeamLeader } from "@/lib/utils";
 import type {
   EmployeeWithRelations,
   LibraryRegion,
@@ -40,13 +42,32 @@ export function EmployeeTable({
   specializations,
   showActions = false,
 }: EmployeeTableProps) {
+  const router = useRouter();
+  const [employees, setEmployees] = useState(initialEmployees);
   const [search, setSearch] = useState("");
   const [regionFilter, setRegionFilter] = useState("all");
   const [statusFilter, setStatusFilter] = useState("all");
   const [specFilter, setSpecFilter] = useState("all");
   const [historyEmployee, setHistoryEmployee] = useState<EmployeeWithRelations | null>(null);
+  const [deploymentEmployee, setDeploymentEmployee] = useState<EmployeeWithRelations | null>(null);
 
-  const filtered = initialEmployees.filter((e) => {
+  useEffect(() => {
+    setEmployees(initialEmployees);
+  }, [initialEmployees]);
+
+  function handleDeploymentUpdated(updated: EmployeeWithRelations) {
+    setEmployees((prev) =>
+      prev.map((e) => (e.id === updated.id ? { ...e, ...updated } : e))
+    );
+    router.refresh();
+  }
+
+  function getDeploymentDisplay(emp: EmployeeWithRelations) {
+    if (!statusRequiresDeploymentLocation(emp.status?.name)) return "—";
+    return emp.deployment_location ?? "—";
+  }
+
+  const filtered = employees.filter((e) => {
     const term = search.toLowerCase();
     const matchesSearch =
       !term ||
@@ -54,7 +75,7 @@ export function EmployeeTable({
       e.last_name.toLowerCase().includes(term) ||
       e.employee_id.toLowerCase().includes(term) ||
       (e.deployment_location?.toLowerCase().includes(term) ?? false) ||
-      (e.team_leader_name?.toLowerCase().includes(term) ?? false);
+      (e.region?.team_leader_name?.toLowerCase().includes(term) ?? false);
 
     const matchesRegion =
       regionFilter === "all" || e.region_id === regionFilter;
@@ -125,7 +146,7 @@ export function EmployeeTable({
         </CardHeader>
         <CardContent>
           <p className="text-sm text-muted-foreground mb-4">
-            Showing {filtered.length} of {initialEmployees.length} employees
+            Showing {filtered.length} of {employees.length} employees
           </p>
 
           {/* Desktop table */}
@@ -174,18 +195,39 @@ export function EmployeeTable({
                     <td className="p-3">{emp.region?.code ?? "—"}</td>
                     <td className="p-3">
                       {emp.status ? (
-                        <Badge color={emp.status.color}>{emp.status.name}</Badge>
+                        showActions ? (
+                          <button
+                            type="button"
+                            onClick={() => setDeploymentEmployee(emp)}
+                            className="inline-flex"
+                            title="Click to update deployment status"
+                          >
+                            <Badge color={emp.status.color} className="cursor-pointer hover:opacity-90">
+                              {emp.status.name}
+                            </Badge>
+                          </button>
+                        ) : (
+                          <Badge color={emp.status.color}>{emp.status.name}</Badge>
+                        )
+                      ) : showActions ? (
+                        <button
+                          type="button"
+                          onClick={() => setDeploymentEmployee(emp)}
+                          className="text-dswd-blue hover:underline text-xs"
+                        >
+                          Set status
+                        </button>
                       ) : (
                         "—"
                       )}
                     </td>
                     {showActions && (
                       <td className="p-3 text-muted-foreground max-w-[160px] truncate">
-                        {emp.team_leader_name ?? "—"}
+                        {getEmployeeTeamLeader(emp) ?? "—"}
                       </td>
                     )}
                     <td className="p-3 text-muted-foreground max-w-[200px] truncate">
-                      {emp.deployment_location ?? "—"}
+                      {getDeploymentDisplay(emp)}
                     </td>
                     {showActions && (
                       <td className="p-3">
@@ -207,7 +249,15 @@ export function EmployeeTable({
                     )}
                     {showActions && (
                       <td className="p-3">
-                        <div className="flex items-center gap-3">
+                        <div className="flex items-center gap-3 flex-wrap">
+                          <button
+                            type="button"
+                            onClick={() => setDeploymentEmployee(emp)}
+                            className="text-dswd-blue hover:underline text-xs inline-flex items-center gap-1"
+                          >
+                            <Briefcase className="h-3 w-3" />
+                            Deployment
+                          </button>
                           <Link
                             href={`/admin/employees/${emp.id}/edit`}
                             className="text-dswd-blue hover:underline text-xs"
@@ -251,21 +301,37 @@ export function EmployeeTable({
                       <p className="text-xs text-muted-foreground font-mono">{emp.employee_id}</p>
                     </div>
                   </div>
-                  {emp.status && (
-                    <Badge color={emp.status.color} className="shrink-0">
-                      {emp.status.name}
-                    </Badge>
-                  )}
+                  {emp.status ? (
+                    showActions ? (
+                      <button type="button" onClick={() => setDeploymentEmployee(emp)}>
+                        <Badge color={emp.status.color} className="shrink-0 cursor-pointer">
+                          {emp.status.name}
+                        </Badge>
+                      </button>
+                    ) : (
+                      <Badge color={emp.status.color} className="shrink-0">
+                        {emp.status.name}
+                      </Badge>
+                    )
+                  ) : showActions ? (
+                    <button
+                      type="button"
+                      onClick={() => setDeploymentEmployee(emp)}
+                      className="text-xs text-dswd-blue hover:underline shrink-0"
+                    >
+                      Set status
+                    </button>
+                  ) : null}
                 </div>
                 <div className="mt-3 grid grid-cols-2 gap-2 text-xs text-muted-foreground">
                   <span>Region: <strong className="text-foreground">{emp.region?.code ?? "—"}</strong></span>
                   <span>Role: <strong className="text-foreground">{emp.specialization?.name ?? "—"}</strong></span>
-                  {showActions && emp.team_leader_name && (
+                  {showActions && getEmployeeTeamLeader(emp) && (
                     <span className="col-span-2 truncate">
-                      Team Leader: <strong className="text-foreground">{emp.team_leader_name}</strong>
+                      Team Leader: <strong className="text-foreground">{getEmployeeTeamLeader(emp)}</strong>
                     </span>
                   )}
-                  {emp.deployment_location && (
+                  {statusRequiresDeploymentLocation(emp.status?.name) && emp.deployment_location && (
                     <span className="col-span-2 truncate">
                       Location: <strong className="text-foreground">{emp.deployment_location}</strong>
                     </span>
@@ -285,7 +351,11 @@ export function EmployeeTable({
                   )}
                 </div>
                 {showActions && (
-                  <div className="mt-3 flex gap-2">
+                  <div className="mt-3 flex gap-2 flex-wrap">
+                    <Button variant="outline" size="sm" onClick={() => setDeploymentEmployee(emp)}>
+                      <Briefcase className="h-4 w-4" />
+                      Deployment
+                    </Button>
                     <Button asChild variant="outline" size="sm">
                       <Link href={`/admin/employees/${emp.id}/edit`}>Edit</Link>
                     </Button>
@@ -313,10 +383,19 @@ export function EmployeeTable({
       </Card>
 
       {showActions && (
-        <AdminEmployeeHistoryDialog
-          employee={historyEmployee}
-          onClose={() => setHistoryEmployee(null)}
-        />
+        <>
+          <AdminDeploymentUpdateDialog
+            employee={deploymentEmployee}
+            statuses={statuses}
+            onClose={() => setDeploymentEmployee(null)}
+            onUpdated={handleDeploymentUpdated}
+          />
+          <AdminEmployeeHistoryDialog
+            employee={historyEmployee}
+            statuses={statuses}
+            onClose={() => setHistoryEmployee(null)}
+          />
+        </>
       )}
     </>
   );

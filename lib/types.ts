@@ -11,6 +11,7 @@ export interface LibraryRegion {
   id: string;
   name: string;
   code: string;
+  team_leader_name: string | null;
   is_active: boolean;
   sort_order: number;
   created_at: string;
@@ -108,7 +109,6 @@ export type EmployeeFormData = {
   region_id?: string;
   status_id?: string;
   deployment_location?: string;
-  team_leader_name?: string;
   notes?: string;
   photo_url?: string;
 };
@@ -125,14 +125,21 @@ export type EmployeeSelfUpdate = {
   address?: string;
   specialization_id?: string;
   region_id?: string;
-  status_id?: string;
-  deployment_location?: string;
-  team_leader_name?: string;
   notes?: string;
   photo_url?: string;
   latitude?: number;
   longitude?: number;
 };
+
+export interface EmployeeDeploymentLog {
+  id: string;
+  employee_id: string;
+  user_id: string | null;
+  status_id: string | null;
+  status_name: string;
+  deployment_location: string | null;
+  created_at: string;
+}
 
 export interface EmployeeUpdateLog {
   id: string;
@@ -165,5 +172,29 @@ export interface AttendanceStatus {
   isClockedIn: boolean;
   lastRecord: EmployeeAttendance | null;
 }
+
+export interface EmployeeAccomplishment {
+  id: string;
+  employee_id: string;
+  user_id: string | null;
+  content: string;
+  latitude: number | null;
+  longitude: number | null;
+  created_at: string;
+}
+
+export type EmployeeHistoryBundle = {
+  employee: EmployeeWithRelations;
+  profileLogs: EmployeeUpdateLog[];
+  deploymentLogs: EmployeeDeploymentLog[];
+  accomplishments: EmployeeAccomplishment[];
+  attendance: EmployeeAttendance[];
+  errors: {
+    profile?: string;
+    deployment?: string;
+    accomplishments?: string;
+    attendance?: string;
+  };
+};
 
 export type LibraryType = "specializations" | "regions" | "statuses";

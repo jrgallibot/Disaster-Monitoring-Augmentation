@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useTransition } from "react";
+import { useMemo, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -18,11 +18,11 @@ import {
   createEmployee,
   updateEmployee,
 } from "@/lib/actions/employees";
+import { getEmployeeTeamLeader } from "@/lib/utils";
 import type {
   EmployeeWithRelations,
   LibraryRegion,
   LibrarySpecialization,
-  LibraryStatus,
   EmployeeFormData,
 } from "@/lib/types";
 
@@ -30,23 +30,27 @@ interface EmployeeFormProps {
   employee?: EmployeeWithRelations;
   specializations: LibrarySpecialization[];
   regions: LibraryRegion[];
-  statuses: LibraryStatus[];
 }
 
 export function EmployeeForm({
   employee,
   specializations,
   regions,
-  statuses,
 }: EmployeeFormProps) {
   const router = useRouter();
   const [isPending, startTransition] = useTransition();
   const [error, setError] = useState<string | null>(null);
-  const [statusId, setStatusId] = useState(employee?.status_id ?? "");
   const [specializationId, setSpecializationId] = useState(employee?.specialization_id ?? "");
   const [regionId, setRegionId] = useState(employee?.region_id ?? "");
 
   const isEdit = !!employee;
+
+  const selectedRegion = useMemo(
+    () => regions.find((r) => r.id === regionId),
+    [regionId, regions]
+  );
+
+  const teamLeader = selectedRegion?.team_leader_name?.trim() || getEmployeeTeamLeader(employee ?? { region: null });
 
   function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
@@ -63,9 +67,6 @@ export function EmployeeForm({
       address: (form.get("address") as string) || undefined,
       specialization_id: specializationId || undefined,
       region_id: regionId || undefined,
-      status_id: statusId || undefined,
-      deployment_location: (form.get("deployment_location") as string) || undefined,
-      team_leader_name: (form.get("team_leader_name") as string) || undefined,
       notes: (form.get("notes") as string) || undefined,
       photo_url: (form.get("photo_url") as string) || undefined,
     };
@@ -89,6 +90,9 @@ export function EmployeeForm({
     <Card>
       <CardHeader>
         <CardTitle>{isEdit ? "Edit Employee" : "Add New Employee"}</CardTitle>
+        <p className="text-sm text-muted-foreground">
+          Deployment status is updated from the employees list Actions column.
+        </p>
       </CardHeader>
       <CardContent>
         <form onSubmit={handleSubmit} className="space-y-6">
@@ -108,21 +112,6 @@ export function EmployeeForm({
                 placeholder="16-11661"
                 required
               />
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor="status_id">Status</Label>
-              <Select value={statusId} onValueChange={setStatusId}>
-                <SelectTrigger>
-                  <SelectValue placeholder="Select status" />
-                </SelectTrigger>
-                <SelectContent>
-                  {statuses.map((s) => (
-                    <SelectItem key={s.id} value={s.id}>
-                      {s.name}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
             </div>
             <div className="space-y-2">
               <Label htmlFor="first_name">First Name *</Label>
@@ -181,22 +170,15 @@ export function EmployeeForm({
               </Select>
             </div>
             <div className="space-y-2">
-              <Label htmlFor="deployment_location">Deployment Location</Label>
+              <Label>Assigned Team Leader</Label>
               <Input
-                id="deployment_location"
-                name="deployment_location"
-                defaultValue={employee?.deployment_location ?? ""}
-                placeholder="e.g. Quezon City Evacuation Center"
+                value={teamLeader ?? "Not assigned for selected region"}
+                readOnly
+                className="bg-dswd-light"
               />
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor="team_leader_name">Team Leader Name</Label>
-              <Input
-                id="team_leader_name"
-                name="team_leader_name"
-                defaultValue={employee?.team_leader_name ?? ""}
-                placeholder="e.g. Juan Dela Cruz"
-              />
+              <p className="text-xs text-muted-foreground">
+                Set team leaders in Admin → Libraries → Regions.
+              </p>
             </div>
             <div className="space-y-2">
               <Label htmlFor="email">Email</Label>

@@ -21,3 +21,9 @@ export function getFullName(
     ? `${lastName}, ${firstName} ${middleName}`
     : `${lastName}, ${firstName}`;
 }
+
+export function getEmployeeTeamLeader(
+  employee: { region?: { team_leader_name?: string | null } | null }
+): string | null {
+  return employee.region?.team_leader_name?.trim() || null;
+}

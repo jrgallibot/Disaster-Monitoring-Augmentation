@@ -2,7 +2,7 @@
 
 import { createClient } from "@/lib/supabase/server";
 import { createServiceClient } from "@/lib/supabase/service";
-import { getRegions, getSpecializations, getStatuses } from "@/lib/actions/employees";
+import { getRegions, getSpecializations } from "@/lib/actions/employees";
 import type {
   ActionResult,
   EmployeeSelfUpdate,
@@ -25,8 +25,7 @@ const ALLOWED_PHOTO_TYPES = ["image/jpeg", "image/jpg", "image/png", "image/webp
 
 function buildChanges(
   before: EmployeeWithRelations,
-  data: EmployeeSelfUpdate,
-  statusName?: string | null
+  data: EmployeeSelfUpdate
 ): Record<string, { from: string | null; to: string | null }> {
   const changes: Record<string, { from: string | null; to: string | null }> = {};
 
@@ -43,20 +42,12 @@ function buildChanges(
   if (data.middle_name !== undefined) track("middle_name", before.middle_name, data.middle_name.trim() || null);
   if (data.phone !== undefined) track("phone", before.phone, data.phone || null);
   if (data.address !== undefined) track("address", before.address, data.address || null);
-  if (data.deployment_location !== undefined) {
-    track("deployment_location", before.deployment_location, data.deployment_location || null);
-  }
-  if (data.team_leader_name !== undefined) {
-    track("team_leader_name", before.team_leader_name, data.team_leader_name.trim() || null);
-  }
   if (data.notes !== undefined) track("notes", before.notes, data.notes || null);
   if (data.specialization_id !== undefined) {
     track("specialization_id", before.specialization_id, data.specialization_id || null);
   }
   if (data.region_id !== undefined) track("region_id", before.region_id, data.region_id || null);
-  if (data.status_id !== undefined) track("status_id", before.status_id, data.status_id || null);
   if (data.photo_url !== undefined) track("photo_url", before.photo_url, data.photo_url || null);
-  if (statusName !== undefined) track("status_name", before.status?.name ?? null, statusName);
 
   return changes;
 }
@@ -159,24 +150,10 @@ export async function updateMyEmployee(data: EmployeeSelfUpdate): Promise<Action
     return { success: false, error: "Profile photo is required. Please upload your photo." };
   }
 
-  const teamLeaderName = data.team_leader_name?.trim() || employee.team_leader_name?.trim() || "";
-  if (!teamLeaderName) {
-    return { success: false, error: "Team Leader Name is required." };
-  }
-
-  let statusName: string | null = employee.status?.name ?? null;
-  if (data.status_id) {
-    const statuses = await getStatuses();
-    statusName = statuses.find((s) => s.id === data.status_id)?.name ?? statusName;
-  }
-
   const updatePayload: Record<string, string | number | null> = {
     middle_name: data.middle_name?.trim() || null,
     specialization_id: data.specialization_id || null,
     region_id: data.region_id || null,
-    status_id: data.status_id || null,
-    deployment_location: data.deployment_location || null,
-    team_leader_name: teamLeaderName,
     phone: data.phone || null,
     address: data.address || null,
     notes: data.notes || null,
@@ -196,7 +173,7 @@ export async function updateMyEmployee(data: EmployeeSelfUpdate): Promise<Action
 
   if (error) return { success: false, error: error.message };
 
-  const changes = buildChanges(employee, data, statusName);
+  const changes = buildChanges(employee, data);
   const changedFields = Object.keys(changes);
 
   if (changedFields.length > 0 || data.latitude != null) {
@@ -210,8 +187,8 @@ export async function updateMyEmployee(data: EmployeeSelfUpdate): Promise<Action
       user_id: user.id,
       summary: `Updated ${summaryParts}`,
       changes,
-      deployment_location: data.deployment_location ?? employee.deployment_location,
-      status_name: statusName,
+      deployment_location: employee.deployment_location,
+      status_name: employee.status?.name ?? null,
       latitude: data.latitude ?? null,
       longitude: data.longitude ?? null,
     });
@@ -221,10 +198,6 @@ export async function updateMyEmployee(data: EmployeeSelfUpdate): Promise<Action
   revalidatePath("/admin/dashboard");
   revalidatePath("/admin/employees");
   return { success: true };
-}
-
-export async function getStatusesForEmployee() {
-  return getStatuses();
 }
 
 export async function getSpecializationsForEmployee() {

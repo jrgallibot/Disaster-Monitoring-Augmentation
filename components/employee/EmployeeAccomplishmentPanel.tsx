@@ -1,0 +1,106 @@
+"use client";
+
+import { useState, useTransition } from "react";
+import { useRouter } from "next/navigation";
+import { Button } from "@/components/ui/button";
+import { Label } from "@/components/ui/label";
+import { Textarea } from "@/components/ui/textarea";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { EmployeeAccomplishmentList } from "@/components/shared/EmployeeAccomplishmentList";
+import { addMyAccomplishment } from "@/lib/actions/accomplishments";
+import { getCurrentPosition } from "@/lib/geo";
+import type { EmployeeAccomplishment } from "@/lib/types";
+import { ClipboardList, MapPin } from "lucide-react";
+
+interface EmployeeAccomplishmentPanelProps {
+  records: EmployeeAccomplishment[];
+}
+
+export function EmployeeAccomplishmentPanel({ records }: EmployeeAccomplishmentPanelProps) {
+  const router = useRouter();
+  const [isPending, startTransition] = useTransition();
+  const [error, setError] = useState<string | null>(null);
+  const [success, setSuccess] = useState(false);
+  const [content, setContent] = useState("");
+
+  function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
+    e.preventDefault();
+    setError(null);
+    setSuccess(false);
+
+    if (!content.trim()) {
+      setError("Please enter your accomplishment or activity update.");
+      return;
+    }
+
+    startTransition(async () => {
+      const position = await getCurrentPosition();
+      const result = await addMyAccomplishment(
+        content,
+        position?.latitude,
+        position?.longitude
+      );
+
+      if (!result.success) {
+        setError(result.error);
+        return;
+      }
+
+      setContent("");
+      setSuccess(true);
+      router.refresh();
+    });
+  }
+
+  return (
+    <Card>
+      <CardHeader>
+        <CardTitle className="flex items-center gap-2 text-lg">
+          <ClipboardList className="h-5 w-5" />
+          My Accomplishments
+        </CardTitle>
+        <p className="text-sm text-muted-foreground">
+          Submit your work accomplishments and activity updates from time to time. Each entry is timestamped.
+        </p>
+      </CardHeader>
+      <CardContent className="space-y-6">
+        <form onSubmit={handleSubmit} className="space-y-4">
+          {error && (
+            <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-md text-sm">
+              {error}
+            </div>
+          )}
+          {success && (
+            <div className="bg-green-50 border border-green-200 text-green-700 px-4 py-3 rounded-md text-sm">
+              Accomplishment saved successfully.
+            </div>
+          )}
+
+          <div className="space-y-2">
+            <Label htmlFor="accomplishment">Accomplishment / Activity Update *</Label>
+            <Textarea
+              id="accomplishment"
+              value={content}
+              onChange={(e) => setContent(e.target.value)}
+              rows={4}
+              placeholder="Describe what you accomplished today — tasks completed, families assisted, reports submitted, field activities, etc."
+              required
+              minLength={10}
+            />
+          </div>
+
+          <p className="text-xs text-muted-foreground flex items-center gap-1">
+            <MapPin className="h-3 w-3" />
+            GPS location is captured when you submit (allow location access in your browser).
+          </p>
+
+          <Button type="submit" disabled={isPending}>
+            {isPending ? "Saving..." : "Submit Accomplishment"}
+          </Button>
+        </form>
+
+        <EmployeeAccomplishmentList records={records} />
+      </CardContent>
+    </Card>
+  );
+}

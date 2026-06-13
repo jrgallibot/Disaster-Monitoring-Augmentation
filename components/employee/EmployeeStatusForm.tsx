@@ -6,7 +6,6 @@ import Image from "next/image";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Textarea } from "@/components/ui/textarea";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import {
@@ -19,19 +18,17 @@ import {
 import { EmployeeActivityLogs } from "@/components/employee/EmployeeActivityLogs";
 import { updateMyEmployee, uploadMyProfilePhoto } from "@/lib/actions/employee-portal";
 import { formatCoordinates, getCurrentPosition, getMapUrl, hasValidCoordinates } from "@/lib/geo";
-import { formatDate } from "@/lib/utils";
+import { formatDate, getEmployeeTeamLeader } from "@/lib/utils";
 import type {
   EmployeeUpdateLog,
   EmployeeWithRelations,
   LibraryRegion,
   LibrarySpecialization,
-  LibraryStatus,
 } from "@/lib/types";
 import { Camera, MapPin } from "lucide-react";
 
 interface EmployeeStatusFormProps {
   employee: EmployeeWithRelations;
-  statuses: LibraryStatus[];
   specializations: LibrarySpecialization[];
   regions: LibraryRegion[];
   logs: EmployeeUpdateLog[];
@@ -39,7 +36,6 @@ interface EmployeeStatusFormProps {
 
 export function EmployeeStatusForm({
   employee,
-  statuses,
   specializations,
   regions,
   logs,
@@ -49,7 +45,6 @@ export function EmployeeStatusForm({
   const [isPending, startTransition] = useTransition();
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState(false);
-  const [statusId, setStatusId] = useState(employee.status_id ?? "");
   const [specializationId, setSpecializationId] = useState(employee.specialization_id ?? "");
   const [regionId, setRegionId] = useState(employee.region_id ?? "");
   const [photoUrl, setPhotoUrl] = useState(employee.photo_url ?? "");
@@ -80,11 +75,6 @@ export function EmployeeStatusForm({
     }
 
     const form = new FormData(e.currentTarget);
-    const teamLeaderName = (form.get("team_leader_name") as string)?.trim();
-    if (!teamLeaderName) {
-      setError("Team Leader Name is required.");
-      return;
-    }
 
     const position = await getCurrentPosition();
     if (position) setCoords(position);
@@ -111,12 +101,8 @@ export function EmployeeStatusForm({
         middle_name: (form.get("middle_name") as string) || undefined,
         specialization_id: specializationId || undefined,
         region_id: regionId || undefined,
-        status_id: statusId || undefined,
-        deployment_location: (form.get("deployment_location") as string) || undefined,
-        team_leader_name: teamLeaderName,
         phone: (form.get("phone") as string) || undefined,
         address: (form.get("address") as string) || undefined,
-        notes: (form.get("notes") as string) || undefined,
         photo_url: finalPhotoUrl || undefined,
         latitude: position?.latitude,
         longitude: position?.longitude,
@@ -131,6 +117,8 @@ export function EmployeeStatusForm({
       router.refresh();
     });
   }
+
+  const teamLeader = getEmployeeTeamLeader(employee);
 
   return (
     <div className="space-y-6">
@@ -168,11 +156,23 @@ export function EmployeeStatusForm({
           <p className="text-sm text-muted-foreground">
             Last updated: {formatDate(employee.updated_at)}
           </p>
-          {employee.team_leader_name && (
+          {teamLeader && (
             <p className="text-sm text-muted-foreground">
-              Team Leader: <span className="font-medium text-foreground">{employee.team_leader_name}</span>
+              Team Leader: <span className="font-medium text-foreground">{teamLeader}</span>
+              <span className="text-xs"> (from {employee.region?.name ?? "home region"})</span>
             </p>
           )}
+          {employee.deployment_location && (
+            <p className="text-sm text-muted-foreground flex items-start gap-1">
+              <MapPin className="h-4 w-4 shrink-0 mt-0.5" />
+              <span>
+                Deployment: <span className="font-medium text-foreground">{employee.deployment_location}</span>
+              </span>
+            </p>
+          )}
+          <p className="text-xs text-muted-foreground">
+            Deployment status and location are managed by your administrator.
+          </p>
           {coords && hasValidCoordinates(coords.latitude, coords.longitude) && (
             <p className="text-xs text-muted-foreground flex items-center gap-1 flex-wrap">
               <MapPin className="h-3 w-3 shrink-0" />
@@ -194,7 +194,7 @@ export function EmployeeStatusForm({
         <CardHeader>
           <CardTitle>Update My Profile</CardTitle>
           <p className="text-sm text-muted-foreground">
-            Profile photo and Team Leader Name are required. Your location is detected automatically when you save.
+            Profile photo is required. Your location is detected automatically when you save.
           </p>
         </CardHeader>
         <CardContent>
@@ -304,43 +304,6 @@ export function EmployeeStatusForm({
               </div>
             </div>
 
-            <div className="space-y-2">
-              <Label>Deployment Status</Label>
-              <Select value={statusId} onValueChange={setStatusId}>
-                <SelectTrigger>
-                  <SelectValue placeholder="Select your current status" />
-                </SelectTrigger>
-                <SelectContent>
-                  {statuses.map((s) => (
-                    <SelectItem key={s.id} value={s.id}>
-                      {s.name}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-
-            <div className="space-y-2">
-              <Label htmlFor="team_leader_name">Team Leader Name *</Label>
-              <Input
-                id="team_leader_name"
-                name="team_leader_name"
-                defaultValue={employee.team_leader_name ?? ""}
-                placeholder="e.g. Juan Dela Cruz"
-                required
-              />
-            </div>
-
-            <div className="space-y-2">
-              <Label htmlFor="deployment_location">Deployment Location</Label>
-              <Input
-                id="deployment_location"
-                name="deployment_location"
-                defaultValue={employee.deployment_location ?? ""}
-                placeholder="e.g. Tacloban Response Center"
-              />
-            </div>
-
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               <div className="space-y-2">
                 <Label htmlFor="phone">Phone</Label>
@@ -355,17 +318,6 @@ export function EmployeeStatusForm({
                 <Label htmlFor="address">Address</Label>
                 <Input id="address" name="address" defaultValue={employee.address ?? ""} />
               </div>
-            </div>
-
-            <div className="space-y-2">
-              <Label htmlFor="notes">Notes / Activity Update</Label>
-              <Textarea
-                id="notes"
-                name="notes"
-                defaultValue={employee.notes ?? ""}
-                rows={3}
-                placeholder="Brief update on your current assignment or availability..."
-              />
             </div>
 
             <p className="text-xs text-muted-foreground flex items-center gap-1">

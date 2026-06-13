@@ -75,11 +75,12 @@ export function LibraryManager({
         <LibraryTable
           title="Regions"
           items={regions}
-          columns={["name", "code", "sort_order", "is_active"]}
+          columns={["name", "code", "team_leader_name", "sort_order", "is_active"]}
           onCreate={async (data) =>
             createRegion({
               name: data.name as string,
               code: data.code as string,
+              team_leader_name: data.team_leader_name as string,
               sort_order: Number(data.sort_order) || 0,
             })
           }
@@ -87,6 +88,7 @@ export function LibraryManager({
             updateRegion(id, {
               name: data.name as string,
               code: data.code as string,
+              team_leader_name: data.team_leader_name as string,
               sort_order: Number(data.sort_order) || 0,
               is_active: data.is_active as boolean,
             })
@@ -94,6 +96,7 @@ export function LibraryManager({
           fields={[
             { key: "name", label: "Name", required: true },
             { key: "code", label: "Code", required: true },
+            { key: "team_leader_name", label: "Team Leader", required: true },
             { key: "sort_order", label: "Sort Order", type: "number" },
           ]}
         />
@@ -195,6 +198,7 @@ function LibraryTable({
         is_active: !item.is_active,
       };
       if ("code" in item) data.code = item.code;
+      if ("team_leader_name" in item) data.team_leader_name = item.team_leader_name ?? "";
       if ("color" in item) data.color = item.color;
       if ("description" in item) data.description = item.description ?? "";
       data.sort_order = item.sort_order;

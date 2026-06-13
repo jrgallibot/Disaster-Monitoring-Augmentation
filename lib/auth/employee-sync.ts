@@ -19,6 +19,7 @@ type EmployeeLinkOptions = {
   region_id?: string;
   first_name?: string;
   last_name?: string;
+  middle_name?: string;
 };
 
 /** Link or create an employee record for a registered auth user */
@@ -51,6 +52,11 @@ export async function linkOrCreateEmployeeRecord(
           email: normalizedEmail,
           specialization_id: options.specialization_id || null,
           region_id: options.region_id || null,
+          ...(options.first_name ? { first_name: options.first_name } : {}),
+          ...(options.last_name ? { last_name: options.last_name } : {}),
+          ...(options.middle_name !== undefined
+            ? { middle_name: options.middle_name || null }
+            : {}),
         })
         .eq("id", existing.id);
     } else {
@@ -65,6 +71,7 @@ export async function linkOrCreateEmployeeRecord(
         email: normalizedEmail,
         first_name: firstName,
         last_name: lastName,
+        middle_name: options.middle_name || null,
         specialization_id: options.specialization_id || null,
         region_id: options.region_id || null,
         user_id: userId,
