@@ -65,6 +65,7 @@ export function EmployeeForm({
       region_id: regionId || undefined,
       status_id: statusId || undefined,
       deployment_location: (form.get("deployment_location") as string) || undefined,
+      team_leader_name: (form.get("team_leader_name") as string) || undefined,
       notes: (form.get("notes") as string) || undefined,
       photo_url: (form.get("photo_url") as string) || undefined,
     };
@@ -186,6 +187,15 @@ export function EmployeeForm({
                 name="deployment_location"
                 defaultValue={employee?.deployment_location ?? ""}
                 placeholder="e.g. Quezon City Evacuation Center"
+              />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="team_leader_name">Team Leader Name</Label>
+              <Input
+                id="team_leader_name"
+                name="team_leader_name"
+                defaultValue={employee?.team_leader_name ?? ""}
+                placeholder="e.g. Juan Dela Cruz"
               />
             </div>
             <div className="space-y-2">

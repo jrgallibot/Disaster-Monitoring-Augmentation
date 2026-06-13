@@ -54,7 +54,8 @@ export async function getEmployees(filters?: {
         e.first_name.toLowerCase().includes(term) ||
         e.last_name.toLowerCase().includes(term) ||
         e.employee_id.toLowerCase().includes(term) ||
-        (e.deployment_location?.toLowerCase().includes(term) ?? false)
+        (e.deployment_location?.toLowerCase().includes(term) ?? false) ||
+        (e.team_leader_name?.toLowerCase().includes(term) ?? false)
     );
   }
 
@@ -273,6 +274,7 @@ export async function createEmployee(data: EmployeeFormData): Promise<ActionResu
       region_id: data.region_id || null,
       status_id: data.status_id || null,
       deployment_location: data.deployment_location || null,
+      team_leader_name: data.team_leader_name?.trim() || null,
       notes: data.notes || null,
       photo_url: data.photo_url || null,
     });
@@ -305,6 +307,7 @@ export async function updateEmployee(id: string, data: EmployeeFormData): Promis
         region_id: data.region_id || null,
         status_id: data.status_id || null,
         deployment_location: data.deployment_location || null,
+        team_leader_name: data.team_leader_name?.trim() || null,
         notes: data.notes || null,
         photo_url: data.photo_url || null,
       })

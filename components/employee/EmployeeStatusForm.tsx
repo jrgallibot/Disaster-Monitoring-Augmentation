@@ -80,6 +80,12 @@ export function EmployeeStatusForm({
     }
 
     const form = new FormData(e.currentTarget);
+    const teamLeaderName = (form.get("team_leader_name") as string)?.trim();
+    if (!teamLeaderName) {
+      setError("Team Leader Name is required.");
+      return;
+    }
+
     const position = await getCurrentPosition();
     if (position) setCoords(position);
 
@@ -107,6 +113,7 @@ export function EmployeeStatusForm({
         region_id: regionId || undefined,
         status_id: statusId || undefined,
         deployment_location: (form.get("deployment_location") as string) || undefined,
+        team_leader_name: teamLeaderName,
         phone: (form.get("phone") as string) || undefined,
         address: (form.get("address") as string) || undefined,
         notes: (form.get("notes") as string) || undefined,
@@ -161,6 +168,11 @@ export function EmployeeStatusForm({
           <p className="text-sm text-muted-foreground">
             Last updated: {formatDate(employee.updated_at)}
           </p>
+          {employee.team_leader_name && (
+            <p className="text-sm text-muted-foreground">
+              Team Leader: <span className="font-medium text-foreground">{employee.team_leader_name}</span>
+            </p>
+          )}
           {coords && hasValidCoordinates(coords.latitude, coords.longitude) && (
             <p className="text-xs text-muted-foreground flex items-center gap-1 flex-wrap">
               <MapPin className="h-3 w-3 shrink-0" />
@@ -182,7 +194,7 @@ export function EmployeeStatusForm({
         <CardHeader>
           <CardTitle>Update My Profile</CardTitle>
           <p className="text-sm text-muted-foreground">
-            Profile photo is required. Your location is detected automatically when you save.
+            Profile photo and Team Leader Name are required. Your location is detected automatically when you save.
           </p>
         </CardHeader>
         <CardContent>
@@ -306,6 +318,17 @@ export function EmployeeStatusForm({
                   ))}
                 </SelectContent>
               </Select>
+            </div>
+
+            <div className="space-y-2">
+              <Label htmlFor="team_leader_name">Team Leader Name *</Label>
+              <Input
+                id="team_leader_name"
+                name="team_leader_name"
+                defaultValue={employee.team_leader_name ?? ""}
+                placeholder="e.g. Juan Dela Cruz"
+                required
+              />
             </div>
 
             <div className="space-y-2">

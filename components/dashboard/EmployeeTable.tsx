@@ -53,7 +53,8 @@ export function EmployeeTable({
       e.first_name.toLowerCase().includes(term) ||
       e.last_name.toLowerCase().includes(term) ||
       e.employee_id.toLowerCase().includes(term) ||
-      (e.deployment_location?.toLowerCase().includes(term) ?? false);
+      (e.deployment_location?.toLowerCase().includes(term) ?? false) ||
+      (e.team_leader_name?.toLowerCase().includes(term) ?? false);
 
     const matchesRegion =
       regionFilter === "all" || e.region_id === regionFilter;
@@ -74,7 +75,7 @@ export function EmployeeTable({
             <div className="relative flex-1">
               <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
               <Input
-                placeholder="Search by name, ID, or location..."
+                placeholder="Search by name, ID, team leader, or location..."
                 value={search}
                 onChange={(e) => setSearch(e.target.value)}
                 className="pl-9"
@@ -140,6 +141,9 @@ export function EmployeeTable({
                   <th className="text-left p-3 font-semibold text-dswd-navy">Specialization</th>
                   <th className="text-left p-3 font-semibold text-dswd-navy">Region</th>
                   <th className="text-left p-3 font-semibold text-dswd-navy">Status</th>
+                  {showActions && (
+                    <th className="text-left p-3 font-semibold text-dswd-navy">Team Leader</th>
+                  )}
                   <th className="text-left p-3 font-semibold text-dswd-navy">Deployment</th>
                   {showActions && (
                     <th className="text-left p-3 font-semibold text-dswd-navy">Last GPS</th>
@@ -175,6 +179,11 @@ export function EmployeeTable({
                         "—"
                       )}
                     </td>
+                    {showActions && (
+                      <td className="p-3 text-muted-foreground max-w-[160px] truncate">
+                        {emp.team_leader_name ?? "—"}
+                      </td>
+                    )}
                     <td className="p-3 text-muted-foreground max-w-[200px] truncate">
                       {emp.deployment_location ?? "—"}
                     </td>
@@ -251,6 +260,11 @@ export function EmployeeTable({
                 <div className="mt-3 grid grid-cols-2 gap-2 text-xs text-muted-foreground">
                   <span>Region: <strong className="text-foreground">{emp.region?.code ?? "—"}</strong></span>
                   <span>Role: <strong className="text-foreground">{emp.specialization?.name ?? "—"}</strong></span>
+                  {showActions && emp.team_leader_name && (
+                    <span className="col-span-2 truncate">
+                      Team Leader: <strong className="text-foreground">{emp.team_leader_name}</strong>
+                    </span>
+                  )}
                   {emp.deployment_location && (
                     <span className="col-span-2 truncate">
                       Location: <strong className="text-foreground">{emp.deployment_location}</strong>

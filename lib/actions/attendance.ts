@@ -12,6 +12,10 @@ import type {
 } from "@/lib/types";
 import { revalidatePath } from "next/cache";
 
+const PHOTO_BUCKET = "employee-photos";
+const MAX_PHOTO_BYTES = 5 * 1024 * 1024;
+const ALLOWED_PHOTO_TYPES = ["image/jpeg", "image/jpg", "image/png", "image/webp", "image/gif"];
+
 async function getEmployeeIdForUser(userId: string): Promise<string | null> {
   const supabase = await createClient();
   const { data } = await supabase
@@ -68,8 +72,46 @@ export async function getMyAttendance(limit = 30): Promise<EmployeeAttendance[]>
   return (data ?? []) as EmployeeAttendance[];
 }
 
+export async function uploadAttendanceSelfie(
+  formData: FormData,
+  action: AttendanceAction
+): Promise<ActionResult & { url?: string }> {
+  const session = await getEmployeeSession();
+  if ("error" in session) {
+    return { success: false, error: session.error };
+  }
+
+  const file = formData.get("photo") as File | null;
+  if (!file || file.size === 0) {
+    return { success: false, error: "Selfie photo is required for time in/out." };
+  }
+  if (!ALLOWED_PHOTO_TYPES.includes(file.type)) {
+    return { success: false, error: "Selfie must be JPG, PNG, WEBP, or GIF." };
+  }
+  if (file.size > MAX_PHOTO_BYTES) {
+    return { success: false, error: "Selfie must be 5MB or smaller." };
+  }
+
+  const ext = file.type.split("/")[1]?.replace("jpeg", "jpg") || "jpg";
+  const stamp = Date.now();
+  const path = `${session.user.id}/attendance/${action}-${stamp}.${ext}`;
+  const service = createServiceClient();
+
+  const { error: uploadError } = await service.storage
+    .from(PHOTO_BUCKET)
+    .upload(path, file, { upsert: false, contentType: file.type });
+
+  if (uploadError) {
+    return { success: false, error: uploadError.message };
+  }
+
+  const { data: urlData } = service.storage.from(PHOTO_BUCKET).getPublicUrl(path);
+  return { success: true, url: urlData.publicUrl };
+}
+
 export async function recordAttendance(
   action: AttendanceAction,
+  photoUrl: string,
   latitude?: number,
   longitude?: number
 ): Promise<ActionResult> {
@@ -92,11 +134,17 @@ export async function recordAttendance(
     return { success: false, error: "You have no active time in. Please time in first." };
   }
 
+  const trimmedPhotoUrl = photoUrl?.trim();
+  if (!trimmedPhotoUrl) {
+    return { success: false, error: "Selfie photo is required for time in/out." };
+  }
+
   const supabase = await createClient();
   const { error } = await supabase.from("employee_attendance").insert({
     employee_id: employeeId,
     user_id: session.user.id,
     action,
+    photo_url: trimmedPhotoUrl,
     latitude: latitude ?? null,
     longitude: longitude ?? null,
   });

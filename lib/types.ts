@@ -39,6 +39,7 @@ export interface Employee {
   region_id: string | null;
   status_id: string | null;
   deployment_location: string | null;
+  team_leader_name: string | null;
   notes: string | null;
   photo_url: string | null;
   last_latitude: number | null;
@@ -107,6 +108,7 @@ export type EmployeeFormData = {
   region_id?: string;
   status_id?: string;
   deployment_location?: string;
+  team_leader_name?: string;
   notes?: string;
   photo_url?: string;
 };
@@ -125,6 +127,7 @@ export type EmployeeSelfUpdate = {
   region_id?: string;
   status_id?: string;
   deployment_location?: string;
+  team_leader_name?: string;
   notes?: string;
   photo_url?: string;
   latitude?: number;
@@ -153,6 +156,7 @@ export interface EmployeeAttendance {
   action: AttendanceAction;
   latitude: number | null;
   longitude: number | null;
+  photo_url: string | null;
   notes: string | null;
   created_at: string;
 }

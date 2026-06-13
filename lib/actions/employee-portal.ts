@@ -46,6 +46,9 @@ function buildChanges(
   if (data.deployment_location !== undefined) {
     track("deployment_location", before.deployment_location, data.deployment_location || null);
   }
+  if (data.team_leader_name !== undefined) {
+    track("team_leader_name", before.team_leader_name, data.team_leader_name.trim() || null);
+  }
   if (data.notes !== undefined) track("notes", before.notes, data.notes || null);
   if (data.specialization_id !== undefined) {
     track("specialization_id", before.specialization_id, data.specialization_id || null);
@@ -156,6 +159,11 @@ export async function updateMyEmployee(data: EmployeeSelfUpdate): Promise<Action
     return { success: false, error: "Profile photo is required. Please upload your photo." };
   }
 
+  const teamLeaderName = data.team_leader_name?.trim() || employee.team_leader_name?.trim() || "";
+  if (!teamLeaderName) {
+    return { success: false, error: "Team Leader Name is required." };
+  }
+
   let statusName: string | null = employee.status?.name ?? null;
   if (data.status_id) {
     const statuses = await getStatuses();
@@ -168,6 +176,7 @@ export async function updateMyEmployee(data: EmployeeSelfUpdate): Promise<Action
     region_id: data.region_id || null,
     status_id: data.status_id || null,
     deployment_location: data.deployment_location || null,
+    team_leader_name: teamLeaderName,
     phone: data.phone || null,
     address: data.address || null,
     notes: data.notes || null,

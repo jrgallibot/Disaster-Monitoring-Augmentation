@@ -150,6 +150,7 @@ export function AdminEmployeeHistoryDialog({
               {!isPending && (
                 <EmployeeAttendanceList
                   records={attendance}
+                  showSelfies
                   emptyMessage="This employee has no time in/out records yet."
                 />
               )}
