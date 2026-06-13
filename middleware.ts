@@ -1,56 +1,128 @@
 import { updateSession } from "@/lib/supabase/middleware";
+import { getUserRole, syncEmployeeRole } from "@/lib/auth/employee-sync";
 import { createServerClient } from "@supabase/ssr";
 import { NextResponse, type NextRequest } from "next/server";
 
+function hasSupabaseEnv() {
+  return (
+    process.env.NEXT_PUBLIC_SUPABASE_URL &&
+    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY
+  );
+}
+
+function makeSupabase(request: NextRequest) {
+  return createServerClient(
+    process.env.NEXT_PUBLIC_SUPABASE_URL!,
+    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
+    {
+      cookies: {
+        getAll() {
+          return request.cookies.getAll();
+        },
+        setAll() {},
+      },
+    }
+  );
+}
+
 export async function middleware(request: NextRequest) {
   const supabaseResponse = await updateSession(request);
+  const pathname = request.nextUrl.pathname;
 
-  const isAdminRoute = request.nextUrl.pathname.startsWith("/admin");
-  const isLoginPage = request.nextUrl.pathname === "/admin/login";
-
-  if (isAdminRoute && !isLoginPage) {
-    const supabase = createServerClient(
-      process.env.NEXT_PUBLIC_SUPABASE_URL!,
-      process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
-      {
-        cookies: {
-          getAll() {
-            return request.cookies.getAll();
-          },
-          setAll() {},
-        },
-      }
-    );
-
-    const { data: { user } } = await supabase.auth.getUser();
-
-    if (!user) {
-      const url = request.nextUrl.clone();
-      url.pathname = "/admin/login";
-      return NextResponse.redirect(url);
-    }
+  if (!hasSupabaseEnv()) {
+    return supabaseResponse;
   }
 
-  if (isLoginPage) {
-    const supabase = createServerClient(
-      process.env.NEXT_PUBLIC_SUPABASE_URL!,
-      process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
-      {
-        cookies: {
-          getAll() {
-            return request.cookies.getAll();
-          },
-          setAll() {},
-        },
-      }
-    );
+  try {
+    const isAdminRoute = pathname.startsWith("/admin");
+    const isAdminLogin = pathname === "/admin/login";
+    const isEmployeeRoute = pathname.startsWith("/employee");
+    const isEmployeePublic =
+      pathname === "/employee/login" ||
+      pathname === "/employee/register" ||
+      pathname === "/employee";
 
-    const { data: { user } } = await supabase.auth.getUser();
-    if (user) {
-      const url = request.nextUrl.clone();
-      url.pathname = "/admin/dashboard";
-      return NextResponse.redirect(url);
+    if (isAdminRoute && !isAdminLogin) {
+      const supabase = makeSupabase(request);
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) {
+        const url = request.nextUrl.clone();
+        url.pathname = "/admin/login";
+        return NextResponse.redirect(url);
+      }
     }
+
+    if (isAdminLogin) {
+      const supabase = makeSupabase(request);
+      const { data: { user } } = await supabase.auth.getUser();
+      if (user) {
+        const url = request.nextUrl.clone();
+        url.pathname = "/admin/dashboard";
+        return NextResponse.redirect(url);
+      }
+    }
+
+    if (isEmployeeRoute && !isEmployeePublic) {
+      const supabase = makeSupabase(request);
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) {
+        const url = request.nextUrl.clone();
+        url.pathname = "/employee/login";
+        return NextResponse.redirect(url);
+      }
+
+      await syncEmployeeRole(user.id, user.email);
+      const role = await getUserRole(user.id);
+
+      const url = request.nextUrl.clone();
+      if (role === "admin") {
+        url.pathname = "/admin/dashboard";
+        return NextResponse.redirect(url);
+      }
+      if (role !== "employee") {
+        url.pathname = "/employee/login";
+        url.searchParams.set("error", "not_employee");
+        return NextResponse.redirect(url);
+      }
+    }
+
+    if (pathname === "/employee/login" || pathname === "/employee/register" || pathname === "/employee") {
+      const supabase = makeSupabase(request);
+      const { data: { user } } = await supabase.auth.getUser();
+      if (user) {
+        await syncEmployeeRole(user.id, user.email);
+        const role = await getUserRole(user.id);
+
+        const url = request.nextUrl.clone();
+        if (role === "employee") {
+          url.pathname = "/employee/dashboard";
+          return NextResponse.redirect(url);
+        }
+        if (role === "admin") {
+          url.pathname = "/admin/dashboard";
+          return NextResponse.redirect(url);
+        }
+      }
+    }
+
+    const isPublicMonitoring =
+      pathname === "/" || pathname.startsWith("/employees/");
+
+    if (isPublicMonitoring) {
+      const supabase = makeSupabase(request);
+      const { data: { user } } = await supabase.auth.getUser();
+      if (user) {
+        await syncEmployeeRole(user.id, user.email);
+        const role = await getUserRole(user.id);
+        if (role === "employee") {
+          const url = request.nextUrl.clone();
+          url.pathname = "/employee/dashboard";
+          return NextResponse.redirect(url);
+        }
+      }
+    }
+  } catch {
+    return supabaseResponse;
   }
 
   return supabaseResponse;

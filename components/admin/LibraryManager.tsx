@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useTransition } from "react";
+import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -21,6 +22,7 @@ import type {
   LibraryRegion,
   LibraryStatus,
 } from "@/lib/types";
+import type { ActionResult } from "@/lib/types";
 
 interface LibraryManagerProps {
   specializations: LibrarySpecialization[];
@@ -46,21 +48,21 @@ export function LibraryManager({
           title="Specializations"
           items={specializations}
           columns={["name", "description", "sort_order", "is_active"]}
-          onCreate={async (data) => {
-            await createSpecialization({
+          onCreate={async (data) =>
+            createSpecialization({
               name: data.name as string,
               description: data.description as string,
               sort_order: Number(data.sort_order) || 0,
-            });
-          }}
-          onUpdate={async (id, data) => {
-            await updateSpecialization(id, {
+            })
+          }
+          onUpdate={async (id, data) =>
+            updateSpecialization(id, {
               name: data.name as string,
               description: data.description as string,
               sort_order: Number(data.sort_order) || 0,
               is_active: data.is_active as boolean,
-            });
-          }}
+            })
+          }
           fields={[
             { key: "name", label: "Name", required: true },
             { key: "description", label: "Description" },
@@ -74,21 +76,21 @@ export function LibraryManager({
           title="Regions"
           items={regions}
           columns={["name", "code", "sort_order", "is_active"]}
-          onCreate={async (data) => {
-            await createRegion({
+          onCreate={async (data) =>
+            createRegion({
               name: data.name as string,
               code: data.code as string,
               sort_order: Number(data.sort_order) || 0,
-            });
-          }}
-          onUpdate={async (id, data) => {
-            await updateRegion(id, {
+            })
+          }
+          onUpdate={async (id, data) =>
+            updateRegion(id, {
               name: data.name as string,
               code: data.code as string,
               sort_order: Number(data.sort_order) || 0,
               is_active: data.is_active as boolean,
-            });
-          }}
+            })
+          }
           fields={[
             { key: "name", label: "Name", required: true },
             { key: "code", label: "Code", required: true },
@@ -102,21 +104,21 @@ export function LibraryManager({
           title="Statuses"
           items={statuses}
           columns={["name", "color", "sort_order", "is_active"]}
-          onCreate={async (data) => {
-            await createStatus({
+          onCreate={async (data) =>
+            createStatus({
               name: data.name as string,
               color: data.color as string,
               sort_order: Number(data.sort_order) || 0,
-            });
-          }}
-          onUpdate={async (id, data) => {
-            await updateStatus(id, {
+            })
+          }
+          onUpdate={async (id, data) =>
+            updateStatus(id, {
               name: data.name as string,
               color: data.color as string,
               sort_order: Number(data.sort_order) || 0,
               is_active: data.is_active as boolean,
-            });
-          }}
+            })
+          }
           fields={[
             { key: "name", label: "Name", required: true },
             { key: "color", label: "Color", type: "color" },
@@ -140,8 +142,8 @@ interface LibraryTableProps {
   items: (LibrarySpecialization | LibraryRegion | LibraryStatus)[];
   columns: string[];
   fields: FieldDef[];
-  onCreate: (data: Record<string, string | boolean | number>) => Promise<void>;
-  onUpdate: (id: string, data: Record<string, string | boolean | number>) => Promise<void>;
+  onCreate: (data: Record<string, string | boolean | number>) => Promise<ActionResult>;
+  onUpdate: (id: string, data: Record<string, string | boolean | number>) => Promise<ActionResult>;
 }
 
 function LibraryTable({
@@ -155,6 +157,7 @@ function LibraryTable({
   const [editingId, setEditingId] = useState<string | null>(null);
   const [isPending, startTransition] = useTransition();
   const [error, setError] = useState<string | null>(null);
+  const router = useRouter();
 
   const editingItem = items.find((i) => i.id === editingId);
 
@@ -168,18 +171,18 @@ function LibraryTable({
     });
 
     startTransition(async () => {
-      try {
-        if (editingId) {
-          const item = items.find((i) => i.id === editingId);
-          await onUpdate(editingId, { ...data, is_active: item?.is_active ?? true });
-        } else {
-          await onCreate(data);
-        }
-        setShowForm(false);
-        setEditingId(null);
-      } catch (err) {
-        setError(err instanceof Error ? err.message : "An error occurred");
+      const result = editingId
+        ? await onUpdate(editingId, { ...data, is_active: items.find((i) => i.id === editingId)?.is_active ?? true })
+        : await onCreate(data);
+
+      if (!result.success) {
+        setError(result.error);
+        return;
       }
+
+      setShowForm(false);
+      setEditingId(null);
+      router.refresh();
     });
   }
 
@@ -187,19 +190,21 @@ function LibraryTable({
     const item = items.find((i) => i.id === id);
     if (!item) return;
     startTransition(async () => {
-      try {
-        const data: Record<string, string | boolean | number> = {
-          name: item.name,
-          is_active: !item.is_active,
-        };
-        if ("code" in item) data.code = item.code;
-        if ("color" in item) data.color = item.color;
-        if ("description" in item) data.description = item.description ?? "";
-        data.sort_order = item.sort_order;
-        await onUpdate(id, data);
-      } catch (err) {
-        setError(err instanceof Error ? err.message : "An error occurred");
+      const data: Record<string, string | boolean | number> = {
+        name: item.name,
+        is_active: !item.is_active,
+      };
+      if ("code" in item) data.code = item.code;
+      if ("color" in item) data.color = item.color;
+      if ("description" in item) data.description = item.description ?? "";
+      data.sort_order = item.sort_order;
+
+      const result = await onUpdate(id, data);
+      if (!result.success) {
+        setError(result.error);
+        return;
       }
+      router.refresh();
     });
   }
 

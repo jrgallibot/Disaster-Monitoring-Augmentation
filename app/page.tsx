@@ -4,6 +4,7 @@ import { StatsCards } from "@/components/dashboard/StatsCards";
 import { StatusChart } from "@/components/dashboard/StatusChart";
 import { RegionChart } from "@/components/dashboard/RegionChart";
 import { EmployeeTable } from "@/components/dashboard/EmployeeTable";
+import { EmployeePortalCTA } from "@/components/employee/EmployeePortalCTA";
 import {
   getEmployees,
   getDashboardStats,
@@ -58,9 +59,11 @@ export default async function HomePage() {
             <div>
               <h2 className="gov-section-title">Monitoring Dashboard</h2>
               <p className="text-sm text-muted-foreground mt-2">
-                Real-time overview of augmented employees for earthquake disaster response operations.
+                Real-time overview of augmented employees for earthquake disaster response operations in Caraga Region XIII.
               </p>
             </div>
+
+            <EmployeePortalCTA />
 
             <StatsCards stats={stats} />
 

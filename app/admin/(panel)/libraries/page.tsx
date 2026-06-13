@@ -1,25 +1,43 @@
 import { LibraryManager } from "@/components/admin/LibraryManager";
 import { getAllLibraries } from "@/lib/actions/employees";
+import { Card, CardContent } from "@/components/ui/card";
 
 export const dynamic = "force-dynamic";
 
 export default async function AdminLibrariesPage() {
-  const { specializations, regions, statuses } = await getAllLibraries();
+  try {
+    const { specializations, regions, statuses } = await getAllLibraries();
 
-  return (
-    <div className="space-y-6">
-      <div>
-        <h1 className="gov-section-title">Dynamic Libraries</h1>
-        <p className="text-sm text-muted-foreground mt-2">
-          Manage dropdown options for specializations, regions, and deployment statuses.
-          Changes apply immediately to employee forms.
-        </p>
+    return (
+      <div className="space-y-6">
+        <div>
+          <h1 className="gov-section-title">Dynamic Libraries</h1>
+          <p className="text-sm text-muted-foreground mt-2">
+            Manage dropdown options for specializations, regions, and deployment statuses.
+            Changes apply immediately to employee forms.
+          </p>
+        </div>
+        <LibraryManager
+          specializations={specializations}
+          regions={regions}
+          statuses={statuses}
+        />
       </div>
-      <LibraryManager
-        specializations={specializations}
-        regions={regions}
-        statuses={statuses}
-      />
-    </div>
-  );
+    );
+  } catch (err) {
+    const message = err instanceof Error ? err.message : "Failed to load libraries";
+    return (
+      <Card>
+        <CardContent className="p-6">
+          <h2 className="font-semibold text-red-700 mb-2">Unable to load libraries</h2>
+          <p className="text-sm text-muted-foreground">{message}</p>
+          <p className="text-sm text-muted-foreground mt-2">
+            Ensure you are logged in as admin and{" "}
+            <code className="bg-gray-100 px-1 rounded">SUPABASE_SERVICE_ROLE_KEY</code>{" "}
+            is set in Vercel environment variables, then redeploy.
+          </p>
+        </CardContent>
+      </Card>
+    );
+  }
 }

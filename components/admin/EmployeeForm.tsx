@@ -70,17 +70,17 @@ export function EmployeeForm({
     };
 
     startTransition(async () => {
-      try {
-        if (isEdit) {
-          await updateEmployee(employee.id, data);
-        } else {
-          await createEmployee(data);
-        }
-        router.push("/admin/employees");
-        router.refresh();
-      } catch (err) {
-        setError(err instanceof Error ? err.message : "An error occurred");
+      const result = isEdit
+        ? await updateEmployee(employee.id, data)
+        : await createEmployee(data);
+
+      if (!result.success) {
+        setError(result.error);
+        return;
       }
+
+      router.push("/admin/employees");
+      router.refresh();
     });
   }
 
@@ -104,7 +104,7 @@ export function EmployeeForm({
                 id="employee_id"
                 name="employee_id"
                 defaultValue={employee?.employee_id}
-                placeholder="DSWD-2024-001"
+                placeholder="16-11661"
                 required
               />
             </div>

@@ -45,3 +45,33 @@
     @apply text-dswd-navy font-semibold text-lg border-b-2 border-dswd-gold pb-2;
   }
 }
+
+@media print {
+  header,
+  footer,
+  aside,
+  .print\:hidden,
+  nav {
+    display: none !important;
+  }
+
+  main {
+    padding: 0 !important;
+    margin: 0 !important;
+    overflow: visible !important;
+  }
+
+  .admin-dashboard-report {
+    padding: 0;
+  }
+
+  .gov-card,
+  [class*="Card"] {
+    break-inside: avoid;
+    box-shadow: none !important;
+  }
+
+  body {
+    background: white !important;
+  }
+}

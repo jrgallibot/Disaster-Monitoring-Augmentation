@@ -27,6 +27,7 @@ export interface LibraryStatus {
 
 export interface Employee {
   id: string;
+  user_id: string | null;
   employee_id: string;
   first_name: string;
   last_name: string;
@@ -40,6 +41,8 @@ export interface Employee {
   deployment_location: string | null;
   notes: string | null;
   photo_url: string | null;
+  last_latitude: number | null;
+  last_longitude: number | null;
   created_at: string;
   updated_at: string;
 }
@@ -59,11 +62,36 @@ export interface DashboardStats {
   byRegion: { name: string; code: string; count: number }[];
 }
 
+export interface AdminDashboardExtended {
+  clockedIn: number;
+  withPhoto: number;
+  withGps: number;
+  registeredAccounts: number;
+  todayTimeIn: number;
+  todayTimeOut: number;
+  deploymentRate: number;
+}
+
+export interface AdminDashboardData {
+  stats: DashboardStats;
+  extended: AdminDashboardExtended;
+  bySpecialization: { name: string; count: number }[];
+  employees: EmployeeWithRelations[];
+  clockedInEmployees: {
+    id: string;
+    employee_id: string;
+    name: string;
+    lastTimeIn: string;
+    deployment_location: string | null;
+  }[];
+  generatedAt: string;
+}
+
 export interface Profile {
   id: string;
   email: string;
   full_name: string | null;
-  role: "admin" | "viewer";
+  role: "admin" | "viewer" | "employee";
   created_at: string;
 }
 
@@ -82,5 +110,56 @@ export type EmployeeFormData = {
   notes?: string;
   photo_url?: string;
 };
+
+export type ActionResult =
+  | { success: true }
+  | { success: false; error: string };
+
+export type EmployeeSelfUpdate = {
+  first_name?: string;
+  last_name?: string;
+  middle_name?: string;
+  phone?: string;
+  address?: string;
+  specialization_id?: string;
+  region_id?: string;
+  status_id?: string;
+  deployment_location?: string;
+  notes?: string;
+  photo_url?: string;
+  latitude?: number;
+  longitude?: number;
+};
+
+export interface EmployeeUpdateLog {
+  id: string;
+  employee_id: string;
+  user_id: string | null;
+  summary: string;
+  changes: Record<string, { from: string | null; to: string | null }>;
+  deployment_location: string | null;
+  status_name: string | null;
+  latitude: number | null;
+  longitude: number | null;
+  created_at: string;
+}
+
+export type AttendanceAction = "time_in" | "time_out";
+
+export interface EmployeeAttendance {
+  id: string;
+  employee_id: string;
+  user_id: string | null;
+  action: AttendanceAction;
+  latitude: number | null;
+  longitude: number | null;
+  notes: string | null;
+  created_at: string;
+}
+
+export interface AttendanceStatus {
+  isClockedIn: boolean;
+  lastRecord: EmployeeAttendance | null;
+}
 
 export type LibraryType = "specializations" | "regions" | "statuses";
