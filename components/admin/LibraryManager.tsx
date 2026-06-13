@@ -8,6 +8,13 @@ import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { Plus, Pencil, ToggleLeft, ToggleRight } from "lucide-react";
 import {
   createSpecialization,
@@ -17,10 +24,12 @@ import {
   createStatus,
   updateStatus,
 } from "@/lib/actions/employees";
+import { getTeamLeaderDisplay } from "@/lib/utils";
 import type {
   LibrarySpecialization,
   LibraryRegion,
   LibraryStatus,
+  EmployeeWithRelations,
 } from "@/lib/types";
 import type { ActionResult } from "@/lib/types";
 
@@ -28,13 +37,20 @@ interface LibraryManagerProps {
   specializations: LibrarySpecialization[];
   regions: LibraryRegion[];
   statuses: LibraryStatus[];
+  employees: EmployeeWithRelations[];
 }
 
 export function LibraryManager({
   specializations,
   regions,
   statuses,
+  employees,
 }: LibraryManagerProps) {
+  const teamLeaderOptions = employees.map((employee) => ({
+    id: employee.id,
+    label: `${employee.last_name}, ${employee.first_name} (${employee.employee_id})`,
+  }));
+
   return (
     <Tabs defaultValue="specializations">
       <TabsList className="w-full sm:w-auto flex flex-wrap h-auto gap-1">
@@ -75,12 +91,13 @@ export function LibraryManager({
         <LibraryTable
           title="Regions"
           items={regions}
-          columns={["name", "code", "team_leader_name", "sort_order", "is_active"]}
+          columns={["name", "code", "team_leader_employee_id", "sort_order", "is_active"]}
+          teamLeaderOptions={teamLeaderOptions}
           onCreate={async (data) =>
             createRegion({
               name: data.name as string,
               code: data.code as string,
-              team_leader_name: data.team_leader_name as string,
+              team_leader_employee_id: data.team_leader_employee_id as string,
               sort_order: Number(data.sort_order) || 0,
             })
           }
@@ -88,7 +105,7 @@ export function LibraryManager({
             updateRegion(id, {
               name: data.name as string,
               code: data.code as string,
-              team_leader_name: data.team_leader_name as string,
+              team_leader_employee_id: data.team_leader_employee_id as string,
               sort_order: Number(data.sort_order) || 0,
               is_active: data.is_active as boolean,
             })
@@ -96,7 +113,11 @@ export function LibraryManager({
           fields={[
             { key: "name", label: "Name", required: true },
             { key: "code", label: "Code", required: true },
-            { key: "team_leader_name", label: "Team Leader", required: true },
+            {
+              key: "team_leader_employee_id",
+              label: "Team Leader (Employee)",
+              type: "employee_select",
+            },
             { key: "sort_order", label: "Sort Order", type: "number" },
           ]}
         />
@@ -145,6 +166,7 @@ interface LibraryTableProps {
   items: (LibrarySpecialization | LibraryRegion | LibraryStatus)[];
   columns: string[];
   fields: FieldDef[];
+  teamLeaderOptions?: { id: string; label: string }[];
   onCreate: (data: Record<string, string | boolean | number>) => Promise<ActionResult>;
   onUpdate: (id: string, data: Record<string, string | boolean | number>) => Promise<ActionResult>;
 }
@@ -153,16 +175,35 @@ function LibraryTable({
   title,
   items,
   fields,
+  teamLeaderOptions = [],
   onCreate,
   onUpdate,
 }: LibraryTableProps) {
   const [showForm, setShowForm] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
+  const [teamLeaderId, setTeamLeaderId] = useState("");
   const [isPending, startTransition] = useTransition();
   const [error, setError] = useState<string | null>(null);
   const router = useRouter();
 
   const editingItem = items.find((i) => i.id === editingId);
+
+  function openCreateForm() {
+    setEditingId(null);
+    setTeamLeaderId("");
+    setShowForm(true);
+  }
+
+  function openEditForm(id: string) {
+    const item = items.find((i) => i.id === id);
+    setEditingId(id);
+    setShowForm(false);
+    if (item && "team_leader_employee_id" in item) {
+      setTeamLeaderId(item.team_leader_employee_id ?? "");
+    } else {
+      setTeamLeaderId("");
+    }
+  }
 
   function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
@@ -170,6 +211,10 @@ function LibraryTable({
     const form = new FormData(e.currentTarget);
     const data: Record<string, string | boolean | number> = {};
     fields.forEach((f) => {
+      if (f.type === "employee_select") {
+        data[f.key] = teamLeaderId;
+        return;
+      }
       data[f.key] = form.get(f.key) as string;
     });
 
@@ -185,6 +230,7 @@ function LibraryTable({
 
       setShowForm(false);
       setEditingId(null);
+      setTeamLeaderId("");
       router.refresh();
     });
   }
@@ -198,7 +244,9 @@ function LibraryTable({
         is_active: !item.is_active,
       };
       if ("code" in item) data.code = item.code;
-      if ("team_leader_name" in item) data.team_leader_name = item.team_leader_name ?? "";
+      if ("team_leader_employee_id" in item) {
+        data.team_leader_employee_id = item.team_leader_employee_id ?? "";
+      }
       if ("color" in item) data.color = item.color;
       if ("description" in item) data.description = item.description ?? "";
       data.sort_order = item.sort_order;
@@ -212,17 +260,39 @@ function LibraryTable({
     });
   }
 
+  function renderCell(item: LibrarySpecialization | LibraryRegion | LibraryStatus, field: FieldDef) {
+    if (field.key === "color" && "color" in item) {
+      return (
+        <span className="flex items-center gap-2">
+          <span
+            className="inline-block h-4 w-4 rounded-full border"
+            style={{ backgroundColor: item.color }}
+          />
+          {item.color}
+        </span>
+      );
+    }
+
+    if (field.key === "description" && "description" in item) {
+      return item.description ?? "—";
+    }
+
+    if (field.key === "code" && "code" in item) {
+      return item.code;
+    }
+
+    if (field.key === "team_leader_employee_id" && "team_leader" in item) {
+      return getTeamLeaderDisplay(item.team_leader) ?? "—";
+    }
+
+    return String((item as unknown as Record<string, unknown>)[field.key] ?? "—");
+  }
+
   return (
     <Card className="mt-4">
       <CardHeader className="flex flex-row items-center justify-between">
         <CardTitle>{title}</CardTitle>
-        <Button
-          size="sm"
-          onClick={() => {
-            setEditingId(null);
-            setShowForm(true);
-          }}
-        >
+        <Button size="sm" onClick={openCreateForm}>
           <Plus className="h-4 w-4" />
           Add New
         </Button>
@@ -246,19 +316,45 @@ function LibraryTable({
               {fields.map((field) => (
                 <div key={field.key} className="space-y-2">
                   <Label htmlFor={field.key}>{field.label}</Label>
-                  <Input
-                    id={field.key}
-                    name={field.key}
-                    type={field.type ?? "text"}
-                    defaultValue={
-                      editingItem
-                        ? String((editingItem as unknown as Record<string, unknown>)[field.key] ?? "")
-                        : field.key === "color"
-                        ? "#0066CC"
-                        : ""
-                    }
-                    required={field.required}
-                  />
+                  {field.type === "employee_select" ? (
+                    <>
+                      <Select
+                        value={teamLeaderId || "none"}
+                        onValueChange={(value) =>
+                          setTeamLeaderId(value === "none" ? "" : value)
+                        }
+                      >
+                        <SelectTrigger id={field.key}>
+                          <SelectValue placeholder="Select team leader employee" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="none">No team leader assigned</SelectItem>
+                          {teamLeaderOptions.map((option) => (
+                            <SelectItem key={option.id} value={option.id}>
+                              {option.label}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                      <p className="text-xs text-muted-foreground">
+                        Choose an employee record. Team leaders should have a portal account for monitoring members.
+                      </p>
+                    </>
+                  ) : (
+                    <Input
+                      id={field.key}
+                      name={field.key}
+                      type={field.type ?? "text"}
+                      defaultValue={
+                        editingItem
+                          ? String((editingItem as unknown as Record<string, unknown>)[field.key] ?? "")
+                          : field.key === "color"
+                          ? "#0066CC"
+                          : ""
+                      }
+                      required={field.required}
+                    />
+                  )}
                 </div>
               ))}
             </div>
@@ -273,6 +369,7 @@ function LibraryTable({
                 onClick={() => {
                   setShowForm(false);
                   setEditingId(null);
+                  setTeamLeaderId("");
                 }}
               >
                 Cancel
@@ -299,21 +396,7 @@ function LibraryTable({
                 <tr key={item.id} className="border-b border-dswd-border">
                   {fields.map((f) => (
                     <td key={f.key} className="p-3">
-                      {f.key === "color" && "color" in item ? (
-                        <span className="flex items-center gap-2">
-                          <span
-                            className="inline-block h-4 w-4 rounded-full border"
-                            style={{ backgroundColor: item.color }}
-                          />
-                          {item.color}
-                        </span>
-                      ) : f.key === "description" && "description" in item ? (
-                        item.description ?? "—"
-                      ) : f.key === "code" && "code" in item ? (
-                        item.code
-                      ) : (
-                        String((item as unknown as Record<string, unknown>)[f.key] ?? "—")
-                      )}
+                      {renderCell(item, f)}
                     </td>
                   ))}
                   <td className="p-3">
@@ -324,10 +407,7 @@ function LibraryTable({
                   <td className="p-3">
                     <div className="flex items-center gap-2">
                       <button
-                        onClick={() => {
-                          setEditingId(item.id);
-                          setShowForm(false);
-                        }}
+                        onClick={() => openEditForm(item.id)}
                         className="text-dswd-blue hover:underline flex items-center gap-1 text-xs"
                       >
                         <Pencil className="h-3 w-3" /> Edit

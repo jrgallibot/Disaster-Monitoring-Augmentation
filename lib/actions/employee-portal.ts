@@ -3,6 +3,7 @@
 import { createClient } from "@/lib/supabase/server";
 import { createServiceClient } from "@/lib/supabase/service";
 import { getRegions, getSpecializations } from "@/lib/actions/employees";
+import { EMPLOYEE_SELECT } from "@/lib/supabase/selects";
 import type {
   ActionResult,
   EmployeeSelfUpdate,
@@ -11,13 +12,6 @@ import type {
 } from "@/lib/types";
 import { revalidatePath } from "next/cache";
 import { getEmployeeSession } from "@/lib/actions/auth";
-
-const EMPLOYEE_SELECT = `
-  *,
-  specialization:library_specializations(*),
-  region:library_regions(*),
-  status:library_statuses(*)
-`;
 
 const PHOTO_BUCKET = "employee-photos";
 const MAX_PHOTO_BYTES = 5 * 1024 * 1024;

@@ -53,7 +53,7 @@ export function EmployeeAuthPanel({
                 <ul className="list-disc list-inside space-y-1 text-muted-foreground">
                   <li>Your <strong className="text-foreground">DSWD Employee ID</strong></li>
                   <li>Your <strong className="text-foreground">email address</strong> for sign-in</li>
-                  <li>Your <strong className="text-foreground">specialization</strong> and <strong className="text-foreground">home region</strong></li>
+                  <li>Your <strong className="text-foreground">specialization</strong> (select from the list or add your own) and <strong className="text-foreground">home region</strong></li>
                   <li>A password (minimum 6 characters)</li>
                 </ul>
               </div>

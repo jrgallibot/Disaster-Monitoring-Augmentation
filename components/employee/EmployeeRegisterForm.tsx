@@ -14,6 +14,8 @@ import {
 } from "@/components/ui/select";
 import type { LibraryRegion, LibrarySpecialization } from "@/lib/types";
 
+const CUSTOM_SPECIALIZATION = "__custom__";
+
 interface EmployeeRegisterFormProps {
   specializations: LibrarySpecialization[];
   regions: LibraryRegion[];
@@ -29,18 +31,39 @@ export function EmployeeRegisterForm({
   const [success, setSuccess] = useState<string | null>(null);
   const [isPending, startTransition] = useTransition();
   const [specializationId, setSpecializationId] = useState("");
+  const [customSpecialization, setCustomSpecialization] = useState("");
   const [regionId, setRegionId] = useState("");
+
+  const useCustomSpecialization = specializationId === CUSTOM_SPECIALIZATION;
+
+  function handleSpecializationChange(value: string) {
+    setSpecializationId(value);
+    if (value !== CUSTOM_SPECIALIZATION) {
+      setCustomSpecialization("");
+    }
+  }
 
   function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
     setError(null);
     setSuccess(null);
     const formData = new FormData(e.currentTarget);
-    formData.set("specialization_id", specializationId);
     formData.set("region_id", regionId);
 
-    if (!specializationId) {
+    if (useCustomSpecialization) {
+      formData.delete("specialization_id");
+      formData.set("new_specialization_name", customSpecialization.trim());
+    } else {
+      formData.delete("new_specialization_name");
+      formData.set("specialization_id", specializationId);
+    }
+
+    if (!useCustomSpecialization && !specializationId) {
       setError("Please select your specialization.");
+      return;
+    }
+    if (useCustomSpecialization && !customSpecialization.trim()) {
+      setError("Please enter your specialization.");
       return;
     }
     if (!regionId) {
@@ -104,7 +127,7 @@ export function EmployeeRegisterForm({
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
         <div className="space-y-2">
           <Label>Specialization *</Label>
-          <Select value={specializationId} onValueChange={setSpecializationId} required>
+          <Select value={specializationId} onValueChange={handleSpecializationChange} required>
             <SelectTrigger>
               <SelectValue placeholder="Select specialization" />
             </SelectTrigger>
@@ -114,8 +137,25 @@ export function EmployeeRegisterForm({
                   {item.name}
                 </SelectItem>
               ))}
+              <SelectItem value={CUSTOM_SPECIALIZATION}>
+                Other — not listed (add my own)
+              </SelectItem>
             </SelectContent>
           </Select>
+          {useCustomSpecialization && (
+            <div className="space-y-1 pt-1">
+              <Input
+                value={customSpecialization}
+                onChange={(e) => setCustomSpecialization(e.target.value)}
+                placeholder="e.g. Social Worker, Engineer, Admin Aide"
+                required
+                maxLength={120}
+              />
+              <p className="text-xs text-muted-foreground">
+                Your specialization will be saved to the library for future registrations.
+              </p>
+            </div>
+          )}
         </div>
         <div className="space-y-2">
           <Label>Home Region *</Label>

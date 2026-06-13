@@ -3,6 +3,7 @@
 import { createClient } from "@/lib/supabase/server";
 import { createServiceClient } from "@/lib/supabase/service";
 import { getUserRole, linkOrCreateEmployeeRecord, syncEmployeeRole } from "@/lib/auth/employee-sync";
+import { findOrCreateSpecialization } from "@/lib/actions/specializations";
 import { redirect } from "next/navigation";
 import { revalidatePath } from "next/cache";
 import type { User } from "@supabase/supabase-js";
@@ -79,11 +80,20 @@ export async function employeeRegister(formData: FormData): Promise<ActionResult
     return { success: false, error: "This employee ID is already registered. Please sign in." };
   }
 
-  const specializationId = (formData.get("specialization_id") as string) || undefined;
+  let specializationId = ((formData.get("specialization_id") as string) || "").trim();
+  const newSpecializationName = ((formData.get("new_specialization_name") as string) || "").trim();
   const regionId = (formData.get("region_id") as string) || undefined;
 
+  if (newSpecializationName) {
+    const specResult = await findOrCreateSpecialization(newSpecializationName);
+    if (!specResult.success) {
+      return { success: false, error: specResult.error };
+    }
+    specializationId = specResult.id;
+  }
+
   if (!specializationId) {
-    return { success: false, error: "Please select your specialization." };
+    return { success: false, error: "Please select or enter your specialization." };
   }
   if (!regionId) {
     return { success: false, error: "Please select your home region." };

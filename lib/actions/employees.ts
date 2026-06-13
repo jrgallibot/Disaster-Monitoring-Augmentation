@@ -3,7 +3,7 @@
 import { createClient } from "@/lib/supabase/server";
 import { createServiceClient } from "@/lib/supabase/service";
 import { requireAdmin } from "@/lib/actions/auth";
-import { getUserRole } from "@/lib/auth/employee-sync";
+import { canManageEmployee } from "@/lib/auth/team-leader";
 import { getStatusById, statusRequiresDeploymentLocation, validateDeploymentFields } from "@/lib/deployment";
 import type {
   ActionResult,
@@ -20,15 +20,9 @@ import type {
   LibrarySpecialization,
   LibraryStatus,
 } from "@/lib/types";
-import { getFullName } from "@/lib/utils";
+import { getFullName, getTeamLeaderSearchText } from "@/lib/utils";
+import { EMPLOYEE_SELECT, REGION_SELECT } from "@/lib/supabase/selects";
 import { revalidatePath } from "next/cache";
-
-const EMPLOYEE_SELECT = `
-  *,
-  specialization:library_specializations(*),
-  region:library_regions(*),
-  status:library_statuses(*)
-`;
 
 export async function getEmployees(filters?: {
   search?: string;
@@ -60,7 +54,7 @@ export async function getEmployees(filters?: {
         e.last_name.toLowerCase().includes(term) ||
         e.employee_id.toLowerCase().includes(term) ||
         (e.deployment_location?.toLowerCase().includes(term) ?? false) ||
-        (e.region?.team_leader_name?.toLowerCase().includes(term) ?? false)
+        (getTeamLeaderSearchText(e.region?.team_leader).includes(term))
     );
   }
 
@@ -88,12 +82,12 @@ export async function getEmployeeUpdateLogsForAdmin(
     const supabase = await createClient();
     const { data: { user } } = await supabase.auth.getUser();
     if (!user) {
-      return { success: false, error: "You must be logged in as an administrator." };
+      return { success: false, error: "You must be logged in." };
     }
 
-    const role = await getUserRole(user.id);
-    if (role !== "admin") {
-      return { success: false, error: "You do not have admin permissions." };
+    const access = await canManageEmployee(user.id, employeeId);
+    if (!access.allowed) {
+      return { success: false, error: access.error };
     }
 
     const service = createServiceClient();
@@ -129,12 +123,12 @@ export async function getDeploymentLogsForAdmin(
     const supabase = await createClient();
     const { data: { user } } = await supabase.auth.getUser();
     if (!user) {
-      return { success: false, error: "You must be logged in as an administrator." };
+      return { success: false, error: "You must be logged in." };
     }
 
-    const role = await getUserRole(user.id);
-    if (role !== "admin") {
-      return { success: false, error: "You do not have admin permissions." };
+    const access = await canManageEmployee(user.id, employeeId);
+    if (!access.allowed) {
+      return { success: false, error: access.error };
     }
 
     const service = createServiceClient();
@@ -171,12 +165,12 @@ export async function getEmployeeHistoryBundleForAdmin(
     const supabase = await createClient();
     const { data: { user } } = await supabase.auth.getUser();
     if (!user) {
-      return { success: false, error: "You must be logged in as an administrator." };
+      return { success: false, error: "You must be logged in." };
     }
 
-    const role = await getUserRole(user.id);
-    if (role !== "admin") {
-      return { success: false, error: "You do not have admin permissions." };
+    const access = await canManageEmployee(user.id, employeeId);
+    if (!access.allowed) {
+      return { success: false, error: access.error };
     }
 
     const service = createServiceClient();
@@ -510,7 +504,17 @@ export async function updateEmployeeDeployment(
   deploymentLocation?: string
 ): Promise<ActionResult> {
   try {
-    const { user } = await requireAdmin();
+    const authClient = await createClient();
+    const { data: { user } } = await authClient.auth.getUser();
+    if (!user) {
+      return { success: false, error: "You must be logged in." };
+    }
+
+    const access = await canManageEmployee(user.id, id);
+    if (!access.allowed) {
+      return { success: false, error: access.error };
+    }
+
     const statuses = await getStatuses();
     const deploymentError = validateDeploymentFields(
       statusId,
@@ -555,6 +559,8 @@ export async function updateEmployeeDeployment(
     revalidatePath(`/employees/${id}`);
     revalidatePath("/admin/employees");
     revalidatePath("/admin/dashboard");
+    revalidatePath("/employee/dashboard");
+    revalidatePath("/employee/team");
     return { success: true };
   } catch (err) {
     return {
@@ -599,7 +605,7 @@ export async function getRegions(activeOnly = true): Promise<LibraryRegion[]> {
   const supabase = await createClient();
   let query = supabase
     .from("library_regions")
-    .select("*")
+    .select(REGION_SELECT)
     .order("sort_order");
 
   if (activeOnly) query = query.eq("is_active", true);
@@ -629,7 +635,7 @@ export async function getAllLibraries() {
 
   const [specRes, regionRes, statusRes] = await Promise.all([
     supabase.from("library_specializations").select("*").order("sort_order"),
-    supabase.from("library_regions").select("*").order("sort_order"),
+    supabase.from("library_regions").select(REGION_SELECT).order("sort_order"),
     supabase.from("library_statuses").select("*").order("sort_order"),
   ]);
 
@@ -687,7 +693,7 @@ export async function updateSpecialization(
 export async function createRegion(data: {
   name: string;
   code: string;
-  team_leader_name?: string;
+  team_leader_employee_id?: string;
   sort_order?: number;
 }): Promise<ActionResult> {
   try {
@@ -696,7 +702,7 @@ export async function createRegion(data: {
     const { error } = await supabase.from("library_regions").insert({
       name: data.name,
       code: data.code,
-      team_leader_name: data.team_leader_name?.trim() || null,
+      team_leader_employee_id: data.team_leader_employee_id?.trim() || null,
       sort_order: data.sort_order ?? 0,
     });
     if (error) return { success: false, error: error.message };
@@ -712,7 +718,7 @@ export async function updateRegion(
   data: {
     name: string;
     code: string;
-    team_leader_name?: string;
+    team_leader_employee_id?: string;
     sort_order?: number;
     is_active?: boolean;
   }
@@ -725,7 +731,7 @@ export async function updateRegion(
       .update({
         name: data.name,
         code: data.code,
-        team_leader_name: data.team_leader_name?.trim() || null,
+        team_leader_employee_id: data.team_leader_employee_id?.trim() || null,
         sort_order: data.sort_order,
         is_active: data.is_active,
       })

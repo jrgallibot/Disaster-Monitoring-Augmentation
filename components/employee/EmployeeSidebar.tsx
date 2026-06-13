@@ -2,15 +2,29 @@
 
 import { useState, useTransition } from "react";
 import Link from "next/link";
-import { useRouter } from "next/navigation";
-import { LayoutDashboard, LogOut, Menu, X } from "lucide-react";
+import { usePathname, useRouter } from "next/navigation";
+import { LayoutDashboard, LogOut, Menu, Users, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { employeeLogout } from "@/lib/actions/auth";
+import { cn } from "@/lib/utils";
 
-export function EmployeeSidebar() {
+interface EmployeeSidebarProps {
+  showTeamLink?: boolean;
+}
+
+export function EmployeeSidebar({ showTeamLink = false }: EmployeeSidebarProps) {
+  const pathname = usePathname();
   const [open, setOpen] = useState(false);
   const [isPending, startTransition] = useTransition();
   const router = useRouter();
+
+  const navLinkClass = (href: string) =>
+    cn(
+      "flex items-center gap-3 px-3 py-2 rounded-md text-sm font-medium",
+      pathname === href || pathname.startsWith(`${href}/`)
+        ? "bg-dswd-light text-dswd-navy"
+        : "text-dswd-navy hover:bg-dswd-light"
+    );
 
   function handleLogout() {
     startTransition(async () => {
@@ -25,15 +39,25 @@ export function EmployeeSidebar() {
         <h2 className="font-bold text-dswd-navy text-sm">Employee Portal</h2>
         <p className="text-xs text-muted-foreground mt-1">Caraga Region XIII</p>
       </div>
-      <nav className="flex-1 p-3">
+      <nav className="flex-1 p-3 space-y-1">
         <Link
           href="/employee/dashboard"
           onClick={() => setOpen(false)}
-          className="flex items-center gap-3 px-3 py-2 rounded-md text-sm font-medium text-dswd-navy hover:bg-dswd-light"
+          className={navLinkClass("/employee/dashboard")}
         >
           <LayoutDashboard className="h-4 w-4" />
           My Account
         </Link>
+        {showTeamLink && (
+          <Link
+            href="/employee/team"
+            onClick={() => setOpen(false)}
+            className={navLinkClass("/employee/team")}
+          >
+            <Users className="h-4 w-4" />
+            My Team
+          </Link>
+        )}
       </nav>
       <div className="p-3 border-t border-dswd-border">
         <Button variant="outline" size="sm" className="w-full" onClick={handleLogout} disabled={isPending}>

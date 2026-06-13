@@ -18,7 +18,8 @@ import {
   createEmployee,
   updateEmployee,
 } from "@/lib/actions/employees";
-import { getEmployeeTeamLeader } from "@/lib/utils";
+import { updateTeamMemberProfile } from "@/lib/actions/team-leader";
+import { getEmployeeTeamLeader, getTeamLeaderDisplay } from "@/lib/utils";
 import type {
   EmployeeWithRelations,
   LibraryRegion,
@@ -30,12 +31,16 @@ interface EmployeeFormProps {
   employee?: EmployeeWithRelations;
   specializations: LibrarySpecialization[];
   regions: LibraryRegion[];
+  mode?: "admin" | "teamLeader";
+  successHref?: string;
 }
 
 export function EmployeeForm({
   employee,
   specializations,
   regions,
+  mode = "admin",
+  successHref,
 }: EmployeeFormProps) {
   const router = useRouter();
   const [isPending, startTransition] = useTransition();
@@ -44,13 +49,14 @@ export function EmployeeForm({
   const [regionId, setRegionId] = useState(employee?.region_id ?? "");
 
   const isEdit = !!employee;
+  const isTeamLeaderMode = mode === "teamLeader";
 
   const selectedRegion = useMemo(
     () => regions.find((r) => r.id === regionId),
     [regionId, regions]
   );
 
-  const teamLeader = selectedRegion?.team_leader_name?.trim() || getEmployeeTeamLeader(employee ?? { region: null });
+  const teamLeader = getTeamLeaderDisplay(selectedRegion?.team_leader) || getEmployeeTeamLeader(employee ?? { region: null });
 
   function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
@@ -73,7 +79,9 @@ export function EmployeeForm({
 
     startTransition(async () => {
       const result = isEdit
-        ? await updateEmployee(employee.id, data)
+        ? isTeamLeaderMode
+          ? await updateTeamMemberProfile(employee.id, data)
+          : await updateEmployee(employee.id, data)
         : await createEmployee(data);
 
       if (!result.success) {
@@ -81,7 +89,7 @@ export function EmployeeForm({
         return;
       }
 
-      router.push("/admin/employees");
+      router.push(successHref ?? (isTeamLeaderMode ? "/employee/team" : "/admin/employees"));
       router.refresh();
     });
   }
@@ -91,7 +99,9 @@ export function EmployeeForm({
       <CardHeader>
         <CardTitle>{isEdit ? "Edit Employee" : "Add New Employee"}</CardTitle>
         <p className="text-sm text-muted-foreground">
-          Deployment status is updated from the employees list Actions column.
+          {isTeamLeaderMode
+            ? "Update profile details for your team member. Deployment status is updated from the team list."
+            : "Deployment status is updated from the employees list Actions column."}
         </p>
       </CardHeader>
       <CardContent>
@@ -111,6 +121,8 @@ export function EmployeeForm({
                 defaultValue={employee?.employee_id}
                 placeholder="16-11661"
                 required
+                readOnly={isTeamLeaderMode}
+                className={isTeamLeaderMode ? "bg-dswd-light" : undefined}
               />
             </div>
             <div className="space-y-2">
@@ -156,6 +168,17 @@ export function EmployeeForm({
             </div>
             <div className="space-y-2">
               <Label htmlFor="region_id">Region</Label>
+              {isTeamLeaderMode ? (
+                <Input
+                  value={
+                    employee?.region
+                      ? `${employee.region.name} (${employee.region.code})`
+                      : "—"
+                  }
+                  readOnly
+                  className="bg-dswd-light"
+                />
+              ) : (
               <Select value={regionId} onValueChange={setRegionId}>
                 <SelectTrigger>
                   <SelectValue placeholder="Select region" />
@@ -168,6 +191,7 @@ export function EmployeeForm({
                   ))}
                 </SelectContent>
               </Select>
+              )}
             </div>
             <div className="space-y-2">
               <Label>Assigned Team Leader</Label>
@@ -187,6 +211,8 @@ export function EmployeeForm({
                 name="email"
                 type="email"
                 defaultValue={employee?.email ?? ""}
+                readOnly={isTeamLeaderMode}
+                className={isTeamLeaderMode ? "bg-dswd-light" : undefined}
               />
             </div>
             <div className="space-y-2">
@@ -223,6 +249,7 @@ export function EmployeeForm({
             <Button type="submit" disabled={isPending}>
               {isPending ? "Saving..." : isEdit ? "Update Employee" : "Add Employee"}
             </Button>
+            {!isTeamLeaderMode && (
             <Button
               type="button"
               variant="outline"
@@ -230,6 +257,16 @@ export function EmployeeForm({
             >
               Cancel
             </Button>
+            )}
+            {isTeamLeaderMode && (
+            <Button
+              type="button"
+              variant="outline"
+              onClick={() => router.push(successHref ?? "/employee/team")}
+            >
+              Cancel
+            </Button>
+            )}
           </div>
         </form>
       </CardContent>

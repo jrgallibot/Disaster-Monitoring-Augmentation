@@ -1,12 +1,15 @@
 import { LibraryManager } from "@/components/admin/LibraryManager";
-import { getAllLibraries } from "@/lib/actions/employees";
+import { getAllLibraries, getEmployees } from "@/lib/actions/employees";
 import { Card, CardContent } from "@/components/ui/card";
 
 export const dynamic = "force-dynamic";
 
 export default async function AdminLibrariesPage() {
   try {
-    const { specializations, regions, statuses } = await getAllLibraries();
+    const [{ specializations, regions, statuses }, employees] = await Promise.all([
+      getAllLibraries(),
+      getEmployees(),
+    ]);
 
     return (
       <div className="space-y-6">
@@ -14,13 +17,14 @@ export default async function AdminLibrariesPage() {
           <h1 className="gov-section-title">Dynamic Libraries</h1>
           <p className="text-sm text-muted-foreground mt-2">
             Manage dropdown options for specializations, regions, and deployment statuses.
-            Assign a team leader per region under the Regions tab.
+            Assign a team leader employee per region under the Regions tab. Team leaders use their employee account to monitor members.
           </p>
         </div>
         <LibraryManager
           specializations={specializations}
           regions={regions}
           statuses={statuses}
+          employees={employees}
         />
       </div>
     );

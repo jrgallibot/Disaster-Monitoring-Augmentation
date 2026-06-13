@@ -1,5 +1,6 @@
 import { clsx, type ClassValue } from "clsx";
 import { twMerge } from "tailwind-merge";
+import type { TeamLeaderSummary } from "@/lib/types";
 
 export function cn(...inputs: ClassValue[]) {
   return twMerge(clsx(inputs));
@@ -22,8 +23,22 @@ export function getFullName(
     : `${lastName}, ${firstName}`;
 }
 
-export function getEmployeeTeamLeader(
-  employee: { region?: { team_leader_name?: string | null } | null }
+export function getTeamLeaderDisplay(
+  teamLeader: TeamLeaderSummary | null | undefined
 ): string | null {
-  return employee.region?.team_leader_name?.trim() || null;
+  if (!teamLeader) return null;
+  return `${getFullName(teamLeader.first_name, teamLeader.last_name, teamLeader.middle_name)} (${teamLeader.employee_id})`;
+}
+
+export function getEmployeeTeamLeader(employee: {
+  region?: { team_leader?: TeamLeaderSummary | null } | null;
+}): string | null {
+  return getTeamLeaderDisplay(employee.region?.team_leader);
+}
+
+export function getTeamLeaderSearchText(
+  teamLeader: TeamLeaderSummary | null | undefined
+): string {
+  if (!teamLeader) return "";
+  return `${getFullName(teamLeader.first_name, teamLeader.last_name, teamLeader.middle_name)} ${teamLeader.employee_id}`.toLowerCase();
 }

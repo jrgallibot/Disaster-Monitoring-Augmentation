@@ -1,3 +1,9 @@
+export interface TeamLeaderContext {
+  isTeamLeader: boolean;
+  ledRegions: LibraryRegion[];
+  myEmployee: EmployeeWithRelations | null;
+}
+
 export interface LibrarySpecialization {
   id: string;
   name: string;
@@ -7,11 +13,21 @@ export interface LibrarySpecialization {
   created_at: string;
 }
 
+export interface TeamLeaderSummary {
+  id: string;
+  employee_id: string;
+  first_name: string;
+  last_name: string;
+  middle_name: string | null;
+  user_id: string | null;
+}
+
 export interface LibraryRegion {
   id: string;
   name: string;
   code: string;
-  team_leader_name: string | null;
+  team_leader_employee_id: string | null;
+  team_leader?: TeamLeaderSummary | null;
   is_active: boolean;
   sort_order: number;
   created_at: string;
@@ -40,7 +56,6 @@ export interface Employee {
   region_id: string | null;
   status_id: string | null;
   deployment_location: string | null;
-  team_leader_name: string | null;
   notes: string | null;
   photo_url: string | null;
   last_latitude: number | null;
@@ -115,6 +130,10 @@ export type EmployeeFormData = {
 
 export type ActionResult =
   | { success: true }
+  | { success: false; error: string };
+
+export type SpecializationResolveResult =
+  | { success: true; id: string; name: string; created: boolean }
   | { success: false; error: string };
 
 export type EmployeeSelfUpdate = {

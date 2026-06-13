@@ -19,7 +19,7 @@ import { AdminEmployeeHistoryDialog } from "@/components/admin/AdminEmployeeHist
 import { EmployeeAvatar } from "@/components/shared/EmployeeAvatar";
 import { statusRequiresDeploymentLocation } from "@/lib/deployment";
 import { Search, History, MapPin, User, Briefcase } from "lucide-react";import { formatCoordinates, getMapUrl, hasValidCoordinates } from "@/lib/geo";
-import { getFullName, getEmployeeTeamLeader } from "@/lib/utils";
+import { getFullName, getEmployeeTeamLeader, getTeamLeaderSearchText } from "@/lib/utils";
 import type {
   EmployeeWithRelations,
   LibraryRegion,
@@ -33,6 +33,10 @@ interface EmployeeTableProps {
   statuses: LibraryStatus[];
   specializations: LibrarySpecialization[];
   showActions?: boolean;
+  editBasePath?: string;
+  title?: string;
+  hideRegionFilter?: boolean;
+  hideTeamLeaderColumn?: boolean;
 }
 
 export function EmployeeTable({
@@ -41,6 +45,10 @@ export function EmployeeTable({
   statuses,
   specializations,
   showActions = false,
+  editBasePath = "/admin/employees",
+  title = "Augmented Employees",
+  hideRegionFilter = false,
+  hideTeamLeaderColumn = false,
 }: EmployeeTableProps) {
   const router = useRouter();
   const [employees, setEmployees] = useState(initialEmployees);
@@ -75,7 +83,7 @@ export function EmployeeTable({
       e.last_name.toLowerCase().includes(term) ||
       e.employee_id.toLowerCase().includes(term) ||
       (e.deployment_location?.toLowerCase().includes(term) ?? false) ||
-      (e.region?.team_leader_name?.toLowerCase().includes(term) ?? false);
+      (getTeamLeaderSearchText(e.region?.team_leader).includes(term));
 
     const matchesRegion =
       regionFilter === "all" || e.region_id === regionFilter;
@@ -91,7 +99,7 @@ export function EmployeeTable({
     <>
       <Card>
         <CardHeader>
-          <CardTitle>Augmented Employees</CardTitle>
+          <CardTitle>{title}</CardTitle>
           <div className="flex flex-col sm:flex-row gap-3 mt-4">
             <div className="relative flex-1">
               <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
@@ -103,6 +111,7 @@ export function EmployeeTable({
                 aria-label="Search employees"
               />
             </div>
+            {!hideRegionFilter && (
             <Select value={regionFilter} onValueChange={setRegionFilter}>
               <SelectTrigger className="w-full sm:w-[180px]">
                 <SelectValue placeholder="Region" />
@@ -116,6 +125,7 @@ export function EmployeeTable({
                 ))}
               </SelectContent>
             </Select>
+            )}
             <Select value={statusFilter} onValueChange={setStatusFilter}>
               <SelectTrigger className="w-full sm:w-[160px]">
                 <SelectValue placeholder="Status" />
@@ -162,7 +172,7 @@ export function EmployeeTable({
                   <th className="text-left p-3 font-semibold text-dswd-navy">Specialization</th>
                   <th className="text-left p-3 font-semibold text-dswd-navy">Region</th>
                   <th className="text-left p-3 font-semibold text-dswd-navy">Status</th>
-                  {showActions && (
+                  {showActions && !hideTeamLeaderColumn && (
                     <th className="text-left p-3 font-semibold text-dswd-navy">Team Leader</th>
                   )}
                   <th className="text-left p-3 font-semibold text-dswd-navy">Deployment</th>
@@ -185,7 +195,7 @@ export function EmployeeTable({
                     <td className="p-3 font-mono text-xs">{emp.employee_id}</td>
                     <td className="p-3">
                       <Link
-                        href={showActions ? `/admin/employees/${emp.id}/edit` : `/employees/${emp.id}`}
+                        href={showActions ? `${editBasePath}/${emp.id}/edit` : `/employees/${emp.id}`}
                         className="text-dswd-blue hover:underline font-medium"
                       >
                         {getFullName(emp.first_name, emp.last_name, emp.middle_name)}
@@ -221,7 +231,7 @@ export function EmployeeTable({
                         "—"
                       )}
                     </td>
-                    {showActions && (
+                    {showActions && !hideTeamLeaderColumn && (
                       <td className="p-3 text-muted-foreground max-w-[160px] truncate">
                         {getEmployeeTeamLeader(emp) ?? "—"}
                       </td>
@@ -259,7 +269,7 @@ export function EmployeeTable({
                             Deployment
                           </button>
                           <Link
-                            href={`/admin/employees/${emp.id}/edit`}
+                            href={`${editBasePath}/${emp.id}/edit`}
                             className="text-dswd-blue hover:underline text-xs"
                           >
                             Edit
@@ -326,7 +336,7 @@ export function EmployeeTable({
                 <div className="mt-3 grid grid-cols-2 gap-2 text-xs text-muted-foreground">
                   <span>Region: <strong className="text-foreground">{emp.region?.code ?? "—"}</strong></span>
                   <span>Role: <strong className="text-foreground">{emp.specialization?.name ?? "—"}</strong></span>
-                  {showActions && getEmployeeTeamLeader(emp) && (
+                  {showActions && !hideTeamLeaderColumn && getEmployeeTeamLeader(emp) && (
                     <span className="col-span-2 truncate">
                       Team Leader: <strong className="text-foreground">{getEmployeeTeamLeader(emp)}</strong>
                     </span>
@@ -357,7 +367,7 @@ export function EmployeeTable({
                       Deployment
                     </Button>
                     <Button asChild variant="outline" size="sm">
-                      <Link href={`/admin/employees/${emp.id}/edit`}>Edit</Link>
+                      <Link href={`${editBasePath}/${emp.id}/edit`}>Edit</Link>
                     </Button>
                     <Button variant="outline" size="sm" onClick={() => setHistoryEmployee(emp)}>
                       <History className="h-4 w-4" />
