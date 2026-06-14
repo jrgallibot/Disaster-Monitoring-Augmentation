@@ -9,9 +9,14 @@ import { UserCheck } from "lucide-react";
 
 interface ClockedInPanelProps {
   employees: AdminDashboardData["clockedInEmployees"];
+  /** Defaults to admin employee edit page */
+  employeeDetailPath?: (employeeId: string) => string;
 }
 
-export function ClockedInPanel({ employees }: ClockedInPanelProps) {
+export function ClockedInPanel({
+  employees,
+  employeeDetailPath = (id) => `/admin/employees/${id}/edit`,
+}: ClockedInPanelProps) {
   return (
     <Card>
       <CardHeader>
@@ -32,7 +37,7 @@ export function ClockedInPanel({ employees }: ClockedInPanelProps) {
               >
                 <div>
                   <Link
-                    href={`/admin/employees/${emp.id}/edit`}
+                    href={employeeDetailPath(emp.id)}
                     className="font-medium text-dswd-blue hover:underline text-sm"
                   >
                     {emp.name}

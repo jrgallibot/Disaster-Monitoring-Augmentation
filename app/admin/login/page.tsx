@@ -11,9 +11,9 @@ export default async function AdminLoginPage({ searchParams }: AdminLoginPagePro
   const error = searchParams?.error;
   const initialError =
     error === "access_denied"
-      ? "Access denied. Only administrator or co-administrator accounts can use the Admin Monitoring portal."
+      ? "Access denied. Sign in with an administrator, co-administrator, or team leader account."
       : error === "read_only"
-        ? "That page is not available in view-only co-admin mode."
+        ? "That page is not available in view-only mode. Team leaders and co-admins cannot add or edit records here."
         : null;
 
   return (
@@ -25,9 +25,9 @@ export default async function AdminLoginPage({ searchParams }: AdminLoginPagePro
             <div className="mx-auto h-14 w-14 rounded-full bg-dswd-navy flex items-center justify-center mb-2">
               <Shield className="h-8 w-8 text-white" />
             </div>
-            <CardTitle>Administrator Login</CardTitle>
+            <CardTitle>Admin & Monitoring Login</CardTitle>
             <p className="text-sm text-muted-foreground mt-1">
-              Sign in to manage augmented employees
+              Sign in as administrator, co-admin, or team leader
             </p>
           </CardHeader>
           <CardContent>

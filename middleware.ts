@@ -1,6 +1,6 @@
 import { updateSession } from "@/lib/supabase/middleware";
 import { getUserRole, syncEmployeeRole, canUseEmployeePortal } from "@/lib/auth/employee-sync";
-import { isEmployeePortalRole, canAccessAdminPortal, isViewerRole } from "@/lib/auth/roles";
+import { isEmployeePortalRole, canAccessAdminPortal, canWriteAdminPortal } from "@/lib/auth/roles";
 import { createServerClient } from "@supabase/ssr";
 import { NextResponse, type NextRequest } from "next/server";
 
@@ -70,7 +70,7 @@ export async function middleware(request: NextRequest) {
         return NextResponse.redirect(url);
       }
 
-      if (isViewerRole(role) && isAdminWriteRoute(pathname)) {
+      if (!canWriteAdminPortal(role) && isAdminWriteRoute(pathname)) {
         const url = request.nextUrl.clone();
         url.pathname = "/admin/dashboard";
         url.searchParams.set("error", "read_only");

@@ -8,6 +8,7 @@ import { Menu, X, LayoutDashboard, Users, BookOpen, LogOut, FileText, UserCircle
 import { Button } from "@/components/ui/button";
 import { logout } from "@/lib/actions/auth";
 import { cn } from "@/lib/utils";
+import type { PortalRole } from "@/lib/auth/roles";
 
 const navItems = [
   { href: "/admin/dashboard", label: "Dashboard", icon: LayoutDashboard, writeOnly: false },
@@ -18,11 +19,19 @@ const navItems = [
 
 interface AdminSidebarProps {
   canWrite?: boolean;
+  portalRole?: PortalRole;
   showEmployeePortalLink?: boolean;
+}
+
+function getPortalTitle(portalRole: PortalRole | undefined, canWrite: boolean): string {
+  if (canWrite) return "Admin Portal";
+  if (portalRole === "team_leader") return "Team Leader Portal";
+  return "Co-Admin Portal";
 }
 
 export function AdminSidebar({
   canWrite = true,
+  portalRole,
   showEmployeePortalLink = false,
 }: AdminSidebarProps) {
   const [open, setOpen] = useState(false);
@@ -47,16 +56,18 @@ export function AdminSidebar({
     });
   }
 
+  const portalTitle = getPortalTitle(portalRole, canWrite);
+
   const sidebar = (
     <div className="flex flex-col h-full">
       <div className="p-4 border-b border-dswd-border">
-        <h2 className="font-bold text-dswd-navy text-sm">
-          {canWrite ? "Admin Portal" : "Co-Admin Portal"}
-        </h2>
+        <h2 className="font-bold text-dswd-navy text-sm">{portalTitle}</h2>
         <p className="text-xs text-muted-foreground mt-1">{SYSTEM_NAME}</p>
         {!canWrite && (
           <p className="text-xs text-amber-700 bg-amber-50 border border-amber-200 rounded px-2 py-1 mt-2">
-            View only — no add, edit, or delete
+            {portalRole === "team_leader"
+              ? "Monitoring view — manage your team in the Employee Portal"
+              : "View only — no add, edit, or delete"}
           </p>
         )}
       </div>

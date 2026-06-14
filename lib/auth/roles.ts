@@ -15,14 +15,19 @@ export function isViewerRole(role: string | null | undefined): boolean {
   return role === "viewer";
 }
 
-/** Admin portal login — full admin or read-only co-admin */
+/** Admin portal login — administrator, co-admin, or team leader (monitoring) */
 export function canAccessAdminPortal(role: string | null | undefined): boolean {
-  return isAdminRole(role) || isViewerRole(role);
+  return isAdminRole(role) || isViewerRole(role) || isTeamLeaderRole(role);
 }
 
 /** Mutations in the admin portal (create, update, delete) */
 export function canWriteAdminPortal(role: string | null | undefined): boolean {
   return isAdminRole(role);
+}
+
+/** View-only admin portal (co-admin or team leader) */
+export function isAdminPortalReadOnly(role: string | null | undefined): boolean {
+  return isViewerRole(role) || isTeamLeaderRole(role);
 }
 
 export function isEmployeePortalRole(role: string | null | undefined): boolean {

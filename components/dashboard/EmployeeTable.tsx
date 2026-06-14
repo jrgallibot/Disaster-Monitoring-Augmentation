@@ -36,6 +36,8 @@ interface EmployeeTableProps {
   showActions?: boolean;
   /** Admin portal read-only: full columns + history, no edit/deployment */
   viewOnly?: boolean;
+  /** Public homepage: rich columns, public profile links, no admin actions */
+  publicEnriched?: boolean;
   editBasePath?: string;
   title?: string;
   hideRegionFilter?: boolean;
@@ -49,13 +51,16 @@ export function EmployeeTable({
   specializations,
   showActions = false,
   viewOnly = false,
+  publicEnriched = false,
   editBasePath = "/admin/employees",
   title = "Augmented Employees",
   hideRegionFilter = false,
   hideTeamLeaderColumn = false,
 }: EmployeeTableProps) {
-  const showAdminColumns = showActions || viewOnly;
+  const showAdminColumns = showActions || viewOnly || publicEnriched;
   const showHistory = showActions || viewOnly;
+  const profileHref = (id: string) =>
+    publicEnriched ? `/employees/${id}` : showActions ? `${editBasePath}/${id}/edit` : `/employees/${id}`;
   const router = useRouter();
   const [employees, setEmployees] = useState(initialEmployees);
   const [search, setSearch] = useState("");
@@ -211,7 +216,7 @@ export function EmployeeTable({
                     <td className="p-3 font-mono text-xs">{emp.employee_id}</td>
                     <td className="p-3">
                       <Link
-                        href={showActions ? `${editBasePath}/${emp.id}/edit` : `/employees/${emp.id}`}
+                        href={profileHref(emp.id)}
                         className="text-dswd-blue hover:underline font-medium"
                       >
                         {getFullName(emp.first_name, emp.last_name, emp.middle_name)}
@@ -421,7 +426,15 @@ export function EmployeeTable({
                     </Link>
                   </div>
                 )}
-                {!showAdminColumns && (
+                {publicEnriched && (
+                  <Link
+                    href={profileHref(emp.id)}
+                    className="mt-3 block text-xs text-dswd-blue hover:underline"
+                  >
+                    View full profile
+                  </Link>
+                )}
+                {!showAdminColumns && !publicEnriched && (
                   <Link href={`/employees/${emp.id}`} className="mt-3 block text-xs text-dswd-blue hover:underline">
                     View details
                   </Link>

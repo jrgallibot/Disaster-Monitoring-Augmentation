@@ -29,9 +29,10 @@ export async function login(formData: FormData) {
   if (!canAccessAdminPortal(role)) {
     await supabase.auth.signOut();
     return {
-      error: isEmployeePortalRole(role)
-        ? "This account uses the Employee Portal. Team leaders and employees must sign in there."
-        : "This account is not authorized for the Admin Portal.",
+      error:
+        role === "employee"
+          ? "This account uses the Employee Portal. Please sign in at the Employee login page."
+          : "This account is not authorized for the Admin Portal.",
     };
   }
 

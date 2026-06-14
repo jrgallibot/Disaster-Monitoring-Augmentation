@@ -11,7 +11,7 @@ import { cn } from "@/lib/utils";
 
 interface EmployeeSidebarProps {
   showTeamLink?: boolean;
-  adminPortalAccess?: { canWrite: boolean } | null;
+  adminPortalAccess?: { canWrite: boolean; role?: string } | null;
 }
 
 export function EmployeeSidebar({
@@ -40,7 +40,9 @@ export function EmployeeSidebar({
 
   const adminLinkLabel = adminPortalAccess?.canWrite
     ? "Admin Panel"
-    : "Admin Viewing Panel";
+    : adminPortalAccess?.role === "team_leader"
+      ? "Team Leader Monitoring"
+      : "Admin Viewing Panel";
 
   const sidebar = (
     <div className="flex flex-col h-full">

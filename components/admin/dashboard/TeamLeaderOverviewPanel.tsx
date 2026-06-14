@@ -14,13 +14,20 @@ import { BookOpen, History, Users, UserCog } from "lucide-react";
 interface TeamLeaderOverviewPanelProps {
   regionTeams: RegionTeamOverview[];
   statuses: LibraryStatus[];
+  /** Public dashboard: view-only links, no admin history dialog */
+  publicView?: boolean;
 }
 
 export function TeamLeaderOverviewPanel({
   regionTeams,
   statuses,
+  publicView = false,
 }: TeamLeaderOverviewPanelProps) {
   const [historyEmployee, setHistoryEmployee] = useState<EmployeeWithRelations | null>(null);
+
+  function memberHref(id: string) {
+    return publicView ? `/employees/${id}` : `/admin/employees/${id}/edit`;
+  }
 
   const assignedCount = regionTeams.filter(
     (item) => getRegionTeamLeaderSummaries(item.region).length > 0
@@ -40,12 +47,14 @@ export function TeamLeaderOverviewPanel({
               {regionTeams.length} region{regionTeams.length === 1 ? "" : "s"} shown
             </p>
           </div>
-          <Button asChild variant="outline" size="sm">
-            <Link href="/admin/libraries">
-              <BookOpen className="h-4 w-4" />
-              Manage Team Leaders
-            </Link>
-          </Button>
+          {!publicView && (
+            <Button asChild variant="outline" size="sm">
+              <Link href="/admin/libraries">
+                <BookOpen className="h-4 w-4" />
+                Manage Team Leaders
+              </Link>
+            </Button>
+          )}
         </CardHeader>
         <CardContent>
           {regionTeams.length === 0 ? (
@@ -87,7 +96,7 @@ export function TeamLeaderOverviewPanel({
                           {regionLeaders.map((leader) => (
                             <Link
                               key={leader.id}
-                              href={`/admin/employees/${leader.id}/edit`}
+                              href={memberHref(leader.id)}
                               className="inline-flex items-center gap-2 rounded-full border border-dswd-border bg-white px-3 py-1.5 text-xs hover:bg-dswd-light"
                             >
                               <span className="font-medium text-dswd-navy">
@@ -131,17 +140,30 @@ export function TeamLeaderOverviewPanel({
                                 <td className="p-3">
                                   <div className="flex items-center gap-3">
                                     <EmployeeAvatar photoUrl={member.photo_url} size={36} />
-                                    <button
-                                      type="button"
-                                      onClick={() => setHistoryEmployee(member)}
-                                      className="font-medium text-dswd-blue hover:underline text-left"
-                                    >
-                                      {getFullName(
-                                        member.first_name,
-                                        member.last_name,
-                                        member.middle_name
-                                      )}
-                                    </button>
+                                    {publicView ? (
+                                      <Link
+                                        href={memberHref(member.id)}
+                                        className="font-medium text-dswd-blue hover:underline"
+                                      >
+                                        {getFullName(
+                                          member.first_name,
+                                          member.last_name,
+                                          member.middle_name
+                                        )}
+                                      </Link>
+                                    ) : (
+                                      <button
+                                        type="button"
+                                        onClick={() => setHistoryEmployee(member)}
+                                        className="font-medium text-dswd-blue hover:underline text-left"
+                                      >
+                                        {getFullName(
+                                          member.first_name,
+                                          member.last_name,
+                                          member.middle_name
+                                        )}
+                                      </button>
+                                    )}
                                   </div>
                                 </td>
                                 <td className="p-3 font-mono text-xs">{member.employee_id}</td>
@@ -167,14 +189,23 @@ export function TeamLeaderOverviewPanel({
                                   </Badge>
                                 </td>
                                 <td className="p-3">
-                                  <button
-                                    type="button"
-                                    onClick={() => setHistoryEmployee(member)}
-                                    className="text-dswd-blue hover:underline text-xs inline-flex items-center gap-1"
-                                  >
-                                    <History className="h-3 w-3" />
-                                    History
-                                  </button>
+                                  {publicView ? (
+                                    <Link
+                                      href={memberHref(member.id)}
+                                      className="text-dswd-blue hover:underline text-xs"
+                                    >
+                                      View profile
+                                    </Link>
+                                  ) : (
+                                    <button
+                                      type="button"
+                                      onClick={() => setHistoryEmployee(member)}
+                                      className="text-dswd-blue hover:underline text-xs inline-flex items-center gap-1"
+                                    >
+                                      <History className="h-3 w-3" />
+                                      History
+                                    </button>
+                                  )}
                                 </td>
                               </tr>
                           ))}
@@ -190,11 +221,13 @@ export function TeamLeaderOverviewPanel({
         </CardContent>
       </Card>
 
-      <AdminEmployeeHistoryDialog
-        employee={historyEmployee}
-        statuses={statuses}
-        onClose={() => setHistoryEmployee(null)}
-      />
+      {!publicView && (
+        <AdminEmployeeHistoryDialog
+          employee={historyEmployee}
+          statuses={statuses}
+          onClose={() => setHistoryEmployee(null)}
+        />
+      )}
     </>
   );
 }

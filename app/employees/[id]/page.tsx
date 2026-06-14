@@ -57,6 +57,7 @@ export default async function EmployeeDetailPage({ params }: PageProps) {
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               <InfoItem label="Specialization" value={employee.specialization?.name} />
               <InfoItem label="Region" value={employee.region ? `${employee.region.name} (${employee.region.code})` : undefined} />
+              <InfoItem label="Actual Task" value={employee.actual_task} />
               <InfoItem label="Deployment Location" value={employee.deployment_location} icon={<MapPin className="h-4 w-4" />} />
             </div>
 

@@ -19,6 +19,7 @@ export default async function AdminPanelLayout({
       <div className="flex flex-1 min-h-0">
         <AdminSidebar
           canWrite={access.canWrite}
+          portalRole={access.role}
           showEmployeePortalLink={showEmployeePortalLink}
         />
         <main className="flex-1 overflow-auto p-4 sm:p-6 lg:ml-0 ml-0 pt-16 lg:pt-6">

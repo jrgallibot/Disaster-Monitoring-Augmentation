@@ -63,7 +63,11 @@ export default async function EmployeeDashboardPage() {
           <Button asChild className="shrink-0">
             <Link href="/admin/dashboard">
               <Shield className="h-4 w-4" />
-              {adminAccess.canWrite ? "Open Admin Panel" : "Open Admin Viewing Panel"}
+              {adminAccess.canWrite
+                ? "Open Admin Panel"
+                : adminAccess.role === "team_leader"
+                  ? "Open Team Leader Monitoring"
+                  : "Open Admin Viewing Panel"}
             </Link>
           </Button>
         )}

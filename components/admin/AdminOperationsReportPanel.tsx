@@ -18,11 +18,15 @@ import { Download, ExternalLink, FileText, Printer, RefreshCw, UserCog } from "l
 interface AdminOperationsReportPanelProps {
   initialData: AdminOperationsReportData;
   compact?: boolean;
+  publicView?: boolean;
+  onRefresh?: () => Promise<AdminOperationsReportData>;
 }
 
 export function AdminOperationsReportPanel({
   initialData,
   compact = false,
+  publicView = false,
+  onRefresh,
 }: AdminOperationsReportPanelProps) {
   const [data, setData] = useState(initialData);
   const [isRefreshing, startRefresh] = useTransition();
@@ -30,13 +34,13 @@ export function AdminOperationsReportPanel({
   const refresh = useCallback(() => {
     startRefresh(async () => {
       try {
-        const next = await getAdminOperationsReportData();
+        const next = onRefresh ? await onRefresh() : await getAdminOperationsReportData();
         setData(next);
       } catch {
         // keep existing data on refresh failure
       }
     });
-  }, []);
+  }, [onRefresh]);
 
   const summaryItems = [
     { label: "Team Leaders", value: data.summary.totalTeamLeaders },
@@ -95,7 +99,7 @@ export function AdminOperationsReportPanel({
                 <Printer className="h-4 w-4" />
                 Print Report
               </Button>
-              {compact && (
+              {compact && !publicView && (
                 <Button asChild size="sm">
                   <Link href="/admin/reports/daily-operations">
                     <ExternalLink className="h-4 w-4" />
@@ -122,7 +126,9 @@ export function AdminOperationsReportPanel({
 
           {data.teams.length === 0 ? (
             <p className="text-sm text-muted-foreground">
-              No team leaders assigned yet. Assign team leaders under Admin → Libraries → Regions.
+              {publicView
+                ? "No team leader assignments are configured yet."
+                : "No team leaders assigned yet. Assign team leaders under Admin → Libraries → Regions."}
             </p>
           ) : compact ? (
             <div className="space-y-3">
@@ -151,12 +157,17 @@ export function AdminOperationsReportPanel({
                   </div>
                 );
               })}
-              {data.teams.length > 4 && (
+              {data.teams.length > 4 && !publicView && (
                 <Button asChild variant="outline" size="sm" className="print:hidden">
                   <Link href="/admin/reports/daily-operations">
                     View all {data.teams.length} team reports
                   </Link>
                 </Button>
+              )}
+              {data.teams.length > 4 && publicView && (
+                <p className="text-xs text-muted-foreground print:hidden">
+                  Showing 4 of {data.teams.length} regional teams. Scroll the full operations section below for details.
+                </p>
               )}
             </div>
           ) : (
