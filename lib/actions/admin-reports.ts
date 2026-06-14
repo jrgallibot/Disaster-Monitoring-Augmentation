@@ -1,6 +1,6 @@
 "use server";
 
-import { requireAdmin } from "@/lib/actions/auth";
+import { requireAdminPortalRead } from "@/lib/actions/auth";
 import { employeeIsVisibleTeamMember } from "@/lib/auth/team-leader";
 import { getEmployees, getRegions } from "@/lib/actions/employees";
 import {
@@ -16,7 +16,7 @@ import type {
 import { getRegionTeamLeaderSummaries, getTodayBounds } from "@/lib/utils";
 
 export async function getAdminOperationsReportData(): Promise<AdminOperationsReportData> {
-  await requireAdmin();
+  await requireAdminPortalRead();
 
   const [employees, regions] = await Promise.all([getEmployees(), getRegions()]);
   const employeeMap = new Map(employees.map((employee) => [employee.id, employee]));

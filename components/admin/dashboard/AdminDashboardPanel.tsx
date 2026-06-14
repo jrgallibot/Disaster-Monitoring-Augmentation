@@ -37,6 +37,7 @@ import {
 interface AdminDashboardPanelProps {
   initialData: AdminDashboardData;
   operationsReport: AdminOperationsReportData;
+  canWrite?: boolean;
 }
 
 const REFRESH_MS = 30000;
@@ -44,6 +45,7 @@ const REFRESH_MS = 30000;
 export function AdminDashboardPanel({
   initialData,
   operationsReport: initialOperationsReport,
+  canWrite = true,
 }: AdminDashboardPanelProps) {
   const [data, setData] = useState(initialData);
   const [operationsReport, setOperationsReport] = useState(initialOperationsReport);
@@ -135,18 +137,22 @@ export function AdminDashboardPanel({
               Daily Operations Report
             </Link>
           </Button>
-          <Button asChild size="sm">
-            <Link href="/admin/employees/new">
-              <Plus className="h-4 w-4" />
-              Add Employee
-            </Link>
-          </Button>
-          <Button variant="outline" asChild size="sm">
-            <Link href="/admin/libraries">
-              <BookOpen className="h-4 w-4" />
-              Libraries
-            </Link>
-          </Button>
+          {canWrite && (
+            <>
+              <Button asChild size="sm">
+                <Link href="/admin/employees/new">
+                  <Plus className="h-4 w-4" />
+                  Add Employee
+                </Link>
+              </Button>
+              <Button variant="outline" asChild size="sm">
+                <Link href="/admin/libraries">
+                  <BookOpen className="h-4 w-4" />
+                  Libraries
+                </Link>
+              </Button>
+            </>
+          )}
         </div>
       </div>
 

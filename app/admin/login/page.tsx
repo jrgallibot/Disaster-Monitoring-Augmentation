@@ -11,8 +11,10 @@ export default async function AdminLoginPage({ searchParams }: AdminLoginPagePro
   const error = searchParams?.error;
   const initialError =
     error === "access_denied"
-      ? "Access denied. Only administrator accounts can use the Admin Monitoring portal."
-      : null;
+      ? "Access denied. Only administrator or co-administrator accounts can use the Admin Monitoring portal."
+      : error === "read_only"
+        ? "That page is not available in view-only co-admin mode."
+        : null;
 
   return (
     <div className="min-h-screen flex flex-col bg-dswd-light">

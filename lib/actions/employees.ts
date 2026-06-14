@@ -3,7 +3,7 @@
 import { createClient } from "@/lib/supabase/server";
 import { createServiceClient } from "@/lib/supabase/service";
 import { requireAdmin, updateEmployeePortalRole } from "@/lib/actions/auth";
-import { canManageEmployee } from "@/lib/auth/team-leader";
+import { canManageEmployee, canViewEmployeeInPortal } from "@/lib/auth/team-leader";
 import { getStatusById, statusRequiresDeploymentLocation, validateDeploymentFields } from "@/lib/deployment";
 import type {
   ActionResult,
@@ -85,7 +85,7 @@ export async function getEmployeeUpdateLogsForAdmin(
       return { success: false, error: "You must be logged in." };
     }
 
-    const access = await canManageEmployee(user.id, employeeId);
+    const access = await canViewEmployeeInPortal(user.id, employeeId);
     if (!access.allowed) {
       return { success: false, error: access.error };
     }
@@ -126,7 +126,7 @@ export async function getDeploymentLogsForAdmin(
       return { success: false, error: "You must be logged in." };
     }
 
-    const access = await canManageEmployee(user.id, employeeId);
+    const access = await canViewEmployeeInPortal(user.id, employeeId);
     if (!access.allowed) {
       return { success: false, error: access.error };
     }
@@ -168,7 +168,7 @@ export async function getEmployeeHistoryBundleForAdmin(
       return { success: false, error: "You must be logged in." };
     }
 
-    const access = await canManageEmployee(user.id, employeeId);
+    const access = await canViewEmployeeInPortal(user.id, employeeId);
     if (!access.allowed) {
       return { success: false, error: access.error };
     }

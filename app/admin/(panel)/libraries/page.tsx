@@ -1,10 +1,17 @@
+import { redirect } from "next/navigation";
 import { LibraryManager } from "@/components/admin/LibraryManager";
 import { getAllLibraries, getEmployees } from "@/lib/actions/employees";
+import { requireAdminForPage } from "@/lib/actions/auth";
 import { Card, CardContent } from "@/components/ui/card";
 
 export const dynamic = "force-dynamic";
 
 export default async function AdminLibrariesPage() {
+  const access = await requireAdminForPage();
+  if (!access.canWrite) {
+    redirect("/admin/dashboard");
+  }
+
   try {
     const [{ specializations, regions, statuses }, employees] = await Promise.all([
       getAllLibraries(),

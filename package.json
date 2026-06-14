@@ -6,7 +6,8 @@
     "dev": "next dev -p 3000",
     "build": "next build",
     "start": "next start",
-    "lint": "next lint"
+    "lint": "next lint",
+    "create-admin-users": "node scripts/create-portal-admin-users.mjs"
   },
   "dependencies": {
     "@radix-ui/react-dialog": "^1.1.6",

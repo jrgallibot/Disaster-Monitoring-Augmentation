@@ -1,6 +1,6 @@
 import { createServiceClient } from "@/lib/supabase/service";
 import { getUserRole } from "@/lib/auth/employee-sync";
-import { isAdminRole, isTeamLeaderRole } from "@/lib/auth/roles";
+import { canAccessAdminPortal, isAdminRole, isTeamLeaderRole } from "@/lib/auth/roles";
 import { getRegionTeamLeaderSummaries } from "@/lib/utils";
 import { queryEmployeeRows } from "@/lib/supabase/employee-query";
 import type { LibraryRegion } from "@/lib/types";
@@ -92,6 +92,15 @@ export async function canManageEmployee(
   }
 
   return { allowed: true };
+}
+
+export async function canViewEmployeeInPortal(
+  authUserId: string,
+  targetEmployeeId: string
+): Promise<{ allowed: true } | { allowed: false; error: string }> {
+  const role = await getUserRole(authUserId);
+  if (canAccessAdminPortal(role)) return { allowed: true };
+  return canManageEmployee(authUserId, targetEmployeeId);
 }
 
 export async function getTeamLeaderEmployeeIdsForRegions(

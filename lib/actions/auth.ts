@@ -4,8 +4,11 @@ import { createClient } from "@/lib/supabase/server";
 import { createServiceClient } from "@/lib/supabase/service";
 import { getUserRole, linkOrCreateEmployeeRecord, syncEmployeeRole } from "@/lib/auth/employee-sync";
 import {
+  canAccessAdminPortal,
+  canWriteAdminPortal,
   isAdminRole,
   isEmployeePortalRole,
+  isViewerRole,
   type PortalRole,
 } from "@/lib/auth/roles";
 import { findOrCreateSpecialization } from "@/lib/actions/specializations";
@@ -23,17 +26,42 @@ export async function login(formData: FormData) {
   if (error) return { error: error.message };
 
   const role = await getUserRole(data.user.id);
-  if (!isAdminRole(role)) {
+  if (!canAccessAdminPortal(role)) {
     await supabase.auth.signOut();
     return {
       error: isEmployeePortalRole(role)
         ? "This account uses the Employee Portal. Team leaders and employees must sign in there."
-        : "This account is not an administrator. Use the Employee Portal to sign in.",
+        : "This account is not authorized for the Admin Portal.",
     };
   }
 
   revalidatePath("/admin", "layout");
   redirect("/admin/dashboard");
+}
+
+export type AdminPortalAccess = {
+  user: User;
+  role: PortalRole;
+  canWrite: boolean;
+};
+
+export async function getAdminPortalAccess(): Promise<AdminPortalAccess | null> {
+  const supabase = await createClient();
+  const {
+    data: { user },
+    error: authError,
+  } = await supabase.auth.getUser();
+
+  if (authError || !user) return null;
+
+  const role = await getUserRole(user.id);
+  if (!canAccessAdminPortal(role)) return null;
+
+  return {
+    user,
+    role: role as PortalRole,
+    canWrite: canWriteAdminPortal(role),
+  };
 }
 
 export async function employeeLogin(formData: FormData) {
@@ -47,9 +75,13 @@ export async function employeeLogin(formData: FormData) {
   await syncEmployeeRole(data.user.id, data.user.email);
   const role = await getUserRole(data.user.id);
 
-  if (isAdminRole(role)) {
+  if (isAdminRole(role) || isViewerRole(role)) {
     await supabase.auth.signOut();
-    return { error: "You are signed in as an administrator. Please use the Admin Portal." };
+    return {
+      error: isViewerRole(role)
+        ? "You are signed in as a co-administrator (view only). Please use the Admin Portal."
+        : "You are signed in as an administrator. Please use the Admin Portal.",
+    };
   }
   if (!isEmployeePortalRole(role)) {
     await supabase.auth.signOut();
@@ -187,15 +219,19 @@ export async function requireAdmin(): Promise<{ user: User }> {
   }
 
   const role = await getUserRole(user.id);
-  if (!isAdminRole(role)) {
-    throw new Error("You do not have admin permissions.");
+  if (!canWriteAdminPortal(role)) {
+    throw new Error(
+      isViewerRole(role)
+        ? "View-only co-admin accounts cannot change records."
+        : "You do not have admin permissions."
+    );
   }
 
   return { user };
 }
 
-/** For admin pages — redirects non-admins away from the monitoring portal */
-export async function requireAdminForPage(): Promise<{ user: User }> {
+/** For admin pages — allows full admin and view-only co-admin */
+export async function requireAdminForPage(): Promise<AdminPortalAccess> {
   const supabase = await createClient();
   const { data: { user }, error: authError } = await supabase.auth.getUser();
 
@@ -204,11 +240,31 @@ export async function requireAdminForPage(): Promise<{ user: User }> {
   }
 
   const role = await getUserRole(user.id);
-  if (!isAdminRole(role)) {
+  if (!canAccessAdminPortal(role)) {
     if (isEmployeePortalRole(role)) {
       redirect("/employee/dashboard");
     }
     redirect("/admin/login?error=access_denied");
+  }
+
+  return {
+    user,
+    role: role as PortalRole,
+    canWrite: canWriteAdminPortal(role),
+  };
+}
+
+export async function requireAdminPortalRead(): Promise<{ user: User }> {
+  const supabase = await createClient();
+  const { data: { user }, error: authError } = await supabase.auth.getUser();
+
+  if (authError || !user) {
+    throw new Error("You must be logged in to perform this action.");
+  }
+
+  const role = await getUserRole(user.id);
+  if (!canAccessAdminPortal(role)) {
+    throw new Error("You do not have access to the admin portal.");
   }
 
   return { user };
@@ -236,8 +292,12 @@ export async function getEmployeeSession(): Promise<
   await syncEmployeeRole(user.id, user.email);
   const role = await getUserRole(user.id);
 
-  if (isAdminRole(role)) {
-    return { error: "You are logged in as an administrator. Use the Admin Portal instead." };
+  if (isAdminRole(role) || isViewerRole(role)) {
+    return {
+      error: isViewerRole(role)
+        ? "Co-admin accounts use the Admin Portal (view only)."
+        : "You are logged in as an administrator. Use the Admin Portal instead.",
+    };
   }
   if (!isEmployeePortalRole(role)) {
     return { error: "Employee access only. Please register with your DSWD Employee ID first." };
@@ -258,7 +318,7 @@ export async function requireEmployeeForPage(): Promise<{ user: User }> {
   await syncEmployeeRole(user.id, user.email);
   const role = await getUserRole(user.id);
 
-  if (isAdminRole(role)) {
+  if (isAdminRole(role) || isViewerRole(role)) {
     redirect("/admin/dashboard");
   }
   if (!isEmployeePortalRole(role)) {

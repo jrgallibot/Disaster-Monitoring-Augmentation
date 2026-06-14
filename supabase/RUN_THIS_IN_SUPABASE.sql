@@ -496,3 +496,20 @@ CREATE INDEX IF NOT EXISTS employee_accomplishments_source_id_idx
 CREATE INDEX IF NOT EXISTS employee_accomplishments_shared_by_idx
   ON employee_accomplishments(shared_by_team_leader_id);
 
+-- ============================================================
+-- Migration 019: Admin + co-admin (viewer) account profiles
+-- Create users via: node scripts/create-portal-admin-users.mjs
+-- ============================================================
+
+INSERT INTO profiles (id, email, role)
+SELECT id, email, 'admin'
+FROM auth.users
+WHERE lower(email) = lower('admin@dswd.gov.ph')
+ON CONFLICT (id) DO UPDATE SET email = EXCLUDED.email, role = 'admin';
+
+INSERT INTO profiles (id, email, role)
+SELECT id, email, 'viewer'
+FROM auth.users
+WHERE lower(email) = lower('coadmin@dswd.gov.ph')
+ON CONFLICT (id) DO UPDATE SET email = EXCLUDED.email, role = 'viewer';
+

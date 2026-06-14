@@ -10,13 +10,17 @@ import { logout } from "@/lib/actions/auth";
 import { cn } from "@/lib/utils";
 
 const navItems = [
-  { href: "/admin/dashboard", label: "Dashboard", icon: LayoutDashboard },
-  { href: "/admin/reports/daily-operations", label: "Daily Report", icon: FileText },
-  { href: "/admin/employees", label: "Employees", icon: Users },
-  { href: "/admin/libraries", label: "Libraries", icon: BookOpen },
+  { href: "/admin/dashboard", label: "Dashboard", icon: LayoutDashboard, writeOnly: false },
+  { href: "/admin/reports/daily-operations", label: "Daily Report", icon: FileText, writeOnly: false },
+  { href: "/admin/employees", label: "Employees", icon: Users, writeOnly: false },
+  { href: "/admin/libraries", label: "Libraries", icon: BookOpen, writeOnly: true },
 ];
 
-export function AdminSidebar() {
+interface AdminSidebarProps {
+  canWrite?: boolean;
+}
+
+export function AdminSidebar({ canWrite = true }: AdminSidebarProps) {
   const [open, setOpen] = useState(false);
   const [isPending, startTransition] = useTransition();
   const router = useRouter();
@@ -42,11 +46,20 @@ export function AdminSidebar() {
   const sidebar = (
     <div className="flex flex-col h-full">
       <div className="p-4 border-b border-dswd-border">
-        <h2 className="font-bold text-dswd-navy text-sm">Admin Portal</h2>
+        <h2 className="font-bold text-dswd-navy text-sm">
+          {canWrite ? "Admin Portal" : "Co-Admin Portal"}
+        </h2>
         <p className="text-xs text-muted-foreground mt-1">{SYSTEM_NAME}</p>
+        {!canWrite && (
+          <p className="text-xs text-amber-700 bg-amber-50 border border-amber-200 rounded px-2 py-1 mt-2">
+            View only — no add, edit, or delete
+          </p>
+        )}
       </div>
       <nav className="flex-1 p-3 space-y-1">
-        {navItems.map((item) => (
+        {navItems
+          .filter((item) => canWrite || !item.writeOnly)
+          .map((item) => (
           <Link
             key={item.href}
             href={item.href}

@@ -1,11 +1,11 @@
-import { notFound } from "next/navigation";
+import { notFound, redirect } from "next/navigation";
 import { EmployeeForm } from "@/components/admin/EmployeeForm";
 import {
   getEmployeeById,
   getSpecializations,
   getRegions,
 } from "@/lib/actions/employees";
-import { getEmployeePortalRole } from "@/lib/actions/auth";
+import { getEmployeePortalRole, requireAdminForPage } from "@/lib/actions/auth";
 
 export const dynamic = "force-dynamic";
 
@@ -14,6 +14,11 @@ interface PageProps {
 }
 
 export default async function EditEmployeePage({ params }: PageProps) {
+  const access = await requireAdminForPage();
+  if (!access.canWrite) {
+    redirect("/admin/employees");
+  }
+
   const { id } = await params;
   const [employee, specializations, regions, portalRole] = await Promise.all([
     getEmployeeById(id),

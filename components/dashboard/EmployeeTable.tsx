@@ -34,6 +34,8 @@ interface EmployeeTableProps {
   statuses: LibraryStatus[];
   specializations: LibrarySpecialization[];
   showActions?: boolean;
+  /** Admin portal read-only: full columns + history, no edit/deployment */
+  viewOnly?: boolean;
   editBasePath?: string;
   title?: string;
   hideRegionFilter?: boolean;
@@ -46,11 +48,14 @@ export function EmployeeTable({
   statuses,
   specializations,
   showActions = false,
+  viewOnly = false,
   editBasePath = "/admin/employees",
   title = "Augmented Employees",
   hideRegionFilter = false,
   hideTeamLeaderColumn = false,
 }: EmployeeTableProps) {
+  const showAdminColumns = showActions || viewOnly;
+  const showHistory = showActions || viewOnly;
   const router = useRouter();
   const [employees, setEmployees] = useState(initialEmployees);
   const [search, setSearch] = useState("");
@@ -174,7 +179,7 @@ export function EmployeeTable({
             <table className="w-full text-sm">
               <thead>
                 <tr className="border-b border-dswd-border bg-dswd-light">
-                  {showActions && (
+                  {showAdminColumns && (
                     <th className="text-left p-3 font-semibold text-dswd-navy">Photo</th>
                   )}
                   <th className="text-left p-3 font-semibold text-dswd-navy">Employee ID</th>
@@ -182,15 +187,15 @@ export function EmployeeTable({
                   <th className="text-left p-3 font-semibold text-dswd-navy">Specialization</th>
                   <th className="text-left p-3 font-semibold text-dswd-navy">Region</th>
                   <th className="text-left p-3 font-semibold text-dswd-navy">Status</th>
-                  {showActions && !hideTeamLeaderColumn && (
+                  {showAdminColumns && !hideTeamLeaderColumn && (
                     <th className="text-left p-3 font-semibold text-dswd-navy">Team Leader</th>
                   )}
                   <th className="text-left p-3 font-semibold text-dswd-navy">Actual Task</th>
                   <th className="text-left p-3 font-semibold text-dswd-navy">Deployment Location</th>
-                  {showActions && (
+                  {showAdminColumns && (
                     <th className="text-left p-3 font-semibold text-dswd-navy">Last GPS</th>
                   )}
-                  {showActions && (
+                  {showHistory && (
                     <th className="text-left p-3 font-semibold text-dswd-navy">Actions</th>
                   )}
                 </tr>
@@ -198,7 +203,7 @@ export function EmployeeTable({
               <tbody>
                 {filtered.map((emp) => (
                   <tr key={emp.id} className="border-b border-dswd-border hover:bg-dswd-light/50">
-                    {showActions && (
+                    {showAdminColumns && (
                       <td className="p-3">
                         <EmployeeAvatar photoUrl={emp.photo_url} size={40} />
                       </td>
@@ -242,7 +247,7 @@ export function EmployeeTable({
                         "—"
                       )}
                     </td>
-                    {showActions && !hideTeamLeaderColumn && (
+                    {showAdminColumns && !hideTeamLeaderColumn && (
                       <td className="p-3 text-muted-foreground max-w-[160px] truncate">
                         {getEmployeeTeamLeader(emp) ?? "—"}
                       </td>
@@ -253,7 +258,7 @@ export function EmployeeTable({
                     <td className="p-3 text-muted-foreground max-w-[200px] truncate">
                       {getDeploymentLocationDisplay(emp)}
                     </td>
-                    {showActions && (
+                    {showAdminColumns && (
                       <td className="p-3">
                         {hasValidCoordinates(emp.last_latitude, emp.last_longitude) ? (
                           <a
@@ -271,23 +276,27 @@ export function EmployeeTable({
                         )}
                       </td>
                     )}
-                    {showActions && (
+                    {showHistory && (
                       <td className="p-3">
                         <div className="flex items-center gap-3 flex-wrap">
-                          <button
-                            type="button"
-                            onClick={() => setDeploymentEmployee(emp)}
-                            className="text-dswd-blue hover:underline text-xs inline-flex items-center gap-1"
-                          >
-                            <Briefcase className="h-3 w-3" />
-                            Deployment
-                          </button>
-                          <Link
-                            href={`${editBasePath}/${emp.id}/edit`}
-                            className="text-dswd-blue hover:underline text-xs"
-                          >
-                            Edit
-                          </Link>
+                          {showActions && (
+                            <>
+                              <button
+                                type="button"
+                                onClick={() => setDeploymentEmployee(emp)}
+                                className="text-dswd-blue hover:underline text-xs inline-flex items-center gap-1"
+                              >
+                                <Briefcase className="h-3 w-3" />
+                                Deployment
+                              </button>
+                              <Link
+                                href={`${editBasePath}/${emp.id}/edit`}
+                                className="text-dswd-blue hover:underline text-xs"
+                              >
+                                Edit
+                              </Link>
+                            </>
+                          )}
                           <button
                             type="button"
                             onClick={() => setHistoryEmployee(emp)}
@@ -311,7 +320,7 @@ export function EmployeeTable({
               <div key={emp.id} className="gov-card p-4">
                 <div className="flex items-start justify-between gap-2">
                   <div className="flex items-center gap-3 min-w-0">
-                    {showActions ? (
+                    {showAdminColumns ? (
                       <EmployeeAvatar photoUrl={emp.photo_url} size={48} />
                     ) : (
                       <div className="h-10 w-10 rounded-full bg-dswd-light flex items-center justify-center shrink-0">
@@ -355,7 +364,7 @@ export function EmployeeTable({
                   <span>
                     Region: <strong className="text-foreground">{emp.region?.code ?? "—"}</strong>
                   </span>
-                  {showActions && !hideTeamLeaderColumn && getEmployeeTeamLeader(emp) && (
+                  {showAdminColumns && !hideTeamLeaderColumn && getEmployeeTeamLeader(emp) && (
                     <span className="col-span-2 truncate">
                       Team Leader: <strong className="text-foreground">{getEmployeeTeamLeader(emp)}</strong>
                     </span>
@@ -372,7 +381,7 @@ export function EmployeeTable({
                       </span>
                     </>
                   )}
-                  {showActions && hasValidCoordinates(emp.last_latitude, emp.last_longitude) && (
+                  {showAdminColumns && hasValidCoordinates(emp.last_latitude, emp.last_longitude) && (
                     <span className="col-span-2">
                       <a
                         href={getMapUrl(emp.last_latitude, emp.last_longitude)!}
@@ -401,7 +410,18 @@ export function EmployeeTable({
                     </Button>
                   </div>
                 )}
-                {!showActions && (
+                {viewOnly && (
+                  <div className="mt-3 flex gap-2 flex-wrap">
+                    <Button variant="outline" size="sm" onClick={() => setHistoryEmployee(emp)}>
+                      <History className="h-4 w-4" />
+                      History
+                    </Button>
+                    <Link href={`/employees/${emp.id}`} className="text-xs text-dswd-blue hover:underline self-center">
+                      View details
+                    </Link>
+                  </div>
+                )}
+                {!showAdminColumns && (
                   <Link href={`/employees/${emp.id}`} className="mt-3 block text-xs text-dswd-blue hover:underline">
                     View details
                   </Link>
@@ -419,19 +439,19 @@ export function EmployeeTable({
       </Card>
 
       {showActions && (
-        <>
-          <AdminDeploymentUpdateDialog
-            employee={deploymentEmployee}
-            statuses={statuses}
-            onClose={() => setDeploymentEmployee(null)}
-            onUpdated={handleDeploymentUpdated}
-          />
-          <AdminEmployeeHistoryDialog
-            employee={historyEmployee}
-            statuses={statuses}
-            onClose={() => setHistoryEmployee(null)}
-          />
-        </>
+        <AdminDeploymentUpdateDialog
+          employee={deploymentEmployee}
+          statuses={statuses}
+          onClose={() => setDeploymentEmployee(null)}
+          onUpdated={handleDeploymentUpdated}
+        />
+      )}
+      {showHistory && (
+        <AdminEmployeeHistoryDialog
+          employee={historyEmployee}
+          statuses={statuses}
+          onClose={() => setHistoryEmployee(null)}
+        />
       )}
     </>
   );

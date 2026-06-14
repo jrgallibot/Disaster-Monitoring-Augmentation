@@ -1,6 +1,6 @@
 import { updateSession } from "@/lib/supabase/middleware";
 import { getUserRole, syncEmployeeRole } from "@/lib/auth/employee-sync";
-import { isAdminRole, isEmployeePortalRole } from "@/lib/auth/roles";
+import { isAdminRole, isEmployeePortalRole, canAccessAdminPortal, isViewerRole } from "@/lib/auth/roles";
 import { createServerClient } from "@supabase/ssr";
 import { NextResponse, type NextRequest } from "next/server";
 
@@ -24,6 +24,12 @@ function makeSupabase(request: NextRequest) {
       },
     }
   );
+}
+
+function isAdminWriteRoute(pathname: string): boolean {
+  if (pathname === "/admin/employees/new") return true;
+  if (pathname === "/admin/libraries") return true;
+  return /^\/admin\/employees\/[^/]+\/edit$/.test(pathname);
 }
 
 export async function middleware(request: NextRequest) {
@@ -53,7 +59,7 @@ export async function middleware(request: NextRequest) {
       }
 
       const role = await getUserRole(user.id);
-      if (!isAdminRole(role)) {
+      if (!canAccessAdminPortal(role)) {
         const url = request.nextUrl.clone();
         if (isEmployeePortalRole(role)) {
           url.pathname = "/employee/dashboard";
@@ -61,6 +67,13 @@ export async function middleware(request: NextRequest) {
           url.pathname = "/admin/login";
           url.searchParams.set("error", "access_denied");
         }
+        return NextResponse.redirect(url);
+      }
+
+      if (isViewerRole(role) && isAdminWriteRoute(pathname)) {
+        const url = request.nextUrl.clone();
+        url.pathname = "/admin/dashboard";
+        url.searchParams.set("error", "read_only");
         return NextResponse.redirect(url);
       }
     }
@@ -71,7 +84,7 @@ export async function middleware(request: NextRequest) {
       if (user) {
         const role = await getUserRole(user.id);
         const url = request.nextUrl.clone();
-        if (isAdminRole(role)) {
+        if (canAccessAdminPortal(role)) {
           url.pathname = "/admin/dashboard";
         } else if (isEmployeePortalRole(role)) {
           url.pathname = "/employee/dashboard";
@@ -96,7 +109,7 @@ export async function middleware(request: NextRequest) {
       const role = await getUserRole(user.id);
 
       const url = request.nextUrl.clone();
-      if (isAdminRole(role)) {
+      if (isAdminRole(role) || isViewerRole(role)) {
         url.pathname = "/admin/dashboard";
         return NextResponse.redirect(url);
       }
@@ -119,7 +132,7 @@ export async function middleware(request: NextRequest) {
           url.pathname = "/employee/dashboard";
           return NextResponse.redirect(url);
         }
-        if (isAdminRole(role)) {
+        if (isAdminRole(role) || isViewerRole(role)) {
           url.pathname = "/admin/dashboard";
           return NextResponse.redirect(url);
         }
