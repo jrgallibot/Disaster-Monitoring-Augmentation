@@ -31,9 +31,10 @@ export function AdminEmployeeHistoryDialog({
   const [loadError, setLoadError] = useState<string | null>(null);
   const [isPending, startTransition] = useTransition();
   const [tab, setTab] = useState("deployment");
+  const employeeId = employee?.id ?? null;
 
   useEffect(() => {
-    if (!employee) {
+    if (!employeeId) {
       setBundle(null);
       setLoadError(null);
       return;
@@ -42,7 +43,7 @@ export function AdminEmployeeHistoryDialog({
     startTransition(async () => {
       setLoadError(null);
       try {
-        const result = await getEmployeeHistoryBundleForAdmin(employee.id);
+        const result = await getEmployeeHistoryBundleForAdmin(employeeId);
         if (!result.success) {
           setLoadError(result.error);
           setBundle(null);
@@ -54,7 +55,7 @@ export function AdminEmployeeHistoryDialog({
         setBundle(null);
       }
     });
-  }, [employee?.id, employee?.status_id, employee?.deployment_location, employee?.updated_at]);
+  }, [employeeId]);
 
   if (!employee) return null;
 

@@ -4,6 +4,7 @@ import { createClient } from "@/lib/supabase/server";
 import { createServiceClient } from "@/lib/supabase/service";
 import { getEmployeeSession } from "@/lib/actions/auth";
 import { uploadToEmployeePhotoBucket } from "@/lib/actions/photo-storage";
+import { getFormDataPhotoFile } from "@/lib/photo-upload";
 import { getUserRole } from "@/lib/auth/employee-sync";
 import type {
   ActionResult,
@@ -78,7 +79,10 @@ export async function uploadAttendanceSelfie(
     return { success: false, error: session.error };
   }
 
-  const file = formData.get("photo") as File | null;
+  const file = getFormDataPhotoFile(formData);
+  if (!file) {
+    return { success: false, error: "Selfie photo is required for time in/out." };
+  }
   const stamp = Date.now();
   return uploadToEmployeePhotoBucket(
     session.user.id,

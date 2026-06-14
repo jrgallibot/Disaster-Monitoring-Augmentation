@@ -11,12 +11,14 @@ interface EmployeeAuthPanelProps {
   defaultTab?: "login" | "register";
   specializations: LibrarySpecialization[];
   regions: LibraryRegion[];
+  registrationEnabled?: boolean;
 }
 
 export function EmployeeAuthPanel({
   defaultTab = "login",
   specializations,
   regions,
+  registrationEnabled = true,
 }: EmployeeAuthPanelProps) {
   const [tab, setTab] = useState(defaultTab);
 
@@ -45,25 +47,43 @@ export function EmployeeAuthPanel({
         </TabsContent>
 
         <TabsContent value="register">
-          <div className="mb-4 p-4 bg-amber-50 border border-amber-100 rounded-lg text-sm">
-            <div className="flex gap-2 items-start">
-              <Info className="h-4 w-4 text-dswd-gold shrink-0 mt-0.5" />
-              <div className="text-dswd-navy">
-                <p className="font-medium mb-2">To create your account, provide:</p>
-                <ul className="list-disc list-inside space-y-1 text-muted-foreground">
-                  <li>Your <strong className="text-foreground">DSWD Employee ID</strong></li>
-                  <li>Your <strong className="text-foreground">email address</strong> for sign-in</li>
-                  <li>Your <strong className="text-foreground">specialization</strong> (select from the list or add your own) and <strong className="text-foreground">home region</strong></li>
-                  <li>A password (minimum 6 characters)</li>
-                </ul>
-              </div>
+          {!registrationEnabled ? (
+            <div className="p-4 bg-amber-50 border border-amber-200 rounded-lg text-sm text-amber-800">
+              Registration is temporarily unavailable because specialization and region libraries
+              could not be loaded. Please try again later or contact your administrator.
             </div>
-          </div>
-          <EmployeeRegisterForm
-            specializations={specializations}
-            regions={regions}
-            onSwitchToLogin={() => setTab("login")}
-          />
+          ) : (
+            <>
+              <div className="mb-4 p-4 bg-amber-50 border border-amber-100 rounded-lg text-sm">
+                <div className="flex gap-2 items-start">
+                  <Info className="h-4 w-4 text-dswd-gold shrink-0 mt-0.5" />
+                  <div className="text-dswd-navy">
+                    <p className="font-medium mb-2">To create your account, provide:</p>
+                    <ul className="list-disc list-inside space-y-1 text-muted-foreground">
+                      <li>
+                        Your <strong className="text-foreground">DSWD Employee ID</strong>
+                      </li>
+                      <li>
+                        Your <strong className="text-foreground">email address</strong> for
+                        sign-in
+                      </li>
+                      <li>
+                        Your <strong className="text-foreground">specialization</strong> (select
+                        from the list or add your own) and{" "}
+                        <strong className="text-foreground">home region</strong>
+                      </li>
+                      <li>A password (minimum 6 characters)</li>
+                    </ul>
+                  </div>
+                </div>
+              </div>
+              <EmployeeRegisterForm
+                specializations={specializations}
+                regions={regions}
+                onSwitchToLogin={() => setTab("login")}
+              />
+            </>
+          )}
         </TabsContent>
       </Tabs>
     </div>

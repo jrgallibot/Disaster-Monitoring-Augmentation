@@ -2,16 +2,16 @@ import { Header } from "@/components/layout/Header";
 import { Footer } from "@/components/layout/Footer";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { EmployeeAuthPanel } from "@/components/employee/EmployeeAuthPanel";
-import { getRegions, getSpecializations } from "@/lib/actions/employees";
+import { getPublicLibraryLoadState } from "@/lib/actions/public-libraries";
 import { SYSTEM_TAGLINE } from "@/lib/branding";
 import { Shield } from "lucide-react";
 import Link from "next/link";
 
+export const dynamic = "force-dynamic";
+
 export default async function EmployeeRegisterPage() {
-  const [specializations, regions] = await Promise.all([
-    getSpecializations(),
-    getRegions(),
-  ]);
+  const { specializations, regions, configured, librariesAvailable } =
+    await getPublicLibraryLoadState();
 
   return (
     <>
@@ -32,10 +32,23 @@ export default async function EmployeeRegisterPage() {
               </p>
             </CardHeader>
             <CardContent className="pt-6">
+              {!configured && (
+                <div className="mb-4 bg-amber-50 border border-amber-200 text-amber-800 px-4 py-3 rounded-md text-sm">
+                  Database connection is not configured yet. Registration is unavailable until
+                  Supabase environment variables are set on the server.
+                </div>
+              )}
+              {configured && !librariesAvailable && (
+                <div className="mb-4 bg-amber-50 border border-amber-200 text-amber-800 px-4 py-3 rounded-md text-sm">
+                  Specialization and region libraries are not loaded. Ask your administrator to run
+                  database migrations and seed library data in Supabase.
+                </div>
+              )}
               <EmployeeAuthPanel
                 defaultTab="register"
                 specializations={specializations}
                 regions={regions}
+                registrationEnabled={librariesAvailable}
               />
               <p className="text-center text-xs text-muted-foreground mt-6">
                 <Link href="/" className="text-dswd-blue hover:underline">

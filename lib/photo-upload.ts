@@ -46,6 +46,14 @@ export function validatePhotoFile(file: File | null): ActionResult & { mimeType?
   return { success: true, mimeType };
 }
 
+export function getFormDataPhotoFile(formData: FormData, field = "photo"): File | null {
+  const entry = formData.get(field);
+  if (!(entry instanceof File) || entry.size === 0) {
+    return null;
+  }
+  return entry;
+}
+
 export function photoExtensionForMime(mimeType: string): string {
   if (mimeType === "image/jpeg") return "jpg";
   return mimeType.split("/")[1] || "jpg";

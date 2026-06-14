@@ -16,6 +16,7 @@ import type {
 } from "@/lib/types";
 import { revalidatePath } from "next/cache";
 import { getEmployeeSession } from "@/lib/actions/auth";
+import { getFormDataPhotoFile } from "@/lib/photo-upload";
 import { uploadToEmployeePhotoBucket } from "@/lib/actions/photo-storage";
 
 function buildChanges(
@@ -117,7 +118,10 @@ export async function uploadMyProfilePhoto(formData: FormData): Promise<ActionRe
     return { success: false, error: session.error };
   }
 
-  const file = formData.get("photo") as File | null;
+  const file = getFormDataPhotoFile(formData);
+  if (!file) {
+    return { success: false, error: "Please select a profile photo to upload." };
+  }
   return uploadToEmployeePhotoBucket(session.user.id, file, "profile", { upsert: true });
 }
 

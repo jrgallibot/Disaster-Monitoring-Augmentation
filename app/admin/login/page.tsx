@@ -4,11 +4,11 @@ import { SYSTEM_NAME } from "@/lib/branding";
 import { Shield } from "lucide-react";
 
 interface AdminLoginPageProps {
-  searchParams: Promise<{ error?: string }>;
+  searchParams?: { error?: string };
 }
 
 export default async function AdminLoginPage({ searchParams }: AdminLoginPageProps) {
-  const { error } = await searchParams;
+  const error = searchParams?.error;
   const initialError =
     error === "access_denied"
       ? "Access denied. Only administrator accounts can use the Admin Monitoring portal."
