@@ -6,6 +6,7 @@ import {
   REGION_SELECT_LEGACY,
 } from "@/lib/supabase/selects";
 import type { EmployeeWithRelations, LibraryRegion, TeamLeaderSummary } from "@/lib/types";
+import { applyDailyDeploymentView } from "@/lib/deployment-daily";
 import { isValidTeamLeaderSummary } from "@/lib/utils";
 
 const TEAM_LEADER_COLUMNS =
@@ -47,10 +48,10 @@ export function normalizeRegion(
 }
 
 function normalizeEmployeeRow(row: EmployeeWithRelations): EmployeeWithRelations {
-  return {
+  return applyDailyDeploymentView({
     ...row,
     region: row.region ? normalizeRegion(row.region) : null,
-  };
+  });
 }
 
 async function fetchTeamLeaderMap(

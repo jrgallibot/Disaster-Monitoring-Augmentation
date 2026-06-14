@@ -1,12 +1,11 @@
 import { redirect } from "next/navigation";
-import { EmployeeAttendancePanel } from "@/components/employee/EmployeeAttendancePanel";
 import { EmployeeAccomplishmentPanel } from "@/components/employee/EmployeeAccomplishmentPanel";
 import { EmployeeStatusForm } from "@/components/employee/EmployeeStatusForm";
 import { TeamLeaderPanel } from "@/components/employee/TeamLeaderPanel";
-import { getMyAttendance, getMyAttendanceStatus } from "@/lib/actions/attendance";
 import { getMyAccomplishments } from "@/lib/actions/accomplishments";
 import {
   getMyEmployee,
+  getMyDeploymentLogs,
   getMyUpdateLogs,
   getRegionsForEmployee,
   getSpecializationsForEmployee,
@@ -21,15 +20,14 @@ import { Shield } from "lucide-react";
 export const dynamic = "force-dynamic";
 
 export default async function EmployeeDashboardPage() {
-  const [employee, specializations, regions, statuses, logs, attendanceStatus, attendance, accomplishments, teamLeaderContext, adminAccess] =
+  const [employee, specializations, regions, statuses, logs, deploymentLogs, accomplishments, teamLeaderContext, adminAccess] =
     await Promise.all([
       getMyEmployee(),
       getSpecializationsForEmployee(),
       getRegionsForEmployee(),
       getStatuses(),
       getMyUpdateLogs(),
-      getMyAttendanceStatus(),
-      getMyAttendance(),
+      getMyDeploymentLogs(),
       getMyAccomplishments(),
       getTeamLeaderContext(),
       getAdminPortalAccess(),
@@ -53,7 +51,7 @@ export default async function EmployeeDashboardPage() {
         <div>
           <h1 className="gov-section-title">My Employee Account</h1>
           <p className="text-sm text-muted-foreground mt-2">
-            Update your profile and deployment status, then record time in/out and submit accomplishments.
+            Update your profile and set your deployment status for today (resets at midnight), then submit accomplishments.
             {teamLeaderContext.isTeamLeader
               ? " As a regional team leader, you can also manage your team members below."
               : ""}
@@ -78,8 +76,8 @@ export default async function EmployeeDashboardPage() {
         regions={regions}
         statuses={statuses}
         logs={logs}
+        deploymentLogs={deploymentLogs}
       />
-      <EmployeeAttendancePanel status={attendanceStatus} records={attendance} />
       <EmployeeAccomplishmentPanel
         records={accomplishments}
         isTeamLeader={teamLeaderContext.isTeamLeader}

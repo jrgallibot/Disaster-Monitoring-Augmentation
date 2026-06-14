@@ -67,6 +67,7 @@ export interface Employee {
   photo_url: string | null;
   last_latitude: number | null;
   last_longitude: number | null;
+  deployment_set_at: string | null;
   created_at: string;
   updated_at: string;
 }
@@ -76,6 +77,8 @@ export interface EmployeeWithRelations extends Employee {
   region: LibraryRegion | null;
   assigned_team_leader?: TeamLeaderSummary | null;
   status: LibraryStatus | null;
+  /** True when today's deployment has not been set (resets at midnight PH time). */
+  deploymentPending?: boolean;
 }
 
 export interface DashboardStats {

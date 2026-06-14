@@ -10,6 +10,7 @@ import {
 } from "@/lib/utils";
 import type {
   ActionResult,
+  EmployeeDeploymentLog,
   EmployeeSelfUpdate,
   EmployeeUpdateLog,
   EmployeeWithRelations,
@@ -110,6 +111,31 @@ export async function getMyUpdateLogs(limit = 20): Promise<EmployeeUpdateLog[]> 
 
   if (error) return [];
   return (data ?? []) as EmployeeUpdateLog[];
+}
+
+export async function getMyDeploymentLogs(limit = 50): Promise<EmployeeDeploymentLog[]> {
+  const supabase = await createClient();
+  const { data: { user } } = await supabase.auth.getUser();
+  if (!user) return [];
+
+  const { data: employee } = await supabase
+    .from("employees")
+    .select("id")
+    .eq("user_id", user.id)
+    .maybeSingle();
+
+  if (!employee) return [];
+
+  const service = createServiceClient();
+  const { data, error } = await service
+    .from("employee_deployment_logs")
+    .select("*")
+    .eq("employee_id", employee.id)
+    .order("created_at", { ascending: false })
+    .limit(limit);
+
+  if (error) return [];
+  return (data ?? []) as EmployeeDeploymentLog[];
 }
 
 export async function uploadMyProfilePhoto(formData: FormData): Promise<ActionResult & { url?: string }> {

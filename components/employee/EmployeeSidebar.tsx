@@ -4,7 +4,7 @@ import { SYSTEM_TAGLINE } from "@/lib/branding";
 import { useState, useTransition } from "react";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
-import { LayoutDashboard, LogOut, Menu, Shield, Users, FileText, X } from "lucide-react";
+import { LayoutDashboard, LogOut, Menu, Shield, Users, FileText, X, KeyRound } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { employeeLogout } from "@/lib/actions/auth";
 import { cn } from "@/lib/utils";
@@ -58,6 +58,14 @@ export function EmployeeSidebar({
         >
           <LayoutDashboard className="h-4 w-4" />
           My Account
+        </Link>
+        <Link
+          href="/employee/change-password"
+          onClick={() => setOpen(false)}
+          className={navLinkClass("/employee/change-password")}
+        >
+          <KeyRound className="h-4 w-4" />
+          Change Password
         </Link>
         {showTeamLink && (
           <>

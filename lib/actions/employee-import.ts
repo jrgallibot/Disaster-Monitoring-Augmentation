@@ -3,6 +3,8 @@
 import { requireAdmin } from "@/lib/actions/auth";
 import { getRegions, getSpecializations } from "@/lib/actions/employees";
 import { linkOrCreateEmployeeRecord } from "@/lib/auth/employee-sync";
+import { storePortalPasswordForAuthUser } from "@/lib/actions/employee-password";
+import { generatePortalPassword } from "@/lib/password";
 import {
   matchRegion,
   matchSpecialization,
@@ -36,14 +38,7 @@ export type EmployeeImportResult =
   | { success: false; error: string };
 
 function generatePassword(length = 12): string {
-  const chars = "ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnpqrstuvwxyz23456789";
-  let password = "";
-  const randomValues = new Uint32Array(length);
-  crypto.getRandomValues(randomValues);
-  for (let i = 0; i < length; i++) {
-    password += chars[randomValues[i] % chars.length];
-  }
-  return password;
+  return generatePortalPassword(length);
 }
 
 function isValidEmail(email: string): boolean {
@@ -54,7 +49,7 @@ export async function importEmployeesFromExcel(
   rows: EmployeeImportRow[]
 ): Promise<EmployeeImportResult> {
   try {
-    await requireAdmin();
+    const { user: adminUser } = await requireAdmin();
 
     if (!rows.length) {
       return { success: false, error: "No rows to import." };
@@ -255,6 +250,30 @@ export async function importEmployeesFromExcel(
         });
         skipped++;
         continue;
+      }
+
+      const { data: employeeRow } = await service
+        .from("employees")
+        .select("id")
+        .eq("user_id", createData.user.id)
+        .maybeSingle();
+
+      if (employeeRow) {
+        try {
+          await storePortalPasswordForAuthUser(createData.user.id, password, adminUser.id);
+        } catch (vaultError) {
+          await service.auth.admin.deleteUser(createData.user.id);
+          errors.push({
+            row: rowNumber,
+            employee_id: employeeId,
+            message:
+              vaultError instanceof Error
+                ? vaultError.message
+                : "Failed to store portal password in vault.",
+          });
+          skipped++;
+          continue;
+        }
       }
 
       imported++;

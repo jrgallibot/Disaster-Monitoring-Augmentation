@@ -16,10 +16,11 @@ import {
 } from "@/components/ui/select";
 import { AdminDeploymentUpdateDialog } from "@/components/admin/AdminDeploymentUpdateDialog";
 import { AdminEmployeeHistoryDialog } from "@/components/admin/AdminEmployeeHistoryDialog";
+import { AdminEmployeePasswordDialog } from "@/components/admin/AdminEmployeePasswordDialog";
 import { EmployeeAvatar } from "@/components/shared/EmployeeAvatar";
 import { statusRequiresDeploymentLocation } from "@/lib/deployment";
-import { Search, History, MapPin, User, Briefcase } from "lucide-react";
 import { formatCoordinates, getMapUrl, hasValidCoordinates } from "@/lib/geo";
+import { Search, History, MapPin, User, Briefcase, KeyRound, Eye } from "lucide-react";
 import { getFullName, getEmployeeTeamLeader, getEmployeeTeamLeaderSearchText } from "@/lib/utils";
 import type {
   EmployeeWithRelations,
@@ -38,6 +39,8 @@ interface EmployeeTableProps {
   viewOnly?: boolean;
   /** Public homepage: rich columns, public profile links, no admin actions */
   publicEnriched?: boolean;
+  /** Full admin only: reset / view portal passwords */
+  showAdminPasswordActions?: boolean;
   editBasePath?: string;
   title?: string;
   hideRegionFilter?: boolean;
@@ -52,6 +55,7 @@ export function EmployeeTable({
   showActions = false,
   viewOnly = false,
   publicEnriched = false,
+  showAdminPasswordActions = false,
   editBasePath = "/admin/employees",
   title = "Augmented Employees",
   hideRegionFilter = false,
@@ -69,6 +73,18 @@ export function EmployeeTable({
   const [specFilter, setSpecFilter] = useState("all");
   const [historyEmployee, setHistoryEmployee] = useState<EmployeeWithRelations | null>(null);
   const [deploymentEmployee, setDeploymentEmployee] = useState<EmployeeWithRelations | null>(null);
+  const [passwordEmployee, setPasswordEmployee] = useState<EmployeeWithRelations | null>(null);
+  const [passwordMode, setPasswordMode] = useState<"view" | "reset" | null>(null);
+
+  function openPasswordDialog(emp: EmployeeWithRelations, mode: "view" | "reset") {
+    setPasswordEmployee(emp);
+    setPasswordMode(mode);
+  }
+
+  function closePasswordDialog() {
+    setPasswordEmployee(null);
+    setPasswordMode(null);
+  }
 
   useEffect(() => {
     setEmployees(initialEmployees);
@@ -79,6 +95,64 @@ export function EmployeeTable({
       prev.map((e) => (e.id === updated.id ? { ...e, ...updated } : e))
     );
     router.refresh();
+  }
+
+  function renderStatusCell(emp: EmployeeWithRelations) {
+    if (emp.deploymentPending) {
+      const pendingBadge = (
+        <Badge className="bg-amber-100 text-amber-900 border-amber-200 hover:bg-amber-100">
+          Pending Today
+        </Badge>
+      );
+
+      if (showActions) {
+        return (
+          <button
+            type="button"
+            onClick={() => setDeploymentEmployee(emp)}
+            className="inline-flex"
+            title="Set today's deployment status"
+          >
+            {pendingBadge}
+          </button>
+        );
+      }
+
+      return pendingBadge;
+    }
+
+    if (emp.status) {
+      if (showActions) {
+        return (
+          <button
+            type="button"
+            onClick={() => setDeploymentEmployee(emp)}
+            className="inline-flex"
+            title="Click to update deployment status"
+          >
+            <Badge color={emp.status.color} className="cursor-pointer hover:opacity-90">
+              {emp.status.name}
+            </Badge>
+          </button>
+        );
+      }
+
+      return <Badge color={emp.status.color}>{emp.status.name}</Badge>;
+    }
+
+    if (showActions) {
+      return (
+        <button
+          type="button"
+          onClick={() => setDeploymentEmployee(emp)}
+          className="text-dswd-blue hover:underline text-xs"
+        >
+          Set status
+        </button>
+      );
+    }
+
+    return "—";
   }
 
   function isDeployed(emp: EmployeeWithRelations) {
@@ -108,7 +182,9 @@ export function EmployeeTable({
     const matchesRegion =
       regionFilter === "all" || e.region_id === regionFilter;
     const matchesStatus =
-      statusFilter === "all" || e.status_id === statusFilter;
+      statusFilter === "all" ||
+      (statusFilter === "__pending__" && e.deploymentPending) ||
+      e.status_id === statusFilter;
     const matchesSpec =
       specFilter === "all" || e.specialization_id === specFilter;
 
@@ -152,6 +228,7 @@ export function EmployeeTable({
               </SelectTrigger>
               <SelectContent>
                 <SelectItem value="all">All Statuses</SelectItem>
+                <SelectItem value="__pending__">Pending Today</SelectItem>
                 {statuses.map((s) => (
                   <SelectItem key={s.id} value={s.id}>
                     {s.name}
@@ -224,34 +301,7 @@ export function EmployeeTable({
                     </td>
                     <td className="p-3">{emp.specialization?.name ?? "—"}</td>
                     <td className="p-3">{emp.region?.code ?? "—"}</td>
-                    <td className="p-3">
-                      {emp.status ? (
-                        showActions ? (
-                          <button
-                            type="button"
-                            onClick={() => setDeploymentEmployee(emp)}
-                            className="inline-flex"
-                            title="Click to update deployment status"
-                          >
-                            <Badge color={emp.status.color} className="cursor-pointer hover:opacity-90">
-                              {emp.status.name}
-                            </Badge>
-                          </button>
-                        ) : (
-                          <Badge color={emp.status.color}>{emp.status.name}</Badge>
-                        )
-                      ) : showActions ? (
-                        <button
-                          type="button"
-                          onClick={() => setDeploymentEmployee(emp)}
-                          className="text-dswd-blue hover:underline text-xs"
-                        >
-                          Set status
-                        </button>
-                      ) : (
-                        "—"
-                      )}
-                    </td>
+                    <td className="p-3">{renderStatusCell(emp)}</td>
                     {showAdminColumns && !hideTeamLeaderColumn && (
                       <td className="p-3 text-muted-foreground max-w-[160px] truncate">
                         {getEmployeeTeamLeader(emp) ?? "—"}
@@ -300,6 +350,26 @@ export function EmployeeTable({
                               >
                                 Edit
                               </Link>
+                              {showAdminPasswordActions && emp.user_id && (
+                                <>
+                                  <button
+                                    type="button"
+                                    onClick={() => openPasswordDialog(emp, "reset")}
+                                    className="text-dswd-blue hover:underline text-xs inline-flex items-center gap-1"
+                                  >
+                                    <KeyRound className="h-3 w-3" />
+                                    Reset Password
+                                  </button>
+                                  <button
+                                    type="button"
+                                    onClick={() => openPasswordDialog(emp, "view")}
+                                    className="text-dswd-blue hover:underline text-xs inline-flex items-center gap-1"
+                                  >
+                                    <Eye className="h-3 w-3" />
+                                    View Password
+                                  </button>
+                                </>
+                              )}
                             </>
                           )}
                           <button
@@ -339,27 +409,7 @@ export function EmployeeTable({
                       <p className="text-xs text-muted-foreground font-mono">{emp.employee_id}</p>
                     </div>
                   </div>
-                  {emp.status ? (
-                    showActions ? (
-                      <button type="button" onClick={() => setDeploymentEmployee(emp)}>
-                        <Badge color={emp.status.color} className="shrink-0 cursor-pointer">
-                          {emp.status.name}
-                        </Badge>
-                      </button>
-                    ) : (
-                      <Badge color={emp.status.color} className="shrink-0">
-                        {emp.status.name}
-                      </Badge>
-                    )
-                  ) : showActions ? (
-                    <button
-                      type="button"
-                      onClick={() => setDeploymentEmployee(emp)}
-                      className="text-xs text-dswd-blue hover:underline shrink-0"
-                    >
-                      Set status
-                    </button>
-                  ) : null}
+                  {renderStatusCell(emp)}
                 </div>
                 <div className="mt-3 grid grid-cols-2 gap-2 text-xs text-muted-foreground">
                   <span>
@@ -409,6 +459,26 @@ export function EmployeeTable({
                     <Button asChild variant="outline" size="sm">
                       <Link href={`${editBasePath}/${emp.id}/edit`}>Edit</Link>
                     </Button>
+                    {showAdminPasswordActions && emp.user_id && (
+                      <>
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={() => openPasswordDialog(emp, "reset")}
+                        >
+                          <KeyRound className="h-4 w-4" />
+                          Reset Password
+                        </Button>
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={() => openPasswordDialog(emp, "view")}
+                        >
+                          <Eye className="h-4 w-4" />
+                          View Password
+                        </Button>
+                      </>
+                    )}
                     <Button variant="outline" size="sm" onClick={() => setHistoryEmployee(emp)}>
                       <History className="h-4 w-4" />
                       History
@@ -464,6 +534,14 @@ export function EmployeeTable({
           employee={historyEmployee}
           statuses={statuses}
           onClose={() => setHistoryEmployee(null)}
+          canManagePortalPassword={showAdminPasswordActions}
+        />
+      )}
+      {showAdminPasswordActions && (
+        <AdminEmployeePasswordDialog
+          employee={passwordEmployee}
+          mode={passwordMode}
+          onClose={closePasswordDialog}
         />
       )}
     </>

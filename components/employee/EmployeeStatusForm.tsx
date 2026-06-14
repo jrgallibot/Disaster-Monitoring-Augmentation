@@ -17,11 +17,14 @@ import {
 } from "@/components/ui/select";
 import { AdminDeploymentUpdateDialog } from "@/components/admin/AdminDeploymentUpdateDialog";
 import { EmployeeActivityLogs } from "@/components/employee/EmployeeActivityLogs";
+import { EmployeeDeploymentHistory } from "@/components/employee/EmployeeDeploymentHistory";
 import { updateMyEmployee, uploadMyProfilePhoto } from "@/lib/actions/employee-portal";
 import { toast } from "@/lib/toast";
+import { DEPLOYMENT_DAILY_RESET_NOTICE } from "@/lib/deployment-daily";
 import { formatCoordinates, getCurrentPosition, getMapUrl, hasValidCoordinates } from "@/lib/geo";
 import { formatDate, getEmployeeTeamLeader, getAutoAssignedTeamLeaderId, getRegionTeamLeaderSummaries, getTeamLeaderDisplay, shouldSelectTeamLeader } from "@/lib/utils";
 import type {
+  EmployeeDeploymentLog,
   EmployeeUpdateLog,
   EmployeeWithRelations,
   LibraryRegion,
@@ -36,6 +39,7 @@ interface EmployeeStatusFormProps {
   regions: LibraryRegion[];
   statuses: LibraryStatus[];
   logs: EmployeeUpdateLog[];
+  deploymentLogs: EmployeeDeploymentLog[];
 }
 
 export function EmployeeStatusForm({
@@ -44,6 +48,7 @@ export function EmployeeStatusForm({
   regions,
   statuses,
   logs,
+  deploymentLogs,
 }: EmployeeStatusFormProps) {
   const router = useRouter();
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -169,9 +174,17 @@ export function EmployeeStatusForm({
     ...employee,
     region: selectedRegion ?? employee.region,
   });
+  const deploymentPending = employee.deploymentPending ?? false;
 
   return (
     <div className="space-y-6">
+      {deploymentPending && (
+        <div className="rounded-lg border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-900">
+          <p className="font-medium">Today&apos;s deployment status is not set yet.</p>
+          <p className="mt-1 text-amber-800">{DEPLOYMENT_DAILY_RESET_NOTICE}</p>
+        </div>
+      )}
+
       <Card>
         <CardHeader>
           <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
@@ -214,7 +227,7 @@ export function EmployeeStatusForm({
                 onClick={() => setShowDeploymentDialog(true)}
               >
                 <Briefcase className="h-4 w-4" />
-                Set Deployment Status
+                {deploymentPending ? "Set Today's Deployment" : "Set Deployment Status"}
               </Button>
             )}
           </div>
@@ -256,10 +269,12 @@ export function EmployeeStatusForm({
               onClick={() => setShowDeploymentDialog(true)}
             >
               <Briefcase className="h-4 w-4" />
-              Update Deployment
+              {deploymentPending ? "Set Today's Deployment" : "Update Deployment"}
             </Button>
             <p className="text-xs text-muted-foreground">
-              Update your deployment status, actual task, and location when assigned.
+              {deploymentPending
+                ? "Set your deployment status for today before starting duty."
+                : "Update your deployment status, actual task, and location when assigned."}
             </p>
           </div>
           {coords && hasValidCoordinates(coords.latitude, coords.longitude) && (
@@ -451,6 +466,8 @@ export function EmployeeStatusForm({
       </Card>
 
       <EmployeeActivityLogs logs={logs} />
+
+      <EmployeeDeploymentHistory employee={employee} logs={deploymentLogs} statuses={statuses} />
 
       <AdminDeploymentUpdateDialog
         employee={showDeploymentDialog ? employee : null}

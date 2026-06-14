@@ -33,7 +33,7 @@ export function TeamLeaderPanel({
             My Team — {regionLabel}
           </h2>
           <p className="text-sm text-muted-foreground mt-1">
-            As regional team leader, you can view and manage all employees in your assigned region(s) — update deployment status, edit profiles, view history, and share accomplishments.
+            As regional team leader, you can view and manage all employees in your assigned region(s). Deployment status resets daily at midnight — employees must set it again each day. History is preserved.
           </p>
         </div>
         <div className="flex flex-wrap gap-2 shrink-0">

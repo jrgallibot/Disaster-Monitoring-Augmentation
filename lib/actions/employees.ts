@@ -44,12 +44,15 @@ export async function getEmployees(filters?: {
       .order("updated_at", { ascending: false });
 
     if (filters?.regionId) query = query.eq("region_id", filters.regionId);
-    if (filters?.statusId) query = query.eq("status_id", filters.statusId);
     if (filters?.specializationId)
       query = query.eq("specialization_id", filters.specializationId);
 
     return query;
   });
+
+  if (filters?.statusId) {
+    employees = employees.filter((e) => e.status_id === filters.statusId);
+  }
 
   if (filters?.search) {
     const term = filters.search.toLowerCase();
@@ -624,6 +627,7 @@ export async function updateEmployeeDeployment(
         status_id: statusId,
         deployment_location: nextLocation,
         actual_task: nextActualTask,
+        deployment_set_at: new Date().toISOString(),
       })
       .eq("id", id);
 

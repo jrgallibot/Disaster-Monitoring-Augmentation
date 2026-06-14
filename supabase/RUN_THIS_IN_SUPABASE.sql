@@ -513,3 +513,40 @@ FROM auth.users
 WHERE lower(email) = lower('coadmin@dswd.gov.ph')
 ON CONFLICT (id) DO UPDATE SET email = EXCLUDED.email, role = 'viewer';
 
+-- ============================================================
+-- Migration 020: Daily deployment reset tracking
+-- ============================================================
+
+ALTER TABLE employees
+  ADD COLUMN IF NOT EXISTS deployment_set_at TIMESTAMPTZ;
+
+UPDATE employees e
+SET deployment_set_at = COALESCE(
+  (
+    SELECT MAX(created_at)
+    FROM employee_deployment_logs
+    WHERE employee_id = e.id
+  ),
+  CASE WHEN e.status_id IS NOT NULL THEN e.updated_at ELSE NULL END
+)
+WHERE e.deployment_set_at IS NULL;
+
+CREATE INDEX IF NOT EXISTS employees_deployment_set_at_idx
+  ON employees (deployment_set_at DESC);
+
+-- ============================================================
+-- Migration 021: Encrypted employee portal password vault
+-- ============================================================
+
+CREATE TABLE IF NOT EXISTS employee_portal_passwords (
+  employee_id UUID PRIMARY KEY REFERENCES employees(id) ON DELETE CASCADE,
+  encrypted_password TEXT NOT NULL,
+  updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  updated_by UUID REFERENCES auth.users(id) ON DELETE SET NULL
+);
+
+CREATE INDEX IF NOT EXISTS employee_portal_passwords_updated_at_idx
+  ON employee_portal_passwords (updated_at DESC);
+
+ALTER TABLE employee_portal_passwords ENABLE ROW LEVEL SECURITY;
+

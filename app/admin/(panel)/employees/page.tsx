@@ -31,7 +31,7 @@ export default async function AdminEmployeesPage() {
           </h1>
           <p className="text-sm text-muted-foreground mt-2">
             {access.canWrite
-              ? "Add, edit, and monitor augmented employee records. Update deployment status from Actions."
+              ? "Add, edit, and monitor augmented employee records. Update deployment status, reset portal passwords, or view passwords (admin verification required)."
               : "Browse augmented employee records and view history. Changes are disabled for co-admin accounts."}
           </p>
         </div>
@@ -54,6 +54,7 @@ export default async function AdminEmployeesPage() {
         statuses={statuses}
         specializations={specializations}
         showActions={access.canWrite}
+        showAdminPasswordActions={access.canWrite}
         viewOnly={!access.canWrite}
       />
     </div>

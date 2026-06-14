@@ -2,6 +2,7 @@
 
 import { createClient } from "@/lib/supabase/server";
 import { createServiceClient } from "@/lib/supabase/service";
+import { storePortalPasswordForAuthUser } from "@/lib/actions/employee-password";
 import { getUserRole, linkOrCreateEmployeeRecord, syncEmployeeRole, canUseEmployeePortal } from "@/lib/auth/employee-sync";
 import {
   canAccessAdminPortal,
@@ -182,6 +183,19 @@ export async function employeeRegister(formData: FormData): Promise<ActionResult
   });
   if (!linked) {
     return { success: false, error: "Could not create your employee record. Please try again." };
+  }
+
+  try {
+    await storePortalPasswordForAuthUser(createData.user.id, password, createData.user.id);
+  } catch (vaultError) {
+    await service.auth.admin.deleteUser(createData.user.id);
+    return {
+      success: false,
+      error:
+        vaultError instanceof Error
+          ? vaultError.message
+          : "Could not save portal password. Run migration 021 in Supabase SQL Editor.",
+    };
   }
 
   const { error: signInError } = await supabase.auth.signInWithPassword({ email, password });

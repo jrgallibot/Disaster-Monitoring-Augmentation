@@ -15,6 +15,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { getStatusById, statusRequiresDeploymentLocation } from "@/lib/deployment";
+import { DEPLOYMENT_DAILY_RESET_NOTICE } from "@/lib/deployment-daily";
 import { getFullName } from "@/lib/utils";
 import type { EmployeeWithRelations, LibraryStatus } from "@/lib/types";
 import { updateEmployeeDeployment } from "@/lib/actions/employees";
@@ -43,9 +44,10 @@ export function AdminDeploymentUpdateDialog({
 
   useEffect(() => {
     if (!employee) return;
-    setStatusId(employee.status_id ?? "");
-    setActualTask(employee.actual_task ?? "");
-    setDeploymentLocation(employee.deployment_location ?? "");
+    const pending = employee.deploymentPending ?? false;
+    setStatusId(pending ? "" : (employee.status_id ?? ""));
+    setActualTask(pending ? "" : (employee.actual_task ?? ""));
+    setDeploymentLocation(pending ? "" : (employee.deployment_location ?? ""));
     setError(null);
   }, [employee]);
 
@@ -54,9 +56,10 @@ export function AdminDeploymentUpdateDialog({
     [statusId, statuses]
   );
 
-  const locationRequired = statusRequiresDeploymentLocation(selectedStatus?.name);
-
   if (!employee) return null;
+
+  const locationRequired = statusRequiresDeploymentLocation(selectedStatus?.name);
+  const deploymentPending = employee.deploymentPending ?? false;
 
   function handleSave() {
     if (!statusId) {
@@ -103,6 +106,8 @@ export function AdminDeploymentUpdateDialog({
         status,
         actual_task: nextActualTask,
         deployment_location: nextLocation,
+        deployment_set_at: new Date().toISOString(),
+        deploymentPending: false,
         updated_at: new Date().toISOString(),
       });
 
@@ -131,7 +136,7 @@ export function AdminDeploymentUpdateDialog({
           <div>
             <h2 className="text-lg font-bold text-dswd-navy flex items-center gap-2">
               <Briefcase className="h-5 w-5" />
-              Update Deployment
+              {deploymentPending ? "Set Today's Deployment" : "Update Deployment"}
             </h2>
             <p className="text-sm text-muted-foreground mt-1">{employeeName}</p>
             <p className="text-xs font-mono text-muted-foreground">{employee.employee_id}</p>
@@ -145,15 +150,23 @@ export function AdminDeploymentUpdateDialog({
         </div>
 
         <div className="p-5 space-y-4">
+          {deploymentPending && (
+            <div className="rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-sm text-amber-900">
+              {DEPLOYMENT_DAILY_RESET_NOTICE}
+            </div>
+          )}
+
           <div className="rounded-lg bg-dswd-light p-3 space-y-2">
             <p className="text-xs font-medium text-dswd-navy uppercase tracking-wide">
-              Current Assignment
+              {deploymentPending ? "Today's Assignment" : "Current Assignment"}
             </p>
             <div className="flex items-center gap-2 flex-wrap">
               {employee.status ? (
                 <Badge color={employee.status.color}>{employee.status.name}</Badge>
               ) : (
-                <span className="text-sm text-muted-foreground">No status set</span>
+                <span className="text-sm text-muted-foreground">
+                  {deploymentPending ? "Not set for today" : "No status set"}
+                </span>
               )}
             </div>
             {employee.actual_task && (
@@ -240,7 +253,7 @@ export function AdminDeploymentUpdateDialog({
             Cancel
           </Button>
           <Button onClick={handleSave} disabled={isPending}>
-            {isPending ? "Saving..." : "Save Deployment"}
+            {isPending ? "Saving..." : deploymentPending ? "Save Today's Deployment" : "Save Deployment"}
           </Button>
         </div>
       </div>

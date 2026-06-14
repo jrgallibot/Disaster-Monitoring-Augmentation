@@ -8,24 +8,27 @@ import { EmployeeAvatar } from "@/components/shared/EmployeeAvatar";
 import { EmployeeAttendanceList } from "@/components/shared/EmployeeAttendanceList";
 import { EmployeeUpdateLogList } from "@/components/shared/EmployeeUpdateLogList";
 import { EmployeeDeploymentLogList } from "@/components/shared/EmployeeDeploymentLogList";
+import { AdminEmployeePortalPasswordPanel } from "@/components/admin/AdminEmployeePortalPasswordPanel";
 import { EmployeeAccomplishmentList } from "@/components/shared/EmployeeAccomplishmentList";
 import { getEmployeeHistoryBundleForAdmin } from "@/lib/actions/employees";
 import { statusRequiresDeploymentLocation } from "@/lib/deployment";
 import { formatCoordinates, getMapUrl, hasValidCoordinates } from "@/lib/geo";
 import { getFullName } from "@/lib/utils";
 import type { EmployeeHistoryBundle, EmployeeWithRelations, LibraryStatus } from "@/lib/types";
-import { Briefcase, ClipboardList, Clock, History, MapPin, X } from "lucide-react";
+import { Briefcase, ClipboardList, Clock, History, KeyRound, MapPin, X } from "lucide-react";
 
 interface AdminEmployeeHistoryDialogProps {
   employee: EmployeeWithRelations | null;
   statuses: LibraryStatus[];
   onClose: () => void;
+  canManagePortalPassword?: boolean;
 }
 
 export function AdminEmployeeHistoryDialog({
   employee,
   statuses,
   onClose,
+  canManagePortalPassword = false,
 }: AdminEmployeeHistoryDialogProps) {
   const [bundle, setBundle] = useState<EmployeeHistoryBundle | null>(null);
   const [loadError, setLoadError] = useState<string | null>(null);
@@ -125,7 +128,13 @@ export function AdminEmployeeHistoryDialog({
           )}
 
           <Tabs value={tab} onValueChange={setTab}>
-            <TabsList className="grid w-full grid-cols-2 sm:grid-cols-4 mb-4 h-auto gap-1">
+            <TabsList className="grid w-full grid-cols-2 sm:grid-cols-5 mb-4 h-auto gap-1">
+              {employee.user_id && (
+                <TabsTrigger value="portal" className="gap-1 text-xs sm:text-sm">
+                  <KeyRound className="h-4 w-4 shrink-0" />
+                  Portal
+                </TabsTrigger>
+              )}
               <TabsTrigger value="deployment" className="gap-1 text-xs sm:text-sm">
                 <Briefcase className="h-4 w-4 shrink-0" />
                 Deployment
@@ -163,6 +172,15 @@ export function AdminEmployeeHistoryDialog({
                 )}
               </TabsTrigger>
             </TabsList>
+
+            {employee.user_id && (
+              <TabsContent value="portal">
+                <AdminEmployeePortalPasswordPanel
+                  employee={snapshot}
+                  canManage={canManagePortalPassword}
+                />
+              </TabsContent>
+            )}
 
             <TabsContent value="deployment">
               <EmployeeDeploymentLogList
