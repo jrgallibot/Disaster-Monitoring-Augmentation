@@ -18,6 +18,7 @@ import { getStatusById, statusRequiresDeploymentLocation } from "@/lib/deploymen
 import { getFullName } from "@/lib/utils";
 import type { EmployeeWithRelations, LibraryStatus } from "@/lib/types";
 import { updateEmployeeDeployment } from "@/lib/actions/employees";
+import { toast } from "@/lib/toast";
 import { Briefcase, ClipboardList, MapPin, X } from "lucide-react";
 
 interface AdminDeploymentUpdateDialogProps {
@@ -59,15 +60,21 @@ export function AdminDeploymentUpdateDialog({
 
   function handleSave() {
     if (!statusId) {
-      setError("Please select a deployment status.");
+      const message = "Please select a deployment status.";
+      setError(message);
+      toast.error(message);
       return;
     }
     if (locationRequired && !actualTask.trim()) {
-      setError("Actual task is required when status is Deployed.");
+      const message = "Actual task is required when status is Deployed.";
+      setError(message);
+      toast.error(message);
       return;
     }
     if (locationRequired && !deploymentLocation.trim()) {
-      setError("Deployment location is required when status is Deployed.");
+      const message = "Deployment location is required when status is Deployed.";
+      setError(message);
+      toast.error(message);
       return;
     }
 
@@ -82,6 +89,7 @@ export function AdminDeploymentUpdateDialog({
 
       if (!result.success) {
         setError(result.error);
+        toast.error(result.error);
         return;
       }
 
@@ -98,6 +106,7 @@ export function AdminDeploymentUpdateDialog({
         updated_at: new Date().toISOString(),
       });
 
+      toast.success("Deployment updated successfully.");
       router.refresh();
       onClose();
     });

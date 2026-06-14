@@ -9,6 +9,7 @@ import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { EmployeeAttendanceList } from "@/components/shared/EmployeeAttendanceList";
 import { recordAttendance, uploadAttendanceSelfie } from "@/lib/actions/attendance";
+import { toast } from "@/lib/toast";
 import { getCurrentPosition } from "@/lib/geo";
 import { formatDate } from "@/lib/utils";
 import type { AttendanceStatus, EmployeeAttendance } from "@/lib/types";
@@ -24,7 +25,6 @@ export function EmployeeAttendancePanel({ status, records }: EmployeeAttendanceP
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [isPending, startTransition] = useTransition();
   const [error, setError] = useState<string | null>(null);
-  const [success, setSuccess] = useState<string | null>(null);
   const [pendingAction, setPendingAction] = useState<"time_in" | "time_out" | null>(null);
   const [selfieFile, setSelfieFile] = useState<File | null>(null);
   const [selfiePreview, setSelfiePreview] = useState<string | null>(null);
@@ -37,7 +37,6 @@ export function EmployeeAttendancePanel({ status, records }: EmployeeAttendanceP
 
   function requestAttendance(action: "time_in" | "time_out") {
     setError(null);
-    setSuccess(null);
     resetSelfie();
     setPendingAction(action);
   }
@@ -59,7 +58,9 @@ export function EmployeeAttendancePanel({ status, records }: EmployeeAttendanceP
     if (!pendingAction) return;
 
     if (!selfieFile) {
-      setError("Selfie photo is required. Please take or upload a selfie before confirming.");
+      const message = "Selfie photo is required. Please take or upload a selfie before confirming.";
+      setError(message);
+      toast.error(message);
       return;
     }
 
@@ -72,6 +73,7 @@ export function EmployeeAttendancePanel({ status, records }: EmployeeAttendanceP
 
       if (!uploadResult.success) {
         setError(uploadResult.error);
+        toast.error(uploadResult.error);
         return;
       }
 
@@ -84,16 +86,18 @@ export function EmployeeAttendancePanel({ status, records }: EmployeeAttendanceP
       );
 
       if (!result || !result.success) {
-        setError(result?.error ?? "Failed to record attendance. Please try again.");
+        const message = result?.error ?? "Failed to record attendance. Please try again.";
+        setError(message);
+        toast.error(message);
         return;
       }
 
       setPendingAction(null);
       resetSelfie();
-      setSuccess(
+      toast.success(
         action === "time_in"
-          ? "Time in recorded successfully with selfie."
-          : "Time out recorded successfully with selfie."
+          ? "Time in recorded successfully."
+          : "Time out recorded successfully."
       );
       router.refresh();
     });
@@ -215,11 +219,6 @@ export function EmployeeAttendancePanel({ status, records }: EmployeeAttendanceP
         {error && (
           <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-md text-sm">
             {error}
-          </div>
-        )}
-        {success && (
-          <div className="bg-green-50 border border-green-200 text-green-700 px-4 py-3 rounded-md text-sm">
-            {success}
           </div>
         )}
 

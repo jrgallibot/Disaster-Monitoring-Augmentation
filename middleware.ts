@@ -1,6 +1,6 @@
 import { updateSession } from "@/lib/supabase/middleware";
-import { getUserRole, syncEmployeeRole } from "@/lib/auth/employee-sync";
-import { isAdminRole, isEmployeePortalRole, canAccessAdminPortal, isViewerRole } from "@/lib/auth/roles";
+import { getUserRole, syncEmployeeRole, canUseEmployeePortal } from "@/lib/auth/employee-sync";
+import { isEmployeePortalRole, canAccessAdminPortal, isViewerRole } from "@/lib/auth/roles";
 import { createServerClient } from "@supabase/ssr";
 import { NextResponse, type NextRequest } from "next/server";
 
@@ -107,15 +107,16 @@ export async function middleware(request: NextRequest) {
 
       await syncEmployeeRole(user.id, user.email);
       const role = await getUserRole(user.id);
+      const canUseEmployee = await canUseEmployeePortal(user.id, role);
 
-      const url = request.nextUrl.clone();
-      if (isAdminRole(role) || isViewerRole(role)) {
-        url.pathname = "/admin/dashboard";
-        return NextResponse.redirect(url);
-      }
-      if (!isEmployeePortalRole(role)) {
-        url.pathname = "/employee/login";
-        url.searchParams.set("error", "not_employee");
+      if (!canUseEmployee) {
+        const url = request.nextUrl.clone();
+        if (canAccessAdminPortal(role)) {
+          url.pathname = "/admin/dashboard";
+        } else {
+          url.pathname = "/employee/login";
+          url.searchParams.set("error", "not_employee");
+        }
         return NextResponse.redirect(url);
       }
     }
@@ -126,13 +127,14 @@ export async function middleware(request: NextRequest) {
       if (user) {
         await syncEmployeeRole(user.id, user.email);
         const role = await getUserRole(user.id);
+        const canUseEmployee = await canUseEmployeePortal(user.id, role);
 
         const url = request.nextUrl.clone();
-        if (isEmployeePortalRole(role)) {
+        if (canUseEmployee) {
           url.pathname = "/employee/dashboard";
           return NextResponse.redirect(url);
         }
-        if (isAdminRole(role) || isViewerRole(role)) {
+        if (canAccessAdminPortal(role)) {
           url.pathname = "/admin/dashboard";
           return NextResponse.redirect(url);
         }

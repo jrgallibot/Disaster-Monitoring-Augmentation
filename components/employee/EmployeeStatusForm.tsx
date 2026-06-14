@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useRef, useState, useTransition } from "react";
+import { useEffect, useMemo, useRef, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import Image from "next/image";
 import { Button } from "@/components/ui/button";
@@ -15,8 +15,10 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import { AdminDeploymentUpdateDialog } from "@/components/admin/AdminDeploymentUpdateDialog";
 import { EmployeeActivityLogs } from "@/components/employee/EmployeeActivityLogs";
 import { updateMyEmployee, uploadMyProfilePhoto } from "@/lib/actions/employee-portal";
+import { toast } from "@/lib/toast";
 import { formatCoordinates, getCurrentPosition, getMapUrl, hasValidCoordinates } from "@/lib/geo";
 import { formatDate, getEmployeeTeamLeader, getAutoAssignedTeamLeaderId, getRegionTeamLeaderSummaries, getTeamLeaderDisplay, shouldSelectTeamLeader } from "@/lib/utils";
 import type {
@@ -24,29 +26,42 @@ import type {
   EmployeeWithRelations,
   LibraryRegion,
   LibrarySpecialization,
+  LibraryStatus,
 } from "@/lib/types";
-import { Camera, MapPin } from "lucide-react";
+import { Briefcase, Camera, MapPin } from "lucide-react";
 
 interface EmployeeStatusFormProps {
   employee: EmployeeWithRelations;
   specializations: LibrarySpecialization[];
   regions: LibraryRegion[];
+  statuses: LibraryStatus[];
   logs: EmployeeUpdateLog[];
 }
 
 export function EmployeeStatusForm({
-  employee,
+  employee: initialEmployee,
   specializations,
   regions,
+  statuses,
   logs,
 }: EmployeeStatusFormProps) {
   const router = useRouter();
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const [employee, setEmployee] = useState(initialEmployee);
+  const [showDeploymentDialog, setShowDeploymentDialog] = useState(false);
   const [isPending, startTransition] = useTransition();
   const [error, setError] = useState<string | null>(null);
-  const [success, setSuccess] = useState(false);
   const [specializationId, setSpecializationId] = useState(employee.specialization_id ?? "");
   const [regionId, setRegionId] = useState(employee.region_id ?? "");
+
+  useEffect(() => {
+    setEmployee(initialEmployee);
+  }, [initialEmployee]);
+
+  function handleDeploymentUpdated(updated: EmployeeWithRelations) {
+    setEmployee(updated);
+    router.refresh();
+  }
   const selectedRegion = useMemo(
     () => regions.find((region) => region.id === regionId) ?? employee.region,
     [regionId, regions, employee.region]
@@ -88,15 +103,18 @@ export function EmployeeStatusForm({
   async function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
     setError(null);
-    setSuccess(false);
 
     if (!photoUrl && !photoFile) {
-      setError("Profile photo is required. Please upload your photo.");
+      const message = "Profile photo is required. Please upload your photo.";
+      setError(message);
+      toast.error(message);
       return;
     }
 
     if (needsTeamLeaderSelection && !assignedTeamLeaderId) {
-      setError("Please select your team leader for this region.");
+      const message = "Please select your team leader for this region.";
+      setError(message);
+      toast.error(message);
       return;
     }
 
@@ -114,6 +132,7 @@ export function EmployeeStatusForm({
         const uploadResult = await uploadMyProfilePhoto(uploadData);
         if (!uploadResult.success) {
           setError(uploadResult.error);
+          toast.error(uploadResult.error);
           return;
         }
         finalPhotoUrl = uploadResult.url ?? "";
@@ -137,10 +156,11 @@ export function EmployeeStatusForm({
 
       if (!result.success) {
         setError(result.error);
+        toast.error(result.error);
         return;
       }
 
-      setSuccess(true);
+      toast.success("Your profile has been updated successfully.");
       router.refresh();
     });
   }
@@ -175,10 +195,27 @@ export function EmployeeStatusForm({
                 <p className="text-sm font-mono text-muted-foreground mt-1">{employee.employee_id}</p>
               </div>
             </div>
-            {employee.status && (
-              <Badge color={employee.status.color} className="w-fit">
-                {employee.status.name}
-              </Badge>
+            {employee.status ? (
+              <button
+                type="button"
+                onClick={() => setShowDeploymentDialog(true)}
+                className="inline-flex"
+                title="Click to update deployment status"
+              >
+                <Badge color={employee.status.color} className="w-fit cursor-pointer hover:opacity-90">
+                  {employee.status.name}
+                </Badge>
+              </button>
+            ) : (
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                onClick={() => setShowDeploymentDialog(true)}
+              >
+                <Briefcase className="h-4 w-4" />
+                Set Deployment Status
+              </Button>
             )}
           </div>
         </CardHeader>
@@ -211,9 +248,20 @@ export function EmployeeStatusForm({
               </span>
             </p>
           )}
-          <p className="text-xs text-muted-foreground">
-            Deployment status and location are managed by your administrator.
-          </p>
+          <div className="flex flex-wrap items-center gap-2 pt-1">
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              onClick={() => setShowDeploymentDialog(true)}
+            >
+              <Briefcase className="h-4 w-4" />
+              Update Deployment
+            </Button>
+            <p className="text-xs text-muted-foreground">
+              Update your deployment status, actual task, and location when assigned.
+            </p>
+          </div>
           {coords && hasValidCoordinates(coords.latitude, coords.longitude) && (
             <p className="text-xs text-muted-foreground flex items-center gap-1 flex-wrap">
               <MapPin className="h-3 w-3 shrink-0" />
@@ -243,11 +291,6 @@ export function EmployeeStatusForm({
             {error && (
               <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-md text-sm">
                 {error}
-              </div>
-            )}
-            {success && (
-              <div className="bg-green-50 border border-green-200 text-green-700 px-4 py-3 rounded-md text-sm">
-                Your profile has been updated and logged successfully.
               </div>
             )}
 
@@ -408,6 +451,13 @@ export function EmployeeStatusForm({
       </Card>
 
       <EmployeeActivityLogs logs={logs} />
+
+      <AdminDeploymentUpdateDialog
+        employee={showDeploymentDialog ? employee : null}
+        statuses={statuses}
+        onClose={() => setShowDeploymentDialog(false)}
+        onUpdated={handleDeploymentUpdated}
+      />
     </div>
   );
 }

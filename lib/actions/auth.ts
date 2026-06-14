@@ -2,7 +2,7 @@
 
 import { createClient } from "@/lib/supabase/server";
 import { createServiceClient } from "@/lib/supabase/service";
-import { getUserRole, linkOrCreateEmployeeRecord, syncEmployeeRole } from "@/lib/auth/employee-sync";
+import { getUserRole, linkOrCreateEmployeeRecord, syncEmployeeRole, canUseEmployeePortal } from "@/lib/auth/employee-sync";
 import {
   canAccessAdminPortal,
   canWriteAdminPortal,
@@ -64,6 +64,20 @@ export async function getAdminPortalAccess(): Promise<AdminPortalAccess | null> 
   };
 }
 
+/** True when the signed-in user also has a linked employee profile (dual admin + employee). */
+export async function hasEmployeePortalShortcut(): Promise<boolean> {
+  const supabase = await createClient();
+  const {
+    data: { user },
+    error: authError,
+  } = await supabase.auth.getUser();
+
+  if (authError || !user) return false;
+
+  const role = await getUserRole(user.id);
+  return canUseEmployeePortal(user.id, role);
+}
+
 export async function employeeLogin(formData: FormData) {
   const supabase = await createClient();
   const email = formData.get("email") as string;
@@ -74,17 +88,17 @@ export async function employeeLogin(formData: FormData) {
 
   await syncEmployeeRole(data.user.id, data.user.email);
   const role = await getUserRole(data.user.id);
+  const canUseEmployee = await canUseEmployeePortal(data.user.id, role);
 
-  if (isAdminRole(role) || isViewerRole(role)) {
+  if (!canUseEmployee) {
     await supabase.auth.signOut();
-    return {
-      error: isViewerRole(role)
-        ? "You are signed in as a co-administrator (view only). Please use the Admin Portal."
-        : "You are signed in as an administrator. Please use the Admin Portal.",
-    };
-  }
-  if (!isEmployeePortalRole(role)) {
-    await supabase.auth.signOut();
+    if (canAccessAdminPortal(role)) {
+      return {
+        error: isViewerRole(role)
+          ? "This co-admin account has no employee record. Use the Admin Portal, or ask an administrator to link your employee profile."
+          : "This administrator account has no employee record. Use the Admin Portal, or register/link your employee profile first.",
+      };
+    }
     return {
       error: "This account is not registered as an employee. Please register first or contact your administrator.",
     };
@@ -291,15 +305,16 @@ export async function getEmployeeSession(): Promise<
 
   await syncEmployeeRole(user.id, user.email);
   const role = await getUserRole(user.id);
+  const canUseEmployee = await canUseEmployeePortal(user.id, role);
 
-  if (isAdminRole(role) || isViewerRole(role)) {
-    return {
-      error: isViewerRole(role)
-        ? "Co-admin accounts use the Admin Portal (view only)."
-        : "You are logged in as an administrator. Use the Admin Portal instead.",
-    };
-  }
-  if (!isEmployeePortalRole(role)) {
+  if (!canUseEmployee) {
+    if (canAccessAdminPortal(role)) {
+      return {
+        error: isViewerRole(role)
+          ? "Co-admin accounts without an employee profile use the Admin Portal only."
+          : "Administrator accounts without an employee profile use the Admin Portal only.",
+      };
+    }
     return { error: "Employee access only. Please register with your DSWD Employee ID first." };
   }
 
@@ -317,11 +332,12 @@ export async function requireEmployeeForPage(): Promise<{ user: User }> {
 
   await syncEmployeeRole(user.id, user.email);
   const role = await getUserRole(user.id);
+  const canUseEmployee = await canUseEmployeePortal(user.id, role);
 
-  if (isAdminRole(role) || isViewerRole(role)) {
-    redirect("/admin/dashboard");
-  }
-  if (!isEmployeePortalRole(role)) {
+  if (!canUseEmployee) {
+    if (canAccessAdminPortal(role)) {
+      redirect("/admin/dashboard");
+    }
     redirect("/employee/login?error=not_employee");
   }
 

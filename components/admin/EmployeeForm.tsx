@@ -27,6 +27,7 @@ import type {
   LibrarySpecialization,
   EmployeeFormData,
 } from "@/lib/types";
+import { toast } from "@/lib/toast";
 
 interface EmployeeFormProps {
   employee?: EmployeeWithRelations;
@@ -96,9 +97,15 @@ export function EmployeeForm({
 
       if (!result.success) {
         setError(result.error);
+        toast.error(result.error);
         return;
       }
 
+      toast.success(
+        isEdit
+          ? "Employee updated successfully."
+          : "Employee created successfully."
+      );
       router.push(successHref ?? (isTeamLeaderMode ? "/employee/team" : "/admin/employees"));
       router.refresh();
     });

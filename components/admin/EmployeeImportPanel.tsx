@@ -13,6 +13,7 @@ import {
   parseImportSheetRows,
   type ParsedImportRow,
 } from "@/lib/employee-import";
+import { toast } from "@/lib/toast";
 import { Download, FileSpreadsheet, Upload, X } from "lucide-react";
 
 export function EmployeeImportPanel() {
@@ -96,12 +97,13 @@ export function EmployeeImportPanel() {
 
       if (!result.success) {
         setError(result.error);
+        toast.error(result.error);
         return;
       }
 
-      setResultSummary(
-        `Imported ${result.imported} employee(s). Skipped ${result.skipped} row(s).`
-      );
+      const summary = `Imported ${result.imported} employee(s). Skipped ${result.skipped} row(s).`;
+      setResultSummary(summary);
+      toast.success(summary);
       setImportErrors(result.errors);
 
       if (result.credentials.length > 0) {

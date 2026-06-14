@@ -4,7 +4,7 @@ import { SYSTEM_NAME } from "@/lib/branding";
 import { useState, useTransition } from "react";
 import { useRouter, usePathname } from "next/navigation";
 import Link from "next/link";
-import { Menu, X, LayoutDashboard, Users, BookOpen, LogOut, FileText } from "lucide-react";
+import { Menu, X, LayoutDashboard, Users, BookOpen, LogOut, FileText, UserCircle } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { logout } from "@/lib/actions/auth";
 import { cn } from "@/lib/utils";
@@ -18,9 +18,13 @@ const navItems = [
 
 interface AdminSidebarProps {
   canWrite?: boolean;
+  showEmployeePortalLink?: boolean;
 }
 
-export function AdminSidebar({ canWrite = true }: AdminSidebarProps) {
+export function AdminSidebar({
+  canWrite = true,
+  showEmployeePortalLink = false,
+}: AdminSidebarProps) {
   const [open, setOpen] = useState(false);
   const [isPending, startTransition] = useTransition();
   const router = useRouter();
@@ -70,8 +74,26 @@ export function AdminSidebar({ canWrite = true }: AdminSidebarProps) {
             {item.label}
           </Link>
         ))}
+        {showEmployeePortalLink && (
+          <Link
+            href="/employee/dashboard"
+            onClick={() => setOpen(false)}
+            className={navLinkClass("/employee/dashboard")}
+          >
+            <UserCircle className="h-4 w-4" />
+            My Employee Account
+          </Link>
+        )}
       </nav>
       <div className="p-3 border-t border-dswd-border space-y-2">
+        {showEmployeePortalLink && (
+          <Button asChild variant="default" size="sm" className="w-full">
+            <Link href="/employee/dashboard" onClick={() => setOpen(false)}>
+              <UserCircle className="h-4 w-4" />
+              Open Employee Portal
+            </Link>
+          </Button>
+        )}
         <Link
           href="/"
           className="flex items-center gap-2 px-3 py-2 text-xs text-dswd-blue hover:underline"

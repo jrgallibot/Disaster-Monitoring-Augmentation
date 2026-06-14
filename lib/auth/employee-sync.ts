@@ -1,5 +1,8 @@
 import { createServiceClient } from "@/lib/supabase/service";
-import { isElevatedPortalRole } from "@/lib/auth/roles";
+import {
+  canAccessAdminPortal,
+  isEmployeePortalRole,
+} from "@/lib/auth/roles";
 
 export async function getUserRole(userId: string): Promise<string | null> {
   try {
@@ -131,8 +134,11 @@ export async function syncEmployeeRole(
 
     if (employee) {
       const currentRole = await getUserRole(userId);
-      const role =
-        currentRole && isElevatedPortalRole(currentRole) ? currentRole : "employee";
+      const preserveRole =
+        currentRole === "admin" ||
+        currentRole === "viewer" ||
+        currentRole === "team_leader";
+      const role = preserveRole && currentRole ? currentRole : "employee";
 
       await service.from("profiles").upsert({
         id: userId,
@@ -145,4 +151,31 @@ export async function syncEmployeeRole(
   } catch {
     return false;
   }
+}
+
+/** True when auth user has a row in employees linked by user_id */
+export async function userHasEmployeeRecord(userId: string): Promise<boolean> {
+  try {
+    const service = createServiceClient();
+    const { data } = await service
+      .from("employees")
+      .select("id")
+      .eq("user_id", userId)
+      .maybeSingle();
+    return !!data;
+  } catch {
+    return false;
+  }
+}
+
+/** Employee portal access: employees, team leaders, or elevated roles with a linked employee record */
+export async function canUseEmployeePortal(
+  userId: string,
+  role: string | null | undefined
+): Promise<boolean> {
+  if (isEmployeePortalRole(role)) return true;
+  if (canAccessAdminPortal(role)) {
+    return userHasEmployeeRecord(userId);
+  }
+  return false;
 }

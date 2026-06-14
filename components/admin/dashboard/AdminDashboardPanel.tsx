@@ -32,12 +32,14 @@ import {
   Printer,
   RefreshCw,
   Radio,
+  UserCircle,
 } from "lucide-react";
 
 interface AdminDashboardPanelProps {
   initialData: AdminDashboardData;
   operationsReport: AdminOperationsReportData;
   canWrite?: boolean;
+  showEmployeePortalLink?: boolean;
 }
 
 const REFRESH_MS = 30000;
@@ -46,6 +48,7 @@ export function AdminDashboardPanel({
   initialData,
   operationsReport: initialOperationsReport,
   canWrite = true,
+  showEmployeePortalLink = false,
 }: AdminDashboardPanelProps) {
   const [data, setData] = useState(initialData);
   const [operationsReport, setOperationsReport] = useState(initialOperationsReport);
@@ -107,6 +110,14 @@ export function AdminDashboardPanel({
           </p>
         </div>
         <div className="flex flex-wrap gap-2">
+          {showEmployeePortalLink && (
+            <Button asChild variant="default" size="sm">
+              <Link href="/employee/dashboard">
+                <UserCircle className="h-4 w-4" />
+                Employee Portal
+              </Link>
+            </Button>
+          )}
           <Button variant="outline" size="sm" onClick={refresh} disabled={isRefreshing}>
             <RefreshCw className={`h-4 w-4 ${isRefreshing ? "animate-spin" : ""}`} />
             Refresh

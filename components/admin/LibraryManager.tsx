@@ -25,6 +25,7 @@ import type {
   EmployeeWithRelations,
 } from "@/lib/types";
 import type { ActionResult } from "@/lib/types";
+import { toast } from "@/lib/toast";
 
 interface LibraryManagerProps {
   specializations: LibrarySpecialization[];
@@ -222,9 +223,11 @@ function LibraryTable({
 
       if (!result.success) {
         setError(result.error);
+        toast.error(result.error);
         return;
       }
 
+      toast.success(editingId ? "Library item updated successfully." : "Library item created successfully.");
       setShowForm(false);
       setEditingId(null);
       setTeamLeaderIds([]);
@@ -253,8 +256,12 @@ function LibraryTable({
       const result = await onUpdate(id, data);
       if (!result.success) {
         setError(result.error);
+        toast.error(result.error);
         return;
       }
+      toast.success(
+        item.is_active ? "Library item deactivated." : "Library item activated."
+      );
       router.refresh();
     });
   }

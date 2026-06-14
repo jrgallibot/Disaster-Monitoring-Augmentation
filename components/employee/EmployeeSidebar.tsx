@@ -4,16 +4,20 @@ import { SYSTEM_TAGLINE } from "@/lib/branding";
 import { useState, useTransition } from "react";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
-import { LayoutDashboard, LogOut, Menu, Users, FileText, X } from "lucide-react";
+import { LayoutDashboard, LogOut, Menu, Shield, Users, FileText, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { employeeLogout } from "@/lib/actions/auth";
 import { cn } from "@/lib/utils";
 
 interface EmployeeSidebarProps {
   showTeamLink?: boolean;
+  adminPortalAccess?: { canWrite: boolean } | null;
 }
 
-export function EmployeeSidebar({ showTeamLink = false }: EmployeeSidebarProps) {
+export function EmployeeSidebar({
+  showTeamLink = false,
+  adminPortalAccess = null,
+}: EmployeeSidebarProps) {
   const pathname = usePathname();
   const [open, setOpen] = useState(false);
   const [isPending, startTransition] = useTransition();
@@ -33,6 +37,10 @@ export function EmployeeSidebar({ showTeamLink = false }: EmployeeSidebarProps) 
       router.push("/employee/login");
     });
   }
+
+  const adminLinkLabel = adminPortalAccess?.canWrite
+    ? "Admin Panel"
+    : "Admin Viewing Panel";
 
   const sidebar = (
     <div className="flex flex-col h-full">
@@ -69,8 +77,26 @@ export function EmployeeSidebar({ showTeamLink = false }: EmployeeSidebarProps) 
             </Link>
           </>
         )}
+        {adminPortalAccess && (
+          <Link
+            href="/admin/dashboard"
+            onClick={() => setOpen(false)}
+            className={navLinkClass("/admin/dashboard")}
+          >
+            <Shield className="h-4 w-4" />
+            {adminLinkLabel}
+          </Link>
+        )}
       </nav>
-      <div className="p-3 border-t border-dswd-border">
+      <div className="p-3 border-t border-dswd-border space-y-2">
+        {adminPortalAccess && (
+          <Button asChild variant="default" size="sm" className="w-full">
+            <Link href="/admin/dashboard" onClick={() => setOpen(false)}>
+              <Shield className="h-4 w-4" />
+              Open {adminLinkLabel}
+            </Link>
+          </Button>
+        )}
         <Button variant="outline" size="sm" className="w-full" onClick={handleLogout} disabled={isPending}>
           <LogOut className="h-4 w-4" />
           {isPending ? "Signing out..." : "Sign Out"}

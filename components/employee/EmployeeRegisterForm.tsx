@@ -5,6 +5,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { employeeRegister } from "@/lib/actions/auth";
+import { toast } from "@/lib/toast";
 import {
   Select,
   SelectContent,
@@ -28,7 +29,6 @@ export function EmployeeRegisterForm({
   onSwitchToLogin,
 }: EmployeeRegisterFormProps) {
   const [error, setError] = useState<string | null>(null);
-  const [success, setSuccess] = useState<string | null>(null);
   const [isPending, startTransition] = useTransition();
   const [specializationId, setSpecializationId] = useState("");
   const [customSpecialization, setCustomSpecialization] = useState("");
@@ -46,7 +46,6 @@ export function EmployeeRegisterForm({
   function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
     setError(null);
-    setSuccess(null);
     const formData = new FormData(e.currentTarget);
     formData.set("region_id", regionId);
 
@@ -59,25 +58,32 @@ export function EmployeeRegisterForm({
     }
 
     if (!useCustomSpecialization && !specializationId) {
-      setError("Please select your specialization.");
+      const message = "Please select your specialization.";
+      setError(message);
+      toast.error(message);
       return;
     }
     if (useCustomSpecialization && !customSpecialization.trim()) {
-      setError("Please enter your specialization.");
+      const message = "Please enter your specialization.";
+      setError(message);
+      toast.error(message);
       return;
     }
     if (!regionId) {
-      setError("Please select your home region.");
+      const message = "Please select your home region.";
+      setError(message);
+      toast.error(message);
       return;
     }
 
     startTransition(async () => {
       const result = await employeeRegister(formData);
       if (!result.success) {
-        if (result.error.includes("check your email")) {
-          setSuccess(result.error);
+        if (result.error.includes("check your email") || result.error.includes("sign in")) {
+          toast.info(result.error);
         } else {
           setError(result.error);
+          toast.error(result.error);
         }
       }
     });
@@ -88,11 +94,6 @@ export function EmployeeRegisterForm({
       {error && (
         <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-md text-sm">
           {error}
-        </div>
-      )}
-      {success && (
-        <div className="bg-green-50 border border-green-200 text-green-700 px-4 py-3 rounded-md text-sm">
-          {success}
         </div>
       )}
 

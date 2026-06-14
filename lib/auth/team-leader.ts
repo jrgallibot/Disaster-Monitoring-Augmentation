@@ -48,13 +48,17 @@ export async function canManageEmployee(
   const role = await getUserRole(authUserId);
   if (isAdminRole(role)) return { allowed: true };
 
-  if (role !== "employee" && !isTeamLeaderRole(role)) {
-    return { allowed: false, error: "You do not have permission to manage this employee." };
-  }
-
   const myRecord = await getEmployeeRecordByUserId(authUserId);
   if (!myRecord) {
     return { allowed: false, error: "Your employee record was not found." };
+  }
+
+  if (myRecord.id === targetEmployeeId) {
+    return { allowed: true };
+  }
+
+  if (role !== "employee" && !isTeamLeaderRole(role)) {
+    return { allowed: false, error: "You do not have permission to manage this employee." };
   }
 
   const ledRegionIds = await getLedRegionIds(myRecord.id);

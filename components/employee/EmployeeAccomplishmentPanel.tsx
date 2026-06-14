@@ -8,6 +8,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { EmployeeAccomplishmentList } from "@/components/shared/EmployeeAccomplishmentList";
 import { addMyAccomplishment } from "@/lib/actions/accomplishments";
+import { toast } from "@/lib/toast";
 import { getCurrentPosition } from "@/lib/geo";
 import type { EmployeeAccomplishment } from "@/lib/types";
 import { ClipboardList, MapPin } from "lucide-react";
@@ -24,16 +25,16 @@ export function EmployeeAccomplishmentPanel({
   const router = useRouter();
   const [isPending, startTransition] = useTransition();
   const [error, setError] = useState<string | null>(null);
-  const [success, setSuccess] = useState<string | null>(null);
   const [content, setContent] = useState("");
 
   function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
     setError(null);
-    setSuccess(null);
 
     if (!content.trim()) {
-      setError("Please enter your accomplishment or activity update.");
+      const message = "Please enter your accomplishment or activity update.";
+      setError(message);
+      toast.error(message);
       return;
     }
 
@@ -47,18 +48,19 @@ export function EmployeeAccomplishmentPanel({
 
       if (!result.success) {
         setError(result.error);
+        toast.error(result.error);
         return;
       }
 
       setContent("");
       if (isTeamLeader && result.sharedCount && result.sharedCount > 0) {
-        setSuccess(
+        toast.success(
           `Accomplishment saved and shared with ${result.sharedCount} team member${result.sharedCount === 1 ? "" : "s"}.`
         );
       } else if (isTeamLeader) {
-        setSuccess("Accomplishment saved. No team members are currently assigned to you.");
+        toast.success("Accomplishment saved. No team members are currently assigned to you.");
       } else {
-        setSuccess("Accomplishment saved successfully.");
+        toast.success("Accomplishment saved successfully.");
       }
       router.refresh();
     });
@@ -83,11 +85,6 @@ export function EmployeeAccomplishmentPanel({
           {error && (
             <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-md text-sm">
               {error}
-            </div>
-          )}
-          {success && (
-            <div className="bg-green-50 border border-green-200 text-green-700 px-4 py-3 rounded-md text-sm">
-              {success}
             </div>
           )}
 

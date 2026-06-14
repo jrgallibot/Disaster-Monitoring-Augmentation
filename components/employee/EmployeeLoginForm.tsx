@@ -5,6 +5,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { employeeLogin } from "@/lib/actions/auth";
+import { toast } from "@/lib/toast";
 
 interface EmployeeLoginFormProps {
   onSwitchToRegister?: () => void;
@@ -21,7 +22,10 @@ export function EmployeeLoginForm({ onSwitchToRegister }: EmployeeLoginFormProps
 
     startTransition(async () => {
       const result = await employeeLogin(formData);
-      if (result?.error) setError(result.error);
+      if (result?.error) {
+        setError(result.error);
+        toast.error(result.error);
+      }
     });
   }
 
