@@ -4,9 +4,10 @@ import { createServiceClient } from "@/lib/supabase/service";
 import { getEmployeeSession } from "@/lib/actions/auth";
 import {
   canManageEmployee,
-  employeeIsAssignedToLeader,
+  employeeIsVisibleTeamMember,
   getEmployeeRecordByUserId,
   getLedRegionIds,
+  getTeamLeaderEmployeeIdsForRegions,
 } from "@/lib/auth/team-leader";
 import { getUserRole } from "@/lib/auth/employee-sync";
 import { isTeamLeaderRole } from "@/lib/auth/roles";
@@ -94,6 +95,7 @@ export async function getTeamMembersForLeader(): Promise<EmployeeWithRelations[]
   const ledRegionIds = await getLedRegionIds(myRecord.id);
   if (ledRegionIds.length === 0) return [];
 
+  const teamLeaderIds = await getTeamLeaderEmployeeIdsForRegions(ledRegionIds);
   const supabase = createServiceClient();
   const employees = await queryEmployeeRows(supabase, (select) =>
     supabase
@@ -105,7 +107,7 @@ export async function getTeamMembersForLeader(): Promise<EmployeeWithRelations[]
   );
 
   return employees.filter((employee) =>
-    employeeIsAssignedToLeader(employee, myRecord.id)
+    employeeIsVisibleTeamMember(employee, myRecord.id, ledRegionIds, teamLeaderIds)
   );
 }
 

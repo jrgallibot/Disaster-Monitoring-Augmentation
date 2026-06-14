@@ -1,7 +1,7 @@
 "use server";
 
 import { requireAdmin } from "@/lib/actions/auth";
-import { employeeIsAssignedToLeader } from "@/lib/auth/team-leader";
+import { employeeIsVisibleTeamMember } from "@/lib/auth/team-leader";
 import { getEmployees, getRegions } from "@/lib/actions/employees";
 import {
   buildMemberReports,
@@ -29,16 +29,19 @@ export async function getAdminOperationsReportData(): Promise<AdminOperationsRep
 
   for (const region of regions.filter((item) => item.is_active)) {
     const leaders = getRegionTeamLeaderSummaries(region);
+    const regionLeaderIds = new Set(leaders.map((leader) => leader.id));
 
     for (const leaderSummary of leaders) {
       const teamLeader = employeeMap.get(leaderSummary.id);
       if (!teamLeader) continue;
 
-      const members = employees.filter(
-        (employee) =>
-          employee.id !== leaderSummary.id &&
-          employee.region_id === region.id &&
-          employeeIsAssignedToLeader(employee, leaderSummary.id)
+      const members = employees.filter((employee) =>
+        employeeIsVisibleTeamMember(
+          employee,
+          leaderSummary.id,
+          [region.id],
+          regionLeaderIds
+        )
       );
 
       const memberReports = buildMemberReports(
@@ -72,6 +75,16 @@ export async function getAdminOperationsReportData(): Promise<AdminOperationsRep
   });
 
   const allMembers = teams.flatMap((team) => team.members);
+  const uniqueMemberIds = new Set(allMembers.map((member) => member.employee.id));
+  const uniqueMembers = employees.filter((employee) => uniqueMemberIds.has(employee.id));
+  const membersWithActivity = new Set(
+    allMembers
+      .filter((member) => member.todayAccomplishments.length > 0)
+      .map((member) => member.employee.id)
+  );
+  const membersClockedIn = new Set(
+    allMembers.filter((member) => member.isClockedIn).map((member) => member.employee.id)
+  );
 
   return {
     generatedAt: new Date().toISOString(),
@@ -80,14 +93,13 @@ export async function getAdminOperationsReportData(): Promise<AdminOperationsRep
     summary: {
       totalTeams: teams.length,
       totalTeamLeaders: teams.length,
-      totalMembers: allMembers.length,
-      deployed: allMembers.filter((member) => member.employee.status?.name === "Deployed").length,
-      onStandby: allMembers.filter((member) => member.employee.status?.name === "On Standby")
+      totalMembers: uniqueMemberIds.size,
+      deployed: uniqueMembers.filter((employee) => employee.status?.name === "Deployed").length,
+      onStandby: uniqueMembers.filter((employee) => employee.status?.name === "On Standby")
         .length,
-      onLeave: allMembers.filter((member) => member.employee.status?.name === "On Leave").length,
-      clockedInNow: allMembers.filter((member) => member.isClockedIn).length,
-      withActivityToday: allMembers.filter((member) => member.todayAccomplishments.length > 0)
-        .length,
+      onLeave: uniqueMembers.filter((employee) => employee.status?.name === "On Leave").length,
+      clockedInNow: membersClockedIn.size,
+      withActivityToday: membersWithActivity.size,
     },
   };
 }

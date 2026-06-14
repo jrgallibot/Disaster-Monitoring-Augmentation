@@ -30,8 +30,8 @@ export default async function EmployeeTeamPage() {
           <h1 className="gov-section-title">My Team</h1>
           <p className="text-sm text-muted-foreground mt-2">
             You are assigned as team leader for{" "}
-            <strong className="text-foreground">{regionLabel}</strong>. Manage deployment status,
-            edit profiles, and view history for employees in your region.
+            <strong className="text-foreground">{regionLabel}</strong>. View and manage all
+            employees in your region — deployment status, profiles, history, and daily reports.
           </p>
         </div>
         <Button asChild variant="outline" size="sm">
@@ -49,9 +49,8 @@ export default async function EmployeeTeamPage() {
         specializations={specializations}
         showActions
         editBasePath="/employee/team"
-        title={`Team Members — ${regionLabel}`}
+        title={`All Team Members — ${regionLabel} (${members.length})`}
         hideRegionFilter
-        hideTeamLeaderColumn
       />
     </div>
   );

@@ -41,17 +41,6 @@ export async function isTeamLeaderUser(userId: string): Promise<boolean> {
   return regionIds.length > 0;
 }
 
-async function getRegionLeaderIds(regionId: string): Promise<string[]> {
-  const supabase = createServiceClient();
-  const { data, error } = await supabase
-    .from("library_region_team_leaders")
-    .select("employee_id")
-    .eq("region_id", regionId);
-
-  if (error) throw new Error(error.message);
-  return (data ?? []).map((row) => row.employee_id);
-}
-
 export async function canManageEmployee(
   authUserId: string,
   targetEmployeeId: string
@@ -87,23 +76,40 @@ export async function canManageEmployee(
     return { allowed: false, error: "This employee is not in your assigned region." };
   }
 
-  if (target.assigned_team_leader_id === myRecord.id) {
-    return { allowed: true };
+  const teamLeaderIds = await getTeamLeaderEmployeeIdsForRegions(ledRegionIds);
+  if (
+    !employeeIsVisibleTeamMember(
+      { id: targetEmployeeId, region_id: target.region_id },
+      myRecord.id,
+      ledRegionIds,
+      teamLeaderIds
+    )
+  ) {
+    return {
+      allowed: false,
+      error: "This employee is not part of your team in your assigned region.",
+    };
   }
 
-  if (!target.assigned_team_leader_id) {
-    const regionLeaderIds = await getRegionLeaderIds(target.region_id);
-    if (regionLeaderIds.length === 1 && regionLeaderIds[0] === myRecord.id) {
-      return { allowed: true };
-    }
-  }
-
-  return {
-    allowed: false,
-    error: "This employee is not assigned to you as their team leader.",
-  };
+  return { allowed: true };
 }
 
+export async function getTeamLeaderEmployeeIdsForRegions(
+  regionIds: string[]
+): Promise<Set<string>> {
+  if (regionIds.length === 0) return new Set();
+
+  const supabase = createServiceClient();
+  const { data, error } = await supabase
+    .from("library_region_team_leaders")
+    .select("employee_id")
+    .in("region_id", regionIds);
+
+  if (error) throw new Error(error.message);
+  return new Set((data ?? []).map((row) => row.employee_id));
+}
+
+/** True when employee is explicitly assigned to this leader. */
 export function employeeIsAssignedToLeader(
   employee: {
     id: string;
@@ -124,10 +130,24 @@ export function employeeIsAssignedToLeader(
   return false;
 }
 
+/** All non-leader employees in regions this team leader oversees. */
+export function employeeIsVisibleTeamMember(
+  employee: { id: string; region_id: string | null },
+  leaderEmployeeId: string,
+  ledRegionIds: string[],
+  teamLeaderIds: Set<string>
+): boolean {
+  if (employee.id === leaderEmployeeId) return false;
+  if (!employee.region_id || !ledRegionIds.includes(employee.region_id)) return false;
+  if (teamLeaderIds.has(employee.id)) return false;
+  return true;
+}
+
 export async function getTeamMemberIdsForLeader(leaderEmployeeId: string): Promise<string[]> {
   const ledRegionIds = await getLedRegionIds(leaderEmployeeId);
   if (ledRegionIds.length === 0) return [];
 
+  const teamLeaderIds = await getTeamLeaderEmployeeIdsForRegions(ledRegionIds);
   const supabase = createServiceClient();
   const employees = await queryEmployeeRows(supabase, (select) =>
     supabase
@@ -138,6 +158,8 @@ export async function getTeamMemberIdsForLeader(leaderEmployeeId: string): Promi
   );
 
   return employees
-    .filter((employee) => employeeIsAssignedToLeader(employee, leaderEmployeeId))
+    .filter((employee) =>
+      employeeIsVisibleTeamMember(employee, leaderEmployeeId, ledRegionIds, teamLeaderIds)
+    )
     .map((employee) => employee.id);
 }

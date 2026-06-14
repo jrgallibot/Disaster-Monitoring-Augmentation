@@ -33,7 +33,7 @@ export function TeamLeaderPanel({
             My Team — {regionLabel}
           </h2>
           <p className="text-sm text-muted-foreground mt-1">
-            As regional team leader, you can update deployment status, edit profiles, view history, and share accomplishments with your members.
+            As regional team leader, you can view and manage all employees in your assigned region(s) — update deployment status, edit profiles, view history, and share accomplishments.
           </p>
         </div>
         <div className="flex flex-wrap gap-2 shrink-0">
@@ -56,9 +56,8 @@ export function TeamLeaderPanel({
         specializations={specializations}
         showActions
         editBasePath="/employee/team"
-        title={`Team Members (${members.length})`}
+        title={`All Team Members (${members.length})`}
         hideRegionFilter
-        hideTeamLeaderColumn
       />
     </div>
   );
