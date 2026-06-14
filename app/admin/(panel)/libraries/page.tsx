@@ -17,7 +17,7 @@ export default async function AdminLibrariesPage() {
           <h1 className="gov-section-title">Dynamic Libraries</h1>
           <p className="text-sm text-muted-foreground mt-2">
             Manage dropdown options for specializations, regions, and deployment statuses.
-            Assign a team leader employee per region under the Regions tab. Team leaders use their employee account to monitor members.
+            Assign one or more team leaders per region under the Regions tab. Employees pick their leader when a region has multiple team leaders.
           </p>
         </div>
         <LibraryManager

@@ -1,13 +1,13 @@
 import type { Metadata } from "next";
 import { Inter } from "next/font/google";
+import { SYSTEM_NAME, SYSTEM_TAGLINE } from "@/lib/branding";
 import "./globals.css";
 
 const inter = Inter({ subsets: ["latin"] });
 
 export const metadata: Metadata = {
-  title: "DSWD Augmented Employee Monitoring",
-  description:
-    "Monitor DSWD earthquake augmentation employees — deployment status, regions, and specializations.",
+  title: SYSTEM_NAME,
+  description: SYSTEM_TAGLINE,
 };
 
 export default function RootLayout({

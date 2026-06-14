@@ -3,7 +3,11 @@
 import { createClient } from "@/lib/supabase/server";
 import { createServiceClient } from "@/lib/supabase/service";
 import { getRegions, getSpecializations } from "@/lib/actions/employees";
-import { EMPLOYEE_SELECT } from "@/lib/supabase/selects";
+import { querySingleEmployeeRow } from "@/lib/supabase/employee-query";
+import {
+  getAutoAssignedTeamLeaderId,
+  getRegionTeamLeaderSummaries,
+} from "@/lib/utils";
 import type {
   ActionResult,
   EmployeeSelfUpdate,
@@ -12,10 +16,7 @@ import type {
 } from "@/lib/types";
 import { revalidatePath } from "next/cache";
 import { getEmployeeSession } from "@/lib/actions/auth";
-
-const PHOTO_BUCKET = "employee-photos";
-const MAX_PHOTO_BYTES = 5 * 1024 * 1024;
-const ALLOWED_PHOTO_TYPES = ["image/jpeg", "image/jpg", "image/png", "image/webp", "image/gif"];
+import { uploadToEmployeePhotoBucket } from "@/lib/actions/photo-storage";
 
 function buildChanges(
   before: EmployeeWithRelations,
@@ -41,6 +42,13 @@ function buildChanges(
     track("specialization_id", before.specialization_id, data.specialization_id || null);
   }
   if (data.region_id !== undefined) track("region_id", before.region_id, data.region_id || null);
+  if (data.assigned_team_leader_id !== undefined) {
+    track(
+      "assigned_team_leader_id",
+      before.assigned_team_leader_id,
+      data.assigned_team_leader_id || null
+    );
+  }
   if (data.photo_url !== undefined) track("photo_url", before.photo_url, data.photo_url || null);
 
   return changes;
@@ -51,14 +59,32 @@ export async function getMyEmployee(): Promise<EmployeeWithRelations | null> {
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) return null;
 
-  const { data, error } = await supabase
-    .from("employees")
-    .select(EMPLOYEE_SELECT)
-    .eq("user_id", user.id)
-    .maybeSingle();
+  const employee = await querySingleEmployeeRow(supabase, (select) =>
+    supabase.from("employees").select(select).eq("user_id", user.id).maybeSingle()
+  );
 
-  if (error) return null;
-  return data as unknown as EmployeeWithRelations | null;
+  if (!employee) return null;
+  const autoLeaderId = getAutoAssignedTeamLeaderId(employee.region);
+
+  if (!employee.assigned_team_leader_id && autoLeaderId && autoLeaderId !== employee.id) {
+    const service = createServiceClient();
+    await service
+      .from("employees")
+      .update({ assigned_team_leader_id: autoLeaderId })
+      .eq("id", employee.id);
+
+    const autoLeader = getRegionTeamLeaderSummaries(employee.region).find(
+      (leader) => leader.id === autoLeaderId
+    );
+
+    return {
+      ...employee,
+      assigned_team_leader_id: autoLeaderId,
+      assigned_team_leader: autoLeader ?? employee.assigned_team_leader ?? null,
+    };
+  }
+
+  return employee;
 }
 
 export async function getMyUpdateLogs(limit = 20): Promise<EmployeeUpdateLog[]> {
@@ -92,30 +118,7 @@ export async function uploadMyProfilePhoto(formData: FormData): Promise<ActionRe
   }
 
   const file = formData.get("photo") as File | null;
-  if (!file || file.size === 0) {
-    return { success: false, error: "Please select a profile photo." };
-  }
-  if (!ALLOWED_PHOTO_TYPES.includes(file.type)) {
-    return { success: false, error: "Photo must be JPG, PNG, WEBP, or GIF." };
-  }
-  if (file.size > MAX_PHOTO_BYTES) {
-    return { success: false, error: "Photo must be 5MB or smaller." };
-  }
-
-  const ext = file.type.split("/")[1]?.replace("jpeg", "jpg") || "jpg";
-  const path = `${session.user.id}/profile.${ext}`;
-  const service = createServiceClient();
-
-  const { error: uploadError } = await service.storage
-    .from(PHOTO_BUCKET)
-    .upload(path, file, { upsert: true, contentType: file.type });
-
-  if (uploadError) {
-    return { success: false, error: uploadError.message };
-  }
-
-  const { data: urlData } = service.storage.from(PHOTO_BUCKET).getPublicUrl(path);
-  return { success: true, url: urlData.publicUrl };
+  return uploadToEmployeePhotoBucket(session.user.id, file, "profile", { upsert: true });
 }
 
 export async function updateMyEmployee(data: EmployeeSelfUpdate): Promise<ActionResult> {
@@ -127,18 +130,46 @@ export async function updateMyEmployee(data: EmployeeSelfUpdate): Promise<Action
   const supabase = await createClient();
   const { user } = session;
 
-  const { data: before, error: fetchError } = await supabase
-    .from("employees")
-    .select(EMPLOYEE_SELECT)
-    .eq("user_id", user.id)
-    .maybeSingle();
+  const employee = await querySingleEmployeeRow(supabase, (select) =>
+    supabase.from("employees").select(select).eq("user_id", user.id).maybeSingle()
+  );
 
-  if (fetchError) return { success: false, error: fetchError.message };
-  if (!before) {
+  if (!employee) {
     return { success: false, error: "No employee record linked to your account." };
   }
+  const nextRegionId = data.region_id ?? employee.region_id;
+  const nextRegion =
+    data.region_id !== undefined
+      ? (await getRegions()).find((region) => region.id === nextRegionId) ?? employee.region
+      : employee.region;
 
-  const employee = before as unknown as EmployeeWithRelations;
+  const regionLeaders = getRegionTeamLeaderSummaries(nextRegion);
+  let nextAssignedLeaderId = data.assigned_team_leader_id ?? employee.assigned_team_leader_id;
+
+  if (data.region_id !== undefined && data.region_id !== employee.region_id) {
+    nextAssignedLeaderId = getAutoAssignedTeamLeaderId(nextRegion);
+  } else if (!nextAssignedLeaderId) {
+    nextAssignedLeaderId = getAutoAssignedTeamLeaderId(nextRegion);
+  }
+
+  if (regionLeaders.length > 1) {
+    if (data.assigned_team_leader_id) {
+      const isValid = regionLeaders.some((leader) => leader.id === data.assigned_team_leader_id);
+      if (!isValid) {
+        return { success: false, error: "Please select a valid team leader for your region." };
+      }
+      nextAssignedLeaderId = data.assigned_team_leader_id;
+    } else if (!employee.assigned_team_leader_id) {
+      return {
+        success: false,
+        error: "Please select your team leader. Your region has more than one team leader.",
+      };
+    }
+  } else if (regionLeaders.length === 1) {
+    nextAssignedLeaderId = regionLeaders[0].id;
+  } else {
+    nextAssignedLeaderId = null;
+  }
 
   if (!data.photo_url && !employee.photo_url) {
     return { success: false, error: "Profile photo is required. Please upload your photo." };
@@ -148,6 +179,7 @@ export async function updateMyEmployee(data: EmployeeSelfUpdate): Promise<Action
     middle_name: data.middle_name?.trim() || null,
     specialization_id: data.specialization_id || null,
     region_id: data.region_id || null,
+    assigned_team_leader_id: nextAssignedLeaderId,
     phone: data.phone || null,
     address: data.address || null,
     notes: data.notes || null,
@@ -167,7 +199,14 @@ export async function updateMyEmployee(data: EmployeeSelfUpdate): Promise<Action
 
   if (error) return { success: false, error: error.message };
 
-  const changes = buildChanges(employee, data);
+  const changes = buildChanges(
+    employee,
+    {
+      ...data,
+      assigned_team_leader_id: nextAssignedLeaderId ?? undefined,
+      region_id: nextRegionId ?? undefined,
+    }
+  );
   const changedFields = Object.keys(changes);
 
   if (changedFields.length > 0 || data.latitude != null) {

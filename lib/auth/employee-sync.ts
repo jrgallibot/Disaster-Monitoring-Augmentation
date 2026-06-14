@@ -1,4 +1,5 @@
 import { createServiceClient } from "@/lib/supabase/service";
+import { isElevatedPortalRole } from "@/lib/auth/roles";
 
 export async function getUserRole(userId: string): Promise<string | null> {
   try {
@@ -129,10 +130,14 @@ export async function syncEmployeeRole(
     }
 
     if (employee) {
+      const currentRole = await getUserRole(userId);
+      const role =
+        currentRole && isElevatedPortalRole(currentRole) ? currentRole : "employee";
+
       await service.from("profiles").upsert({
         id: userId,
         email: email ?? employee.email ?? "",
-        role: "employee",
+        role,
       });
       return true;
     }

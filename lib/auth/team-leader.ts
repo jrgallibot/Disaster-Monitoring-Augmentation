@@ -1,5 +1,9 @@
 import { createServiceClient } from "@/lib/supabase/service";
 import { getUserRole } from "@/lib/auth/employee-sync";
+import { isAdminRole, isTeamLeaderRole } from "@/lib/auth/roles";
+import { getRegionTeamLeaderSummaries } from "@/lib/utils";
+import { queryEmployeeRows } from "@/lib/supabase/employee-query";
+import type { LibraryRegion } from "@/lib/types";
 
 export async function getEmployeeRecordByUserId(userId: string) {
   const supabase = createServiceClient();
@@ -16,13 +20,18 @@ export async function getEmployeeRecordByUserId(userId: string) {
 export async function getLedRegionIds(employeeId: string): Promise<string[]> {
   const supabase = createServiceClient();
   const { data, error } = await supabase
-    .from("library_regions")
-    .select("id")
-    .eq("team_leader_employee_id", employeeId)
-    .eq("is_active", true);
+    .from("library_region_team_leaders")
+    .select("region_id, region:library_regions!inner(is_active)")
+    .eq("employee_id", employeeId);
 
   if (error) throw new Error(error.message);
-  return (data ?? []).map((row) => row.id);
+
+  return (data ?? [])
+    .filter((row) => {
+      const region = row.region as { is_active?: boolean } | null;
+      return region?.is_active !== false;
+    })
+    .map((row) => row.region_id);
 }
 
 export async function isTeamLeaderUser(userId: string): Promise<boolean> {
@@ -32,14 +41,25 @@ export async function isTeamLeaderUser(userId: string): Promise<boolean> {
   return regionIds.length > 0;
 }
 
+async function getRegionLeaderIds(regionId: string): Promise<string[]> {
+  const supabase = createServiceClient();
+  const { data, error } = await supabase
+    .from("library_region_team_leaders")
+    .select("employee_id")
+    .eq("region_id", regionId);
+
+  if (error) throw new Error(error.message);
+  return (data ?? []).map((row) => row.employee_id);
+}
+
 export async function canManageEmployee(
   authUserId: string,
   targetEmployeeId: string
 ): Promise<{ allowed: true } | { allowed: false; error: string }> {
   const role = await getUserRole(authUserId);
-  if (role === "admin") return { allowed: true };
+  if (isAdminRole(role)) return { allowed: true };
 
-  if (role !== "employee") {
+  if (role !== "employee" && !isTeamLeaderRole(role)) {
     return { allowed: false, error: "You do not have permission to manage this employee." };
   }
 
@@ -56,7 +76,7 @@ export async function canManageEmployee(
   const supabase = createServiceClient();
   const { data: target, error } = await supabase
     .from("employees")
-    .select("region_id")
+    .select("region_id, assigned_team_leader_id")
     .eq("id", targetEmployeeId)
     .maybeSingle();
 
@@ -67,5 +87,57 @@ export async function canManageEmployee(
     return { allowed: false, error: "This employee is not in your assigned region." };
   }
 
-  return { allowed: true };
+  if (target.assigned_team_leader_id === myRecord.id) {
+    return { allowed: true };
+  }
+
+  if (!target.assigned_team_leader_id) {
+    const regionLeaderIds = await getRegionLeaderIds(target.region_id);
+    if (regionLeaderIds.length === 1 && regionLeaderIds[0] === myRecord.id) {
+      return { allowed: true };
+    }
+  }
+
+  return {
+    allowed: false,
+    error: "This employee is not assigned to you as their team leader.",
+  };
+}
+
+export function employeeIsAssignedToLeader(
+  employee: {
+    id: string;
+    region_id: string | null;
+    assigned_team_leader_id: string | null;
+    region?: LibraryRegion | null;
+  },
+  leaderEmployeeId: string
+): boolean {
+  if (employee.id === leaderEmployeeId) return false;
+  if (employee.assigned_team_leader_id === leaderEmployeeId) return true;
+
+  if (!employee.assigned_team_leader_id && employee.region) {
+    const leaders = getRegionTeamLeaderSummaries(employee.region);
+    return leaders.length === 1 && leaders[0].id === leaderEmployeeId;
+  }
+
+  return false;
+}
+
+export async function getTeamMemberIdsForLeader(leaderEmployeeId: string): Promise<string[]> {
+  const ledRegionIds = await getLedRegionIds(leaderEmployeeId);
+  if (ledRegionIds.length === 0) return [];
+
+  const supabase = createServiceClient();
+  const employees = await queryEmployeeRows(supabase, (select) =>
+    supabase
+      .from("employees")
+      .select(select)
+      .in("region_id", ledRegionIds)
+      .neq("id", leaderEmployeeId)
+  );
+
+  return employees
+    .filter((employee) => employeeIsAssignedToLeader(employee, leaderEmployeeId))
+    .map((employee) => employee.id);
 }

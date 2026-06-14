@@ -8,13 +8,6 @@ import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
 import { Plus, Pencil, ToggleLeft, ToggleRight } from "lucide-react";
 import {
   createSpecialization,
@@ -24,7 +17,7 @@ import {
   createStatus,
   updateStatus,
 } from "@/lib/actions/employees";
-import { getTeamLeaderDisplay } from "@/lib/utils";
+import { getTeamLeaderDisplay, getRegionTeamLeaderSummaries } from "@/lib/utils";
 import type {
   LibrarySpecialization,
   LibraryRegion,
@@ -91,13 +84,15 @@ export function LibraryManager({
         <LibraryTable
           title="Regions"
           items={regions}
-          columns={["name", "code", "team_leader_employee_id", "sort_order", "is_active"]}
+          columns={["name", "code", "team_leaders", "sort_order", "is_active"]}
           teamLeaderOptions={teamLeaderOptions}
           onCreate={async (data) =>
             createRegion({
               name: data.name as string,
               code: data.code as string,
-              team_leader_employee_id: data.team_leader_employee_id as string,
+              team_leader_employee_ids: String(data.team_leader_employee_ids ?? "")
+                .split(",")
+                .filter(Boolean),
               sort_order: Number(data.sort_order) || 0,
             })
           }
@@ -105,7 +100,9 @@ export function LibraryManager({
             updateRegion(id, {
               name: data.name as string,
               code: data.code as string,
-              team_leader_employee_id: data.team_leader_employee_id as string,
+              team_leader_employee_ids: String(data.team_leader_employee_ids ?? "")
+                .split(",")
+                .filter(Boolean),
               sort_order: Number(data.sort_order) || 0,
               is_active: data.is_active as boolean,
             })
@@ -114,9 +111,9 @@ export function LibraryManager({
             { key: "name", label: "Name", required: true },
             { key: "code", label: "Code", required: true },
             {
-              key: "team_leader_employee_id",
-              label: "Team Leader (Employee)",
-              type: "employee_select",
+              key: "team_leaders",
+              label: "Team Leaders (Employees)",
+              type: "team_leaders_multi",
             },
             { key: "sort_order", label: "Sort Order", type: "number" },
           ]}
@@ -181,7 +178,7 @@ function LibraryTable({
 }: LibraryTableProps) {
   const [showForm, setShowForm] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
-  const [teamLeaderId, setTeamLeaderId] = useState("");
+  const [teamLeaderIds, setTeamLeaderIds] = useState<string[]>([]);
   const [isPending, startTransition] = useTransition();
   const [error, setError] = useState<string | null>(null);
   const router = useRouter();
@@ -190,7 +187,7 @@ function LibraryTable({
 
   function openCreateForm() {
     setEditingId(null);
-    setTeamLeaderId("");
+    setTeamLeaderIds([]);
     setShowForm(true);
   }
 
@@ -198,10 +195,10 @@ function LibraryTable({
     const item = items.find((i) => i.id === id);
     setEditingId(id);
     setShowForm(false);
-    if (item && "team_leader_employee_id" in item) {
-      setTeamLeaderId(item.team_leader_employee_id ?? "");
+    if (item && "team_leaders" in item) {
+      setTeamLeaderIds((item.team_leaders ?? []).map((link) => link.employee_id));
     } else {
-      setTeamLeaderId("");
+      setTeamLeaderIds([]);
     }
   }
 
@@ -211,8 +208,8 @@ function LibraryTable({
     const form = new FormData(e.currentTarget);
     const data: Record<string, string | boolean | number> = {};
     fields.forEach((f) => {
-      if (f.type === "employee_select") {
-        data[f.key] = teamLeaderId;
+      if (f.type === "team_leaders_multi") {
+        data.team_leader_employee_ids = teamLeaderIds.join(",");
         return;
       }
       data[f.key] = form.get(f.key) as string;
@@ -230,7 +227,7 @@ function LibraryTable({
 
       setShowForm(false);
       setEditingId(null);
-      setTeamLeaderId("");
+      setTeamLeaderIds([]);
       router.refresh();
     });
   }
@@ -244,8 +241,10 @@ function LibraryTable({
         is_active: !item.is_active,
       };
       if ("code" in item) data.code = item.code;
-      if ("team_leader_employee_id" in item) {
-        data.team_leader_employee_id = item.team_leader_employee_id ?? "";
+      if ("team_leaders" in item) {
+        data.team_leader_employee_ids = (item.team_leaders ?? [])
+          .map((link) => link.employee_id)
+          .join(",");
       }
       if ("color" in item) data.color = item.color;
       if ("description" in item) data.description = item.description ?? "";
@@ -281,8 +280,11 @@ function LibraryTable({
       return item.code;
     }
 
-    if (field.key === "team_leader_employee_id" && "team_leader" in item) {
-      return getTeamLeaderDisplay(item.team_leader) ?? "—";
+    if (field.key === "team_leaders" && "team_leaders" in item) {
+      const labels = getRegionTeamLeaderSummaries(item)
+        .map((leader) => getTeamLeaderDisplay(leader))
+        .filter(Boolean);
+      return labels.length ? labels.join(", ") : "—";
     }
 
     return String((item as unknown as Record<string, unknown>)[field.key] ?? "—");
@@ -314,30 +316,41 @@ function LibraryTable({
             </h4>
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               {fields.map((field) => (
-                <div key={field.key} className="space-y-2">
+                <div
+                  key={field.key}
+                  className={`space-y-2 ${field.type === "team_leaders_multi" ? "sm:col-span-2" : ""}`}
+                >
                   <Label htmlFor={field.key}>{field.label}</Label>
-                  {field.type === "employee_select" ? (
+                  {field.type === "team_leaders_multi" ? (
                     <>
-                      <Select
-                        value={teamLeaderId || "none"}
-                        onValueChange={(value) =>
-                          setTeamLeaderId(value === "none" ? "" : value)
-                        }
-                      >
-                        <SelectTrigger id={field.key}>
-                          <SelectValue placeholder="Select team leader employee" />
-                        </SelectTrigger>
-                        <SelectContent>
-                          <SelectItem value="none">No team leader assigned</SelectItem>
-                          {teamLeaderOptions.map((option) => (
-                            <SelectItem key={option.id} value={option.id}>
-                              {option.label}
-                            </SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
+                      <div className="space-y-2 max-h-52 overflow-y-auto border border-dswd-border rounded-md p-3 bg-white">
+                        {teamLeaderOptions.length === 0 ? (
+                          <p className="text-sm text-muted-foreground">No employees available.</p>
+                        ) : (
+                          teamLeaderOptions.map((option) => (
+                            <label
+                              key={option.id}
+                              className="flex items-start gap-2 text-sm cursor-pointer"
+                            >
+                              <input
+                                type="checkbox"
+                                className="mt-1"
+                                checked={teamLeaderIds.includes(option.id)}
+                                onChange={(event) => {
+                                  setTeamLeaderIds((current) =>
+                                    event.target.checked
+                                      ? [...current, option.id]
+                                      : current.filter((id) => id !== option.id)
+                                  );
+                                }}
+                              />
+                              <span>{option.label}</span>
+                            </label>
+                          ))
+                        )}
+                      </div>
                       <p className="text-xs text-muted-foreground">
-                        Choose an employee record. Team leaders should have a portal account for monitoring members.
+                        Select one or more team leaders for this region. Employees choose their leader when more than one is assigned.
                       </p>
                     </>
                   ) : (
@@ -369,7 +382,7 @@ function LibraryTable({
                 onClick={() => {
                   setShowForm(false);
                   setEditingId(null);
-                  setTeamLeaderId("");
+                  setTeamLeaderIds([]);
                 }}
               >
                 Cancel

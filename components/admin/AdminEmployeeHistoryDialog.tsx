@@ -185,7 +185,7 @@ export function AdminEmployeeHistoryDialog({
               <EmployeeAccomplishmentList
                 records={bundle?.accomplishments ?? []}
                 tabError={bundle?.errors.accomplishments}
-                emptyMessage="This employee has no accomplishment updates yet."
+                emptyMessage="This employee has no accomplishment updates yet. Team leader shared entries appear here with a From Team Leader badge."
               />
             </TabsContent>
 

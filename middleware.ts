@@ -1,5 +1,6 @@
 import { updateSession } from "@/lib/supabase/middleware";
 import { getUserRole, syncEmployeeRole } from "@/lib/auth/employee-sync";
+import { isAdminRole, isEmployeePortalRole } from "@/lib/auth/roles";
 import { createServerClient } from "@supabase/ssr";
 import { NextResponse, type NextRequest } from "next/server";
 
@@ -50,14 +51,34 @@ export async function middleware(request: NextRequest) {
         url.pathname = "/admin/login";
         return NextResponse.redirect(url);
       }
+
+      const role = await getUserRole(user.id);
+      if (!isAdminRole(role)) {
+        const url = request.nextUrl.clone();
+        if (isEmployeePortalRole(role)) {
+          url.pathname = "/employee/dashboard";
+        } else {
+          url.pathname = "/admin/login";
+          url.searchParams.set("error", "access_denied");
+        }
+        return NextResponse.redirect(url);
+      }
     }
 
     if (isAdminLogin) {
       const supabase = makeSupabase(request);
       const { data: { user } } = await supabase.auth.getUser();
       if (user) {
+        const role = await getUserRole(user.id);
         const url = request.nextUrl.clone();
-        url.pathname = "/admin/dashboard";
+        if (isAdminRole(role)) {
+          url.pathname = "/admin/dashboard";
+        } else if (isEmployeePortalRole(role)) {
+          url.pathname = "/employee/dashboard";
+        } else {
+          url.pathname = "/admin/login";
+          url.searchParams.set("error", "access_denied");
+        }
         return NextResponse.redirect(url);
       }
     }
@@ -75,11 +96,11 @@ export async function middleware(request: NextRequest) {
       const role = await getUserRole(user.id);
 
       const url = request.nextUrl.clone();
-      if (role === "admin") {
+      if (isAdminRole(role)) {
         url.pathname = "/admin/dashboard";
         return NextResponse.redirect(url);
       }
-      if (role !== "employee") {
+      if (!isEmployeePortalRole(role)) {
         url.pathname = "/employee/login";
         url.searchParams.set("error", "not_employee");
         return NextResponse.redirect(url);
@@ -94,11 +115,11 @@ export async function middleware(request: NextRequest) {
         const role = await getUserRole(user.id);
 
         const url = request.nextUrl.clone();
-        if (role === "employee") {
+        if (isEmployeePortalRole(role)) {
           url.pathname = "/employee/dashboard";
           return NextResponse.redirect(url);
         }
-        if (role === "admin") {
+        if (isAdminRole(role)) {
           url.pathname = "/admin/dashboard";
           return NextResponse.redirect(url);
         }
@@ -114,7 +135,7 @@ export async function middleware(request: NextRequest) {
       if (user) {
         await syncEmployeeRole(user.id, user.email);
         const role = await getUserRole(user.id);
-        if (role === "employee") {
+        if (isEmployeePortalRole(role)) {
           const url = request.nextUrl.clone();
           url.pathname = "/employee/dashboard";
           return NextResponse.redirect(url);

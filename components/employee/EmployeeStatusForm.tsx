@@ -1,6 +1,6 @@
 "use client";
 
-import { useRef, useState, useTransition } from "react";
+import { useMemo, useRef, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import Image from "next/image";
 import { Button } from "@/components/ui/button";
@@ -18,7 +18,7 @@ import {
 import { EmployeeActivityLogs } from "@/components/employee/EmployeeActivityLogs";
 import { updateMyEmployee, uploadMyProfilePhoto } from "@/lib/actions/employee-portal";
 import { formatCoordinates, getCurrentPosition, getMapUrl, hasValidCoordinates } from "@/lib/geo";
-import { formatDate, getEmployeeTeamLeader } from "@/lib/utils";
+import { formatDate, getEmployeeTeamLeader, getAutoAssignedTeamLeaderId, getRegionTeamLeaderSummaries, getTeamLeaderDisplay, shouldSelectTeamLeader } from "@/lib/utils";
 import type {
   EmployeeUpdateLog,
   EmployeeWithRelations,
@@ -47,6 +47,20 @@ export function EmployeeStatusForm({
   const [success, setSuccess] = useState(false);
   const [specializationId, setSpecializationId] = useState(employee.specialization_id ?? "");
   const [regionId, setRegionId] = useState(employee.region_id ?? "");
+  const selectedRegion = useMemo(
+    () => regions.find((region) => region.id === regionId) ?? employee.region,
+    [regionId, regions, employee.region]
+  );
+  const regionLeaders = useMemo(
+    () => getRegionTeamLeaderSummaries(selectedRegion),
+    [selectedRegion]
+  );
+  const needsTeamLeaderSelection = shouldSelectTeamLeader(selectedRegion);
+  const [assignedTeamLeaderId, setAssignedTeamLeaderId] = useState(
+    employee.assigned_team_leader_id ??
+      getAutoAssignedTeamLeaderId(selectedRegion) ??
+      ""
+  );
   const [photoUrl, setPhotoUrl] = useState(employee.photo_url ?? "");
   const [photoPreview, setPhotoPreview] = useState(employee.photo_url ?? "");
   const [photoFile, setPhotoFile] = useState<File | null>(null);
@@ -64,6 +78,13 @@ export function EmployeeStatusForm({
     setError(null);
   }
 
+  function handleRegionChange(value: string) {
+    setRegionId(value);
+    const nextRegion = regions.find((region) => region.id === value);
+    const autoLeaderId = getAutoAssignedTeamLeaderId(nextRegion);
+    setAssignedTeamLeaderId(autoLeaderId ?? "");
+  }
+
   async function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
     setError(null);
@@ -71,6 +92,11 @@ export function EmployeeStatusForm({
 
     if (!photoUrl && !photoFile) {
       setError("Profile photo is required. Please upload your photo.");
+      return;
+    }
+
+    if (needsTeamLeaderSelection && !assignedTeamLeaderId) {
+      setError("Please select your team leader for this region.");
       return;
     }
 
@@ -101,6 +127,7 @@ export function EmployeeStatusForm({
         middle_name: (form.get("middle_name") as string) || undefined,
         specialization_id: specializationId || undefined,
         region_id: regionId || undefined,
+        assigned_team_leader_id: assignedTeamLeaderId || undefined,
         phone: (form.get("phone") as string) || undefined,
         address: (form.get("address") as string) || undefined,
         photo_url: finalPhotoUrl || undefined,
@@ -118,7 +145,10 @@ export function EmployeeStatusForm({
     });
   }
 
-  const teamLeader = getEmployeeTeamLeader(employee);
+  const teamLeader = getEmployeeTeamLeader({
+    ...employee,
+    region: selectedRegion ?? employee.region,
+  });
 
   return (
     <div className="space-y-6">
@@ -162,11 +192,22 @@ export function EmployeeStatusForm({
               <span className="text-xs"> (from {employee.region?.name ?? "home region"})</span>
             </p>
           )}
+          {needsTeamLeaderSelection && !teamLeader && (
+            <p className="text-sm text-amber-700">
+              Your region has multiple team leaders. Please select yours below.
+            </p>
+          )}
+          {employee.actual_task && (
+            <p className="text-sm text-muted-foreground">
+              Actual Task: <span className="font-medium text-foreground">{employee.actual_task}</span>
+            </p>
+          )}
           {employee.deployment_location && (
             <p className="text-sm text-muted-foreground flex items-start gap-1">
               <MapPin className="h-4 w-4 shrink-0 mt-0.5" />
               <span>
-                Deployment: <span className="font-medium text-foreground">{employee.deployment_location}</span>
+                Deployment Location:{" "}
+                <span className="font-medium text-foreground">{employee.deployment_location}</span>
               </span>
             </p>
           )}
@@ -289,7 +330,7 @@ export function EmployeeStatusForm({
               </div>
               <div className="space-y-2">
                 <Label>Home Region *</Label>
-                <Select value={regionId} onValueChange={setRegionId}>
+                <Select value={regionId} onValueChange={handleRegionChange}>
                   <SelectTrigger>
                     <SelectValue placeholder="Select your region" />
                   </SelectTrigger>
@@ -303,6 +344,40 @@ export function EmployeeStatusForm({
                 </Select>
               </div>
             </div>
+
+            {regionLeaders.length > 0 && (
+              <div className="space-y-2">
+                <Label>Team Leader *</Label>
+                {needsTeamLeaderSelection ? (
+                  <Select
+                    value={assignedTeamLeaderId}
+                    onValueChange={setAssignedTeamLeaderId}
+                  >
+                    <SelectTrigger>
+                      <SelectValue placeholder="Select your team leader" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {regionLeaders.map((leader) => (
+                        <SelectItem key={leader.id} value={leader.id}>
+                          {getTeamLeaderDisplay(leader)}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                ) : (
+                  <Input
+                    value={getTeamLeaderDisplay(regionLeaders[0]) ?? ""}
+                    readOnly
+                    className="bg-dswd-light"
+                  />
+                )}
+                <p className="text-xs text-muted-foreground">
+                  {needsTeamLeaderSelection
+                    ? "Choose the team leader assigned to monitor you in this region."
+                    : "Your team leader is assigned automatically for this region."}
+                </p>
+              </div>
+            )}
 
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               <div className="space-y-2">

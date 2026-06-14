@@ -2,7 +2,7 @@
 
 import { createClient } from "@/lib/supabase/server";
 import { createServiceClient } from "@/lib/supabase/service";
-import { requireAdmin } from "@/lib/actions/auth";
+import { requireAdmin, updateEmployeePortalRole } from "@/lib/actions/auth";
 import { canManageEmployee } from "@/lib/auth/team-leader";
 import { getStatusById, statusRequiresDeploymentLocation, validateDeploymentFields } from "@/lib/deployment";
 import type {
@@ -19,9 +19,14 @@ import type {
   LibraryRegion,
   LibrarySpecialization,
   LibraryStatus,
+  RegionTeamOverview,
 } from "@/lib/types";
-import { getFullName, getTeamLeaderSearchText } from "@/lib/utils";
-import { EMPLOYEE_SELECT, REGION_SELECT } from "@/lib/supabase/selects";
+import { getFullName, getEmployeeTeamLeaderSearchText, getRegionTeamLeaderSummaries } from "@/lib/utils";
+import {
+  queryEmployeeRows,
+  queryRegions,
+  querySingleEmployeeRow,
+} from "@/lib/supabase/employee-query";
 import { revalidatePath } from "next/cache";
 
 export async function getEmployees(filters?: {
@@ -31,20 +36,20 @@ export async function getEmployees(filters?: {
   specializationId?: string;
 }): Promise<EmployeeWithRelations[]> {
   const supabase = await createClient();
-  let query = supabase
-    .from("employees")
-    .select(EMPLOYEE_SELECT)
-    .order("updated_at", { ascending: false });
 
-  if (filters?.regionId) query = query.eq("region_id", filters.regionId);
-  if (filters?.statusId) query = query.eq("status_id", filters.statusId);
-  if (filters?.specializationId)
-    query = query.eq("specialization_id", filters.specializationId);
+  let employees = await queryEmployeeRows(supabase, (select) => {
+    let query = supabase
+      .from("employees")
+      .select(select)
+      .order("updated_at", { ascending: false });
 
-  const { data, error } = await query;
-  if (error) throw new Error(error.message);
+    if (filters?.regionId) query = query.eq("region_id", filters.regionId);
+    if (filters?.statusId) query = query.eq("status_id", filters.statusId);
+    if (filters?.specializationId)
+      query = query.eq("specialization_id", filters.specializationId);
 
-  let employees = (data ?? []) as unknown as EmployeeWithRelations[];
+    return query;
+  });
 
   if (filters?.search) {
     const term = filters.search.toLowerCase();
@@ -54,7 +59,7 @@ export async function getEmployees(filters?: {
         e.last_name.toLowerCase().includes(term) ||
         e.employee_id.toLowerCase().includes(term) ||
         (e.deployment_location?.toLowerCase().includes(term) ?? false) ||
-        (getTeamLeaderSearchText(e.region?.team_leader).includes(term))
+        (getEmployeeTeamLeaderSearchText(e).includes(term))
     );
   }
 
@@ -65,14 +70,9 @@ export async function getEmployeeById(
   id: string
 ): Promise<EmployeeWithRelations | null> {
   const supabase = await createClient();
-  const { data, error } = await supabase
-    .from("employees")
-    .select(EMPLOYEE_SELECT)
-    .eq("id", id)
-    .single();
-
-  if (error) return null;
-  return data as unknown as EmployeeWithRelations;
+  return querySingleEmployeeRow(supabase, (select) =>
+    supabase.from("employees").select(select).eq("id", id).single()
+  );
 }
 
 export async function getEmployeeUpdateLogsForAdmin(
@@ -176,17 +176,13 @@ export async function getEmployeeHistoryBundleForAdmin(
     const service = createServiceClient();
     const errors: EmployeeHistoryBundle["errors"] = {};
 
-    const { data: employee, error: employeeError } = await service
-      .from("employees")
-      .select(EMPLOYEE_SELECT)
-      .eq("id", employeeId)
-      .single();
+    const employeeRecord = await querySingleEmployeeRow(service, (select) =>
+      service.from("employees").select(select).eq("id", employeeId).single()
+    );
 
-    if (employeeError || !employee) {
-      return { success: false, error: employeeError?.message ?? "Employee not found." };
+    if (!employeeRecord) {
+      return { success: false, error: "Employee not found." };
     }
-
-    const employeeRecord = employee as unknown as EmployeeWithRelations;
 
     const [profileRes, deploymentRes, accomplishmentsRes, attendanceRes] = await Promise.all([
       service
@@ -276,14 +272,21 @@ async function logDeploymentChange(
   statusId: string | null | undefined,
   statusName: string,
   deploymentLocation: string | null | undefined,
-  before: Pick<EmployeeWithRelations, "status_id" | "deployment_location"> | null
+  actualTask: string | null | undefined,
+  before: Pick<EmployeeWithRelations, "status_id" | "deployment_location" | "actual_task"> | null
 ) {
   const nextStatusId = statusId || null;
   const nextLocation = deploymentLocation?.trim() || null;
+  const nextActualTask = actualTask?.trim() || null;
   const prevStatusId = before?.status_id ?? null;
   const prevLocation = before?.deployment_location?.trim() || null;
+  const prevActualTask = before?.actual_task?.trim() || null;
 
-  if (nextStatusId === prevStatusId && nextLocation === prevLocation) {
+  if (
+    nextStatusId === prevStatusId &&
+    nextLocation === prevLocation &&
+    nextActualTask === prevActualTask
+  ) {
     return;
   }
 
@@ -294,6 +297,7 @@ async function logDeploymentChange(
     status_id: nextStatusId,
     status_name: statusName,
     deployment_location: nextLocation,
+    actual_task: nextActualTask,
   });
 }
 
@@ -355,9 +359,70 @@ function buildDashboardStats(employees: EmployeeWithRelations[]): DashboardStats
   };
 }
 
+function buildRegionTeamOverviews(
+  regions: LibraryRegion[],
+  employees: EmployeeWithRelations[]
+): RegionTeamOverview[] {
+  const leaderIdsForRegion = (region: LibraryRegion) =>
+    new Set(getRegionTeamLeaderSummaries(region).map((leader) => leader.id));
+
+  return regions
+    .filter((region) => region.is_active)
+    .sort((a, b) => a.sort_order - b.sort_order)
+    .map((region) => {
+      const leaderIds = leaderIdsForRegion(region);
+      return {
+        region,
+        members: employees.filter(
+          (employee) =>
+            employee.region_id === region.id && !leaderIds.has(employee.id)
+        ),
+      };
+    })
+    .filter(
+      (overview) =>
+        getRegionTeamLeaderSummaries(overview.region).length > 0 ||
+        overview.members.length > 0
+    );
+}
+
+async function syncRegionTeamLeaders(
+  regionId: string,
+  teamLeaderEmployeeIds: string[]
+): Promise<ActionResult> {
+  const supabase = createServiceClient();
+  const uniqueIds = Array.from(
+    new Set(teamLeaderEmployeeIds.map((id) => id.trim()).filter(Boolean))
+  );
+
+  const { error: deleteError } = await supabase
+    .from("library_region_team_leaders")
+    .delete()
+    .eq("region_id", regionId);
+
+  if (deleteError) return { success: false, error: deleteError.message };
+
+  if (uniqueIds.length === 0) return { success: true };
+
+  const { error: insertError } = await supabase.from("library_region_team_leaders").insert(
+    uniqueIds.map((employee_id) => ({
+      region_id: regionId,
+      employee_id,
+    }))
+  );
+
+  if (insertError) return { success: false, error: insertError.message };
+  return { success: true };
+}
+
 export async function getAdminDashboardData(): Promise<AdminDashboardData> {
-  const employees = await getEmployees();
+  const [employees, regions, statuses] = await Promise.all([
+    getEmployees(),
+    getRegions(),
+    getStatuses(),
+  ]);
   const stats = buildDashboardStats(employees);
+  const regionTeams = buildRegionTeamOverviews(regions, employees);
 
   const specMap = new Map<string, number>();
   employees.forEach((e) => {
@@ -434,6 +499,8 @@ export async function getAdminDashboardData(): Promise<AdminDashboardData> {
       .sort((a, b) => b.count - a.count),
     employees,
     clockedInEmployees,
+    regionTeams,
+    statuses,
     generatedAt: new Date().toISOString(),
   };
 }
@@ -488,6 +555,12 @@ export async function updateEmployee(id: string, data: EmployeeFormData): Promis
       .eq("id", id);
 
     if (error) return { success: false, error: error.message };
+
+    if (data.portal_role) {
+      const roleResult = await updateEmployeePortalRole(id, data.portal_role);
+      if (!roleResult.success) return roleResult;
+    }
+
     revalidatePath("/");
     revalidatePath(`/employees/${id}`);
     revalidatePath("/admin/employees");
@@ -501,7 +574,8 @@ export async function updateEmployee(id: string, data: EmployeeFormData): Promis
 export async function updateEmployeeDeployment(
   id: string,
   statusId: string,
-  deploymentLocation?: string
+  deploymentLocation?: string,
+  actualTask?: string
 ): Promise<ActionResult> {
   try {
     const authClient = await createClient();
@@ -519,7 +593,8 @@ export async function updateEmployeeDeployment(
     const deploymentError = validateDeploymentFields(
       statusId,
       deploymentLocation,
-      statuses
+      statuses,
+      actualTask
     );
     if (deploymentError) {
       return { success: false, error: deploymentError };
@@ -530,14 +605,14 @@ export async function updateEmployeeDeployment(
       return { success: false, error: "Selected deployment status is invalid." };
     }
 
-    const nextLocation = statusRequiresDeploymentLocation(status.name)
-      ? deploymentLocation?.trim() || null
-      : null;
+    const isDeployed = statusRequiresDeploymentLocation(status.name);
+    const nextLocation = isDeployed ? deploymentLocation?.trim() || null : null;
+    const nextActualTask = isDeployed ? actualTask?.trim() || null : null;
 
     const supabase = createServiceClient();
     const { data: before, error: fetchError } = await supabase
       .from("employees")
-      .select("status_id, deployment_location")
+      .select("status_id, deployment_location, actual_task")
       .eq("id", id)
       .single();
 
@@ -548,12 +623,21 @@ export async function updateEmployeeDeployment(
       .update({
         status_id: statusId,
         deployment_location: nextLocation,
+        actual_task: nextActualTask,
       })
       .eq("id", id);
 
     if (error) return { success: false, error: error.message };
 
-    await logDeploymentChange(id, user.id, statusId, status.name, nextLocation, before);
+    await logDeploymentChange(
+      id,
+      user.id,
+      statusId,
+      status.name,
+      nextLocation,
+      nextActualTask,
+      before
+    );
 
     revalidatePath("/");
     revalidatePath(`/employees/${id}`);
@@ -561,6 +645,7 @@ export async function updateEmployeeDeployment(
     revalidatePath("/admin/dashboard");
     revalidatePath("/employee/dashboard");
     revalidatePath("/employee/team");
+    revalidatePath("/employee/daily-report");
     return { success: true };
   } catch (err) {
     return {
@@ -603,16 +688,11 @@ export async function getSpecializations(
 
 export async function getRegions(activeOnly = true): Promise<LibraryRegion[]> {
   const supabase = await createClient();
-  let query = supabase
-    .from("library_regions")
-    .select(REGION_SELECT)
-    .order("sort_order");
-
-  if (activeOnly) query = query.eq("is_active", true);
-
-  const { data, error } = await query;
-  if (error) throw new Error(error.message);
-  return data ?? [];
+  return queryRegions(supabase, (select) => {
+    let query = supabase.from("library_regions").select(select).order("sort_order");
+    if (activeOnly) query = query.eq("is_active", true);
+    return query;
+  });
 }
 
 export async function getStatuses(activeOnly = true): Promise<LibraryStatus[]> {
@@ -633,19 +713,20 @@ export async function getAllLibraries() {
   await requireAdmin();
   const supabase = createServiceClient();
 
-  const [specRes, regionRes, statusRes] = await Promise.all([
+  const [specRes, regions, statusRes] = await Promise.all([
     supabase.from("library_specializations").select("*").order("sort_order"),
-    supabase.from("library_regions").select(REGION_SELECT).order("sort_order"),
+    queryRegions(supabase, (select) =>
+      supabase.from("library_regions").select(select).order("sort_order")
+    ),
     supabase.from("library_statuses").select("*").order("sort_order"),
   ]);
 
   if (specRes.error) throw new Error(specRes.error.message);
-  if (regionRes.error) throw new Error(regionRes.error.message);
   if (statusRes.error) throw new Error(statusRes.error.message);
 
   return {
     specializations: specRes.data ?? [],
-    regions: regionRes.data ?? [],
+    regions,
     statuses: statusRes.data ?? [],
   };
 }
@@ -693,20 +774,32 @@ export async function updateSpecialization(
 export async function createRegion(data: {
   name: string;
   code: string;
-  team_leader_employee_id?: string;
+  team_leader_employee_ids?: string[];
   sort_order?: number;
 }): Promise<ActionResult> {
   try {
     await requireAdmin();
     const supabase = createServiceClient();
-    const { error } = await supabase.from("library_regions").insert({
-      name: data.name,
-      code: data.code,
-      team_leader_employee_id: data.team_leader_employee_id?.trim() || null,
-      sort_order: data.sort_order ?? 0,
-    });
-    if (error) return { success: false, error: error.message };
+    const { data: created, error } = await supabase
+      .from("library_regions")
+      .insert({
+        name: data.name,
+        code: data.code,
+        sort_order: data.sort_order ?? 0,
+      })
+      .select("id")
+      .single();
+
+    if (error || !created) return { success: false, error: error?.message ?? "Failed to create region" };
+
+    const syncResult = await syncRegionTeamLeaders(
+      created.id,
+      data.team_leader_employee_ids ?? []
+    );
+    if (!syncResult.success) return syncResult;
+
     revalidatePath("/admin/libraries");
+    revalidatePath("/admin/dashboard");
     return { success: true };
   } catch (err) {
     return { success: false, error: err instanceof Error ? err.message : "Failed to create region" };
@@ -718,7 +811,7 @@ export async function updateRegion(
   data: {
     name: string;
     code: string;
-    team_leader_employee_id?: string;
+    team_leader_employee_ids?: string[];
     sort_order?: number;
     is_active?: boolean;
   }
@@ -731,14 +824,20 @@ export async function updateRegion(
       .update({
         name: data.name,
         code: data.code,
-        team_leader_employee_id: data.team_leader_employee_id?.trim() || null,
         sort_order: data.sort_order,
         is_active: data.is_active,
       })
       .eq("id", id);
     if (error) return { success: false, error: error.message };
+
+    if (data.team_leader_employee_ids !== undefined) {
+      const syncResult = await syncRegionTeamLeaders(id, data.team_leader_employee_ids);
+      if (!syncResult.success) return syncResult;
+    }
+
     revalidatePath("/admin/libraries");
     revalidatePath("/admin/employees");
+    revalidatePath("/admin/dashboard");
     revalidatePath("/employee/dashboard");
     return { success: true };
   } catch (err) {

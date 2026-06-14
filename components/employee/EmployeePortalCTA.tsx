@@ -14,7 +14,7 @@ export function EmployeePortalCTA() {
             </h3>
             <p className="text-sm text-muted-foreground mt-2 max-w-xl">
               Sign in or create your account to report deployment status, update your location,
-              and keep your monitoring profile current for the DSWD earthquake augmentation program.
+              and keep your monitoring profile current for DSWD augmentation disaster response.
             </p>
             <ul className="mt-3 flex flex-wrap gap-x-4 gap-y-1 text-xs text-muted-foreground">
               <li className="flex items-center gap-1">

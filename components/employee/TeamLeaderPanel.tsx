@@ -1,7 +1,7 @@
 import { EmployeeTable } from "@/components/dashboard/EmployeeTable";
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
-import { Users } from "lucide-react";
+import { Users, FileText } from "lucide-react";
 import type {
   EmployeeWithRelations,
   LibraryRegion,
@@ -33,12 +33,20 @@ export function TeamLeaderPanel({
             My Team — {regionLabel}
           </h2>
           <p className="text-sm text-muted-foreground mt-1">
-            As regional team leader, you can update deployment status, edit profiles, and view history for your members.
+            As regional team leader, you can update deployment status, edit profiles, view history, and share accomplishments with your members.
           </p>
         </div>
-        <Button asChild variant="outline" size="sm">
-          <Link href="/employee/team">Open full team view</Link>
-        </Button>
+        <div className="flex flex-wrap gap-2 shrink-0">
+          <Button asChild variant="outline" size="sm">
+            <Link href="/employee/daily-report">
+              <FileText className="h-4 w-4" />
+              Daily Team Report
+            </Link>
+          </Button>
+          <Button asChild variant="outline" size="sm">
+            <Link href="/employee/team">Open full team view</Link>
+          </Button>
+        </div>
       </div>
 
       <EmployeeTable

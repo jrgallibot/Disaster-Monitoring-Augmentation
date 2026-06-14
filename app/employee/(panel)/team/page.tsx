@@ -1,13 +1,15 @@
 import { EmployeeTable } from "@/components/dashboard/EmployeeTable";
+import Link from "next/link";
+import { Button } from "@/components/ui/button";
 import {
   getSpecializations,
   getStatuses,
 } from "@/lib/actions/employees";
 import {
-  getTeamLeaderContext,
   getTeamMembersForLeader,
   requireTeamLeaderForPage,
 } from "@/lib/actions/team-leader";
+import { FileText } from "lucide-react";
 
 export const dynamic = "force-dynamic";
 
@@ -23,13 +25,21 @@ export default async function EmployeeTeamPage() {
 
   return (
     <div className="space-y-6">
-      <div>
-        <h1 className="gov-section-title">My Team</h1>
-        <p className="text-sm text-muted-foreground mt-2">
-          You are assigned as team leader for{" "}
-          <strong className="text-foreground">{regionLabel}</strong>. Manage deployment status,
-          edit profiles, and view history for employees in your region.
-        </p>
+      <div className="flex flex-col sm:flex-row sm:items-start justify-between gap-4">
+        <div>
+          <h1 className="gov-section-title">My Team</h1>
+          <p className="text-sm text-muted-foreground mt-2">
+            You are assigned as team leader for{" "}
+            <strong className="text-foreground">{regionLabel}</strong>. Manage deployment status,
+            edit profiles, and view history for employees in your region.
+          </p>
+        </div>
+        <Button asChild variant="outline" size="sm">
+          <Link href="/employee/daily-report">
+            <FileText className="h-4 w-4" />
+            Daily Team Report
+          </Link>
+        </Button>
       </div>
 
       <EmployeeTable

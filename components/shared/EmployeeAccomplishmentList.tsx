@@ -1,7 +1,8 @@
+import { Badge } from "@/components/ui/badge";
 import { formatCoordinates, getMapUrl, hasValidCoordinates } from "@/lib/geo";
 import { formatDate } from "@/lib/utils";
 import type { EmployeeAccomplishment } from "@/lib/types";
-import { MapPin } from "lucide-react";
+import { MapPin, Users } from "lucide-react";
 
 interface EmployeeAccomplishmentListProps {
   records: EmployeeAccomplishment[];
@@ -32,7 +33,15 @@ export function EmployeeAccomplishmentList({
         <div className="space-y-3">
           {records.map((record) => (
             <div key={record.id} className="border border-dswd-border rounded-lg p-4 space-y-2">
-              <p className="text-xs text-muted-foreground">{formatDate(record.created_at)}</p>
+              <div className="flex flex-wrap items-center gap-2">
+                <p className="text-xs text-muted-foreground">{formatDate(record.created_at)}</p>
+                {record.shared_by_team_leader_id && (
+                  <Badge variant="outline" className="text-xs gap-1">
+                    <Users className="h-3 w-3" />
+                    From Team Leader
+                  </Badge>
+                )}
+              </div>
               <p className="text-sm text-dswd-navy whitespace-pre-wrap">{record.content}</p>
               {hasValidCoordinates(record.latitude, record.longitude) && (
                 <p className="text-xs text-muted-foreground flex items-center gap-1 flex-wrap">

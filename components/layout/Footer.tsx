@@ -1,4 +1,5 @@
-import { MapPin, Lightbulb } from "lucide-react";
+import { MapPin } from "lucide-react";
+import { CREATED_BY, SYSTEM_NAME, SYSTEM_TAGLINE } from "@/lib/branding";
 
 export function Footer() {
   return (
@@ -7,14 +8,8 @@ export function Footer() {
       <div className="container mx-auto px-4 py-8">
         <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
           <div>
-            <div className="flex items-center gap-2 mb-3">
-              <Lightbulb className="h-5 w-5 text-dswd-gold" />
-              <p className="font-bold text-dswd-gold">Caraga Region XIII Innovation</p>
-            </div>
-            <p className="text-sm text-white/80 leading-relaxed">
-              Advancing disaster response through digital monitoring and augmented employee
-              deployment tracking for the DSWD earthquake augmentation program.
-            </p>
+            <p className="font-bold text-dswd-gold mb-3">{SYSTEM_NAME}</p>
+            <p className="text-sm text-white/80 leading-relaxed">{SYSTEM_TAGLINE}</p>
           </div>
 
           <div>
@@ -22,9 +17,7 @@ export function Footer() {
             <div className="flex items-start gap-2 text-sm text-white/70">
               <MapPin className="h-4 w-4 mt-0.5 shrink-0 text-dswd-gold" />
               <div>
-                <p>DSWD Field Office — Caraga</p>
-                <p>Region XIII, Philippines</p>
-                <p className="mt-1">Earthquake Augmentation Employee Monitoring System</p>
+                <p>Augmentation employee deployment and disaster response monitoring</p>
               </div>
             </div>
           </div>
@@ -37,7 +30,10 @@ export function Footer() {
               <span>Administrator Control Panel</span>
             </div>
             <p className="text-xs text-white/50 mt-4">
-              &copy; {new Date().getFullYear()} DSWD Caraga Region XIII. All rights reserved.
+              System developed by {CREATED_BY}
+            </p>
+            <p className="text-xs text-white/40 mt-1">
+              &copy; {new Date().getFullYear()} Department of Social Welfare and Development
             </p>
           </div>
         </div>

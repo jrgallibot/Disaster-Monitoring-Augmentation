@@ -59,7 +59,10 @@ export default async function EmployeeDashboardPage() {
         logs={logs}
       />
       <EmployeeAttendancePanel status={attendanceStatus} records={attendance} />
-      <EmployeeAccomplishmentPanel records={accomplishments} />
+      <EmployeeAccomplishmentPanel
+        records={accomplishments}
+        isTeamLeader={teamLeaderContext.isTeamLeader}
+      />
       {teamLeaderContext.isTeamLeader && teamMembers && (
         <TeamLeaderPanel
           ledRegions={teamLeaderContext.ledRegions}

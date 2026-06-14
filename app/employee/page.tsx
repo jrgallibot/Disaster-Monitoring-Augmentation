@@ -3,6 +3,7 @@ import { Footer } from "@/components/layout/Footer";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { EmployeeAuthPanel } from "@/components/employee/EmployeeAuthPanel";
 import { getRegions, getSpecializations } from "@/lib/actions/employees";
+import { SYSTEM_TAGLINE } from "@/lib/branding";
 import { Shield } from "lucide-react";
 import Link from "next/link";
 
@@ -24,7 +25,7 @@ export default async function EmployeePortalPage() {
               </div>
               <CardTitle className="text-2xl">Employee Portal</CardTitle>
               <p className="text-sm text-muted-foreground mt-2">
-                DSWD Caraga Region XIII — Earthquake Augmentation Program
+                {SYSTEM_TAGLINE}
               </p>
               <p className="text-xs text-muted-foreground mt-1">
                 Sign in or register to update your deployment status for real-time monitoring

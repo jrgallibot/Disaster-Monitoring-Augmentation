@@ -6,8 +6,12 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { login } from "@/lib/actions/auth";
 
-export function LoginForm() {
-  const [error, setError] = useState<string | null>(null);
+interface LoginFormProps {
+  initialError?: string | null;
+}
+
+export function LoginForm({ initialError = null }: LoginFormProps) {
+  const [error, setError] = useState<string | null>(initialError);
   const [isPending, startTransition] = useTransition();
 
   function handleSubmit(e: React.FormEvent<HTMLFormElement>) {

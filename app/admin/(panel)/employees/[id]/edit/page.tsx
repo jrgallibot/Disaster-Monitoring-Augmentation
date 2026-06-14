@@ -5,6 +5,7 @@ import {
   getSpecializations,
   getRegions,
 } from "@/lib/actions/employees";
+import { getEmployeePortalRole } from "@/lib/actions/auth";
 
 export const dynamic = "force-dynamic";
 
@@ -14,10 +15,11 @@ interface PageProps {
 
 export default async function EditEmployeePage({ params }: PageProps) {
   const { id } = await params;
-  const [employee, specializations, regions] = await Promise.all([
+  const [employee, specializations, regions, portalRole] = await Promise.all([
     getEmployeeById(id),
     getSpecializations(),
     getRegions(),
+    getEmployeePortalRole(id),
   ]);
 
   if (!employee) notFound();
@@ -34,6 +36,7 @@ export default async function EditEmployeePage({ params }: PageProps) {
         employee={employee}
         specializations={specializations}
         regions={regions}
+        portalRole={portalRole}
       />
     </div>
   );

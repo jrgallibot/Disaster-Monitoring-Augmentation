@@ -1,12 +1,15 @@
+import { requireAdminForPage } from "@/lib/actions/auth";
 import { Header } from "@/components/layout/Header";
 import { Footer } from "@/components/layout/Footer";
 import { AdminSidebar } from "@/components/admin/AdminSidebar";
 
-export default function AdminPanelLayout({
+export default async function AdminPanelLayout({
   children,
 }: {
   children: React.ReactNode;
 }) {
+  await requireAdminForPage();
+
   return (
     <>
       <Header showAdminLink={false} />

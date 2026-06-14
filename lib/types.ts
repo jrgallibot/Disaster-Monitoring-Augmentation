@@ -22,12 +22,17 @@ export interface TeamLeaderSummary {
   user_id: string | null;
 }
 
+export interface RegionTeamLeaderLink {
+  id: string;
+  employee_id: string;
+  leader?: TeamLeaderSummary | null;
+}
+
 export interface LibraryRegion {
   id: string;
   name: string;
   code: string;
-  team_leader_employee_id: string | null;
-  team_leader?: TeamLeaderSummary | null;
+  team_leaders?: RegionTeamLeaderLink[];
   is_active: boolean;
   sort_order: number;
   created_at: string;
@@ -54,8 +59,10 @@ export interface Employee {
   address: string | null;
   specialization_id: string | null;
   region_id: string | null;
+  assigned_team_leader_id: string | null;
   status_id: string | null;
   deployment_location: string | null;
+  actual_task: string | null;
   notes: string | null;
   photo_url: string | null;
   last_latitude: number | null;
@@ -67,6 +74,7 @@ export interface Employee {
 export interface EmployeeWithRelations extends Employee {
   specialization: LibrarySpecialization | null;
   region: LibraryRegion | null;
+  assigned_team_leader?: TeamLeaderSummary | null;
   status: LibraryStatus | null;
 }
 
@@ -101,14 +109,68 @@ export interface AdminDashboardData {
     lastTimeIn: string;
     deployment_location: string | null;
   }[];
+  regionTeams: RegionTeamOverview[];
+  statuses: LibraryStatus[];
   generatedAt: string;
+}
+
+export interface RegionTeamOverview {
+  region: LibraryRegion;
+  members: EmployeeWithRelations[];
+}
+
+export interface TeamDailyReportMember {
+  employee: EmployeeWithRelations;
+  todayAccomplishments: EmployeeAccomplishment[];
+  todayDutySummary: string;
+  todayTimeIn: string | null;
+  todayTimeOut: string | null;
+  isClockedIn: boolean;
+}
+
+export interface TeamDailyReportSummary {
+  totalMembers: number;
+  deployed: number;
+  onStandby: number;
+  onLeave: number;
+  clockedInNow: number;
+  withActivityToday: number;
+}
+
+export interface TeamDailyReportData {
+  generatedAt: string;
+  reportDate: string;
+  teamLeader: EmployeeWithRelations;
+  ledRegions: LibraryRegion[];
+  members: TeamDailyReportMember[];
+  summary: TeamDailyReportSummary;
+}
+
+export interface AdminTeamLeaderReport {
+  region: LibraryRegion;
+  teamLeader: EmployeeWithRelations;
+  leaderActivity: TeamDailyReportMember;
+  members: TeamDailyReportMember[];
+  summary: TeamDailyReportSummary;
+}
+
+export interface AdminOperationsReportSummary extends TeamDailyReportSummary {
+  totalTeams: number;
+  totalTeamLeaders: number;
+}
+
+export interface AdminOperationsReportData {
+  generatedAt: string;
+  reportDate: string;
+  teams: AdminTeamLeaderReport[];
+  summary: AdminOperationsReportSummary;
 }
 
 export interface Profile {
   id: string;
   email: string;
   full_name: string | null;
-  role: "admin" | "viewer" | "employee";
+  role: "admin" | "viewer" | "employee" | "team_leader";
   created_at: string;
 }
 
@@ -126,10 +188,11 @@ export type EmployeeFormData = {
   deployment_location?: string;
   notes?: string;
   photo_url?: string;
+  portal_role?: "employee" | "admin" | "team_leader";
 };
 
 export type ActionResult =
-  | { success: true }
+  | { success: true; sharedCount?: number }
   | { success: false; error: string };
 
 export type SpecializationResolveResult =
@@ -144,6 +207,7 @@ export type EmployeeSelfUpdate = {
   address?: string;
   specialization_id?: string;
   region_id?: string;
+  assigned_team_leader_id?: string;
   notes?: string;
   photo_url?: string;
   latitude?: number;
@@ -157,6 +221,7 @@ export interface EmployeeDeploymentLog {
   status_id: string | null;
   status_name: string;
   deployment_location: string | null;
+  actual_task: string | null;
   created_at: string;
 }
 
@@ -199,6 +264,8 @@ export interface EmployeeAccomplishment {
   content: string;
   latitude: number | null;
   longitude: number | null;
+  source_accomplishment_id?: string | null;
+  shared_by_team_leader_id?: string | null;
   created_at: string;
 }
 

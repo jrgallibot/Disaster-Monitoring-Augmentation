@@ -19,7 +19,8 @@ import {
   updateEmployee,
 } from "@/lib/actions/employees";
 import { updateTeamMemberProfile } from "@/lib/actions/team-leader";
-import { getEmployeeTeamLeader, getTeamLeaderDisplay } from "@/lib/utils";
+import { PORTAL_ROLE_LABELS } from "@/lib/auth/roles";
+import { getEmployeeTeamLeader, getTeamLeaderDisplay, getRegionTeamLeaderSummaries } from "@/lib/utils";
 import type {
   EmployeeWithRelations,
   LibraryRegion,
@@ -31,6 +32,7 @@ interface EmployeeFormProps {
   employee?: EmployeeWithRelations;
   specializations: LibrarySpecialization[];
   regions: LibraryRegion[];
+  portalRole?: "employee" | "admin" | "team_leader" | null;
   mode?: "admin" | "teamLeader";
   successHref?: string;
 }
@@ -39,6 +41,7 @@ export function EmployeeForm({
   employee,
   specializations,
   regions,
+  portalRole = null,
   mode = "admin",
   successHref,
 }: EmployeeFormProps) {
@@ -47,6 +50,9 @@ export function EmployeeForm({
   const [error, setError] = useState<string | null>(null);
   const [specializationId, setSpecializationId] = useState(employee?.specialization_id ?? "");
   const [regionId, setRegionId] = useState(employee?.region_id ?? "");
+  const [accessRole, setAccessRole] = useState<"employee" | "admin" | "team_leader">(
+    portalRole ?? "employee"
+  );
 
   const isEdit = !!employee;
   const isTeamLeaderMode = mode === "teamLeader";
@@ -56,7 +62,10 @@ export function EmployeeForm({
     [regionId, regions]
   );
 
-  const teamLeader = getTeamLeaderDisplay(selectedRegion?.team_leader) || getEmployeeTeamLeader(employee ?? { region: null });
+  const teamLeader =
+    getTeamLeaderDisplay(employee?.assigned_team_leader) ||
+    getTeamLeaderDisplay(getRegionTeamLeaderSummaries(selectedRegion)[0]) ||
+    getEmployeeTeamLeader(employee ?? { region: null });
 
   function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
@@ -75,6 +84,7 @@ export function EmployeeForm({
       region_id: regionId || undefined,
       notes: (form.get("notes") as string) || undefined,
       photo_url: (form.get("photo_url") as string) || undefined,
+      portal_role: employee?.user_id ? accessRole : undefined,
     };
 
     startTransition(async () => {
@@ -215,6 +225,47 @@ export function EmployeeForm({
                 className={isTeamLeaderMode ? "bg-dswd-light" : undefined}
               />
             </div>
+            {!isTeamLeaderMode && isEdit && (
+              <div className="space-y-2 sm:col-span-2">
+                <Label htmlFor="portal_role">Portal Access Role</Label>
+                {employee?.user_id ? (
+                  <>
+                    <Select
+                      value={accessRole}
+                      onValueChange={(value) =>
+                        setAccessRole(value as "employee" | "admin" | "team_leader")
+                      }
+                    >
+                      <SelectTrigger>
+                        <SelectValue placeholder="Select portal access" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="employee">
+                          {PORTAL_ROLE_LABELS.employee}
+                        </SelectItem>
+                        <SelectItem value="team_leader">
+                          {PORTAL_ROLE_LABELS.team_leader}
+                        </SelectItem>
+                        <SelectItem value="admin">
+                          {PORTAL_ROLE_LABELS.admin}
+                        </SelectItem>
+                      </SelectContent>
+                    </Select>
+                    <p className="text-xs text-muted-foreground">
+                      Employees use the Employee Portal only. Team leaders can monitor assigned
+                      members. Administrators use the Admin Monitoring portal with full control.
+                      Team leader role also links this employee to their region in Libraries.
+                    </p>
+                  </>
+                ) : (
+                  <Input
+                    value="No portal account — employee must register first"
+                    readOnly
+                    className="bg-dswd-light"
+                  />
+                )}
+              </div>
+            )}
             <div className="space-y-2">
               <Label htmlFor="phone">Phone</Label>
               <Input

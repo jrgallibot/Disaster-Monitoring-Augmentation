@@ -3,6 +3,11 @@
 import { createClient } from "@/lib/supabase/server";
 import { createServiceClient } from "@/lib/supabase/service";
 import { getUserRole, linkOrCreateEmployeeRecord, syncEmployeeRole } from "@/lib/auth/employee-sync";
+import {
+  isAdminRole,
+  isEmployeePortalRole,
+  type PortalRole,
+} from "@/lib/auth/roles";
 import { findOrCreateSpecialization } from "@/lib/actions/specializations";
 import { redirect } from "next/navigation";
 import { revalidatePath } from "next/cache";
@@ -18,9 +23,13 @@ export async function login(formData: FormData) {
   if (error) return { error: error.message };
 
   const role = await getUserRole(data.user.id);
-  if (role !== "admin") {
+  if (!isAdminRole(role)) {
     await supabase.auth.signOut();
-    return { error: "This account is not an administrator. Use the Employee Portal to sign in." };
+    return {
+      error: isEmployeePortalRole(role)
+        ? "This account uses the Employee Portal. Team leaders and employees must sign in there."
+        : "This account is not an administrator. Use the Employee Portal to sign in.",
+    };
   }
 
   revalidatePath("/admin", "layout");
@@ -38,13 +47,15 @@ export async function employeeLogin(formData: FormData) {
   await syncEmployeeRole(data.user.id, data.user.email);
   const role = await getUserRole(data.user.id);
 
-  if (role === "admin") {
+  if (isAdminRole(role)) {
     await supabase.auth.signOut();
     return { error: "You are signed in as an administrator. Please use the Admin Portal." };
   }
-  if (role !== "employee") {
+  if (!isEmployeePortalRole(role)) {
     await supabase.auth.signOut();
-    return { error: "This account is not registered as an employee. Please register first or contact your administrator." };
+    return {
+      error: "This account is not registered as an employee. Please register first or contact your administrator.",
+    };
   }
 
   revalidatePath("/employee", "layout");
@@ -176,8 +187,28 @@ export async function requireAdmin(): Promise<{ user: User }> {
   }
 
   const role = await getUserRole(user.id);
-  if (role !== "admin") {
+  if (!isAdminRole(role)) {
     throw new Error("You do not have admin permissions.");
+  }
+
+  return { user };
+}
+
+/** For admin pages — redirects non-admins away from the monitoring portal */
+export async function requireAdminForPage(): Promise<{ user: User }> {
+  const supabase = await createClient();
+  const { data: { user }, error: authError } = await supabase.auth.getUser();
+
+  if (authError || !user) {
+    redirect("/admin/login");
+  }
+
+  const role = await getUserRole(user.id);
+  if (!isAdminRole(role)) {
+    if (isEmployeePortalRole(role)) {
+      redirect("/employee/dashboard");
+    }
+    redirect("/admin/login?error=access_denied");
   }
 
   return { user };
@@ -205,10 +236,10 @@ export async function getEmployeeSession(): Promise<
   await syncEmployeeRole(user.id, user.email);
   const role = await getUserRole(user.id);
 
-  if (role === "admin") {
+  if (isAdminRole(role)) {
     return { error: "You are logged in as an administrator. Use the Admin Portal instead." };
   }
-  if (role !== "employee") {
+  if (!isEmployeePortalRole(role)) {
     return { error: "Employee access only. Please register with your DSWD Employee ID first." };
   }
 
@@ -227,12 +258,128 @@ export async function requireEmployeeForPage(): Promise<{ user: User }> {
   await syncEmployeeRole(user.id, user.email);
   const role = await getUserRole(user.id);
 
-  if (role === "admin") {
+  if (isAdminRole(role)) {
     redirect("/admin/dashboard");
   }
-  if (role !== "employee") {
+  if (!isEmployeePortalRole(role)) {
     redirect("/employee/login?error=not_employee");
   }
 
   return { user };
+}
+
+export async function getEmployeePortalRole(
+  employeeId: string
+): Promise<"employee" | "admin" | "team_leader" | null> {
+  await requireAdmin();
+  const service = createServiceClient();
+
+  const { data: employee, error } = await service
+    .from("employees")
+    .select("user_id")
+    .eq("id", employeeId)
+    .maybeSingle();
+
+  if (error || !employee?.user_id) return null;
+
+  const role = await getUserRole(employee.user_id);
+  if (role === "admin" || role === "employee" || role === "team_leader") {
+    return role;
+  }
+  return "employee";
+}
+
+async function syncTeamLeaderRegionLink(
+  employeeId: string,
+  role: "employee" | "admin" | "team_leader",
+  regionId: string | null
+): Promise<void> {
+  const service = createServiceClient();
+
+  if (role === "team_leader" && regionId) {
+    await service.from("library_region_team_leaders").upsert(
+      { region_id: regionId, employee_id: employeeId },
+      { onConflict: "region_id,employee_id" }
+    );
+    return;
+  }
+
+  await service
+    .from("library_region_team_leaders")
+    .delete()
+    .eq("employee_id", employeeId);
+}
+
+export async function updateEmployeePortalRole(
+  employeeId: string,
+  portalRole: "employee" | "admin" | "team_leader"
+): Promise<ActionResult> {
+  try {
+    const { user: adminUser } = await requireAdmin();
+    const service = createServiceClient();
+
+    const { data: employee, error: employeeError } = await service
+      .from("employees")
+      .select("id, user_id, region_id, email")
+      .eq("id", employeeId)
+      .maybeSingle();
+
+    if (employeeError) return { success: false, error: employeeError.message };
+    if (!employee?.user_id) {
+      return {
+        success: false,
+        error: "This employee has no portal account yet. They must register first.",
+      };
+    }
+
+    if (portalRole !== "admin" && employee.user_id === adminUser.id) {
+      return {
+        success: false,
+        error: "You cannot remove your own administrator access.",
+      };
+    }
+
+    if (portalRole !== "admin") {
+      const { count } = await service
+        .from("profiles")
+        .select("id", { count: "exact", head: true })
+        .eq("role", "admin")
+        .neq("id", employee.user_id);
+
+      const { data: currentProfile } = await service
+        .from("profiles")
+        .select("role")
+        .eq("id", employee.user_id)
+        .maybeSingle();
+
+      if (currentProfile?.role === "admin" && (count ?? 0) === 0) {
+        return {
+          success: false,
+          error: "Cannot change role. This is the only administrator account.",
+        };
+      }
+    }
+
+    const { error: profileError } = await service.from("profiles").upsert({
+      id: employee.user_id,
+      email: employee.email ?? "",
+      role: portalRole,
+    });
+
+    if (profileError) return { success: false, error: profileError.message };
+
+    await syncTeamLeaderRegionLink(employeeId, portalRole, employee.region_id);
+
+    revalidatePath("/admin/employees");
+    revalidatePath(`/admin/employees/${employeeId}/edit`);
+    revalidatePath("/admin/dashboard");
+    revalidatePath("/admin/libraries");
+    revalidatePath("/employee", "layout");
+    return { success: true };
+  } catch (err) {
+    return {
+      success: false,
+      error: err instanceof Error ? err.message : "Failed to update portal role.",
+    };
+  }
 }

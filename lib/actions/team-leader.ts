@@ -4,17 +4,31 @@ import { createServiceClient } from "@/lib/supabase/service";
 import { getEmployeeSession } from "@/lib/actions/auth";
 import {
   canManageEmployee,
+  employeeIsAssignedToLeader,
   getEmployeeRecordByUserId,
   getLedRegionIds,
 } from "@/lib/auth/team-leader";
-import { EMPLOYEE_SELECT, REGION_SELECT } from "@/lib/supabase/selects";
+import { getUserRole } from "@/lib/auth/employee-sync";
+import { isTeamLeaderRole } from "@/lib/auth/roles";
+import {
+  queryEmployeeRows,
+  queryRegions,
+  querySingleEmployeeRow,
+} from "@/lib/supabase/employee-query";
+import {
+  buildMemberReports,
+  buildTeamSummary,
+  fetchMemberReportMaps,
+} from "@/lib/report/member-report";
 import type {
   ActionResult,
   EmployeeFormData,
   EmployeeWithRelations,
   LibraryRegion,
+  TeamDailyReportData,
   TeamLeaderContext,
 } from "@/lib/types";
+import { getTodayBounds } from "@/lib/utils";
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 
@@ -25,37 +39,47 @@ export async function getTeamLeaderContext(): Promise<TeamLeaderContext> {
   }
 
   const supabase = createServiceClient();
-  const { data: myEmployee, error: employeeError } = await supabase
-    .from("employees")
-    .select(EMPLOYEE_SELECT)
-    .eq("user_id", session.user.id)
-    .maybeSingle();
+  const myEmployee = await querySingleEmployeeRow(supabase, (select) =>
+    supabase.from("employees").select(select).eq("user_id", session.user.id).maybeSingle()
+  );
 
-  if (employeeError || !myEmployee) {
+  if (!myEmployee) {
     return { isTeamLeader: false, ledRegions: [], myEmployee: null };
   }
 
-  const employeeRecord = myEmployee as unknown as EmployeeWithRelations;
+  const employeeRecord = myEmployee;
+  const role = await getUserRole(session.user.id);
+  const ledRegionIds = await getLedRegionIds(employeeRecord.id);
 
-  const { data: ledRegions, error: regionError } = await supabase
-    .from("library_regions")
-    .select(REGION_SELECT)
-    .eq("team_leader_employee_id", employeeRecord.id)
-    .eq("is_active", true)
-    .order("sort_order");
-
-  if (regionError) {
-    return {
-      isTeamLeader: false,
-      ledRegions: [],
-      myEmployee: employeeRecord,
-    };
+  if (ledRegionIds.length === 0 && !isTeamLeaderRole(role)) {
+    return { isTeamLeader: false, ledRegions: [], myEmployee: employeeRecord };
   }
 
-  const regions = (ledRegions ?? []) as LibraryRegion[];
+  let ledRegions: LibraryRegion[] = [];
+  if (ledRegionIds.length > 0) {
+    try {
+      ledRegions = await queryRegions(supabase, (select) =>
+        supabase
+          .from("library_regions")
+          .select(select)
+          .in("id", ledRegionIds)
+          .eq("is_active", true)
+          .order("sort_order")
+      );
+    } catch {
+      if (!isTeamLeaderRole(role)) {
+        return {
+          isTeamLeader: false,
+          ledRegions: [],
+          myEmployee: employeeRecord,
+        };
+      }
+    }
+  }
+
   return {
-    isTeamLeader: regions.length > 0,
-    ledRegions: regions,
+    isTeamLeader: ledRegionIds.length > 0 || isTeamLeaderRole(role),
+    ledRegions,
     myEmployee: employeeRecord,
   };
 }
@@ -71,15 +95,18 @@ export async function getTeamMembersForLeader(): Promise<EmployeeWithRelations[]
   if (ledRegionIds.length === 0) return [];
 
   const supabase = createServiceClient();
-  const { data, error } = await supabase
-    .from("employees")
-    .select(EMPLOYEE_SELECT)
-    .in("region_id", ledRegionIds)
-    .neq("id", myRecord.id)
-    .order("updated_at", { ascending: false });
+  const employees = await queryEmployeeRows(supabase, (select) =>
+    supabase
+      .from("employees")
+      .select(select)
+      .in("region_id", ledRegionIds)
+      .neq("id", myRecord.id)
+      .order("updated_at", { ascending: false })
+  );
 
-  if (error) throw new Error(error.message);
-  return (data ?? []) as unknown as EmployeeWithRelations[];
+  return employees.filter((employee) =>
+    employeeIsAssignedToLeader(employee, myRecord.id)
+  );
 }
 
 export async function getManagedEmployeeById(
@@ -92,14 +119,9 @@ export async function getManagedEmployeeById(
   if (!access.allowed) return null;
 
   const supabase = createServiceClient();
-  const { data, error } = await supabase
-    .from("employees")
-    .select(EMPLOYEE_SELECT)
-    .eq("id", id)
-    .maybeSingle();
-
-  if (error || !data) return null;
-  return data as unknown as EmployeeWithRelations;
+  return querySingleEmployeeRow(supabase, (select) =>
+    supabase.from("employees").select(select).eq("id", id).maybeSingle()
+  );
 }
 
 export async function updateTeamMemberProfile(
@@ -135,6 +157,7 @@ export async function updateTeamMemberProfile(
 
     revalidatePath("/employee/dashboard");
     revalidatePath("/employee/team");
+    revalidatePath("/employee/daily-report");
     revalidatePath(`/employee/team/${id}/edit`);
     revalidatePath(`/employees/${id}`);
     return { success: true };
@@ -146,9 +169,43 @@ export async function updateTeamMemberProfile(
   }
 }
 
+export async function getTeamDailyReportData(): Promise<TeamDailyReportData | null> {
+  const session = await getEmployeeSession();
+  if ("error" in session) return null;
+
+  const context = await getTeamLeaderContext();
+  if (!context.isTeamLeader || !context.myEmployee || context.ledRegions.length === 0) {
+    return null;
+  }
+
+  const members = await getTeamMembersForLeader();
+  const memberIds = members.map((member) => member.id);
+  const { start, end, label } = getTodayBounds();
+
+  const maps = await fetchMemberReportMaps(memberIds, start, end);
+  const reportMembers = buildMemberReports(
+    members,
+    maps.accomplishmentsByEmployee,
+    maps.attendanceByEmployee,
+    maps.latestAttendanceByEmployee
+  );
+
+  return {
+    generatedAt: new Date().toISOString(),
+    reportDate: label,
+    teamLeader: context.myEmployee,
+    ledRegions: context.ledRegions,
+    members: reportMembers,
+    summary: buildTeamSummary(reportMembers),
+  };
+}
+
 export async function requireTeamLeaderForPage(): Promise<TeamLeaderContext> {
   const context = await getTeamLeaderContext();
   if (!context.isTeamLeader) {
+    redirect("/employee/dashboard");
+  }
+  if (context.ledRegions.length === 0) {
     redirect("/employee/dashboard");
   }
   return context;

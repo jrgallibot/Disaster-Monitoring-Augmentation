@@ -3,6 +3,7 @@ import { Footer } from "@/components/layout/Footer";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { EmployeeAuthPanel } from "@/components/employee/EmployeeAuthPanel";
 import { getRegions, getSpecializations } from "@/lib/actions/employees";
+import { SYSTEM_TAGLINE } from "@/lib/branding";
 import { Shield } from "lucide-react";
 import Link from "next/link";
 
@@ -35,7 +36,7 @@ export default async function EmployeeLoginPage({ searchParams }: PageProps) {
               </div>
               <CardTitle className="text-2xl">Employee Portal</CardTitle>
               <p className="text-sm text-muted-foreground mt-2">
-                DSWD Caraga Region XIII — Earthquake Augmentation Program
+                {SYSTEM_TAGLINE}
               </p>
             </CardHeader>
             <CardContent className="pt-6">

@@ -1,11 +1,22 @@
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { LoginForm } from "@/components/admin/LoginForm";
+import { SYSTEM_NAME } from "@/lib/branding";
 import { Shield } from "lucide-react";
 
-export default function AdminLoginPage() {
+interface AdminLoginPageProps {
+  searchParams: Promise<{ error?: string }>;
+}
+
+export default async function AdminLoginPage({ searchParams }: AdminLoginPageProps) {
+  const { error } = await searchParams;
+  const initialError =
+    error === "access_denied"
+      ? "Access denied. Only administrator accounts can use the Admin Monitoring portal."
+      : null;
+
   return (
     <div className="min-h-screen flex flex-col bg-dswd-light">
-      <div className="gov-banner text-center">DSWD Admin Portal</div>
+      <div className="gov-banner text-center">Admin Portal — {SYSTEM_NAME}</div>
       <div className="flex-1 flex items-center justify-center p-4">
         <Card className="w-full max-w-md">
           <CardHeader className="text-center">
@@ -18,7 +29,7 @@ export default function AdminLoginPage() {
             </p>
           </CardHeader>
           <CardContent>
-            <LoginForm />
+            <LoginForm initialError={initialError} />
           </CardContent>
         </Card>
       </div>

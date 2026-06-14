@@ -1,9 +1,10 @@
 "use client";
 
+import { SYSTEM_TAGLINE } from "@/lib/branding";
 import { useState, useTransition } from "react";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
-import { LayoutDashboard, LogOut, Menu, Users, X } from "lucide-react";
+import { LayoutDashboard, LogOut, Menu, Users, FileText, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { employeeLogout } from "@/lib/actions/auth";
 import { cn } from "@/lib/utils";
@@ -37,7 +38,7 @@ export function EmployeeSidebar({ showTeamLink = false }: EmployeeSidebarProps) 
     <div className="flex flex-col h-full">
       <div className="p-4 border-b border-dswd-border">
         <h2 className="font-bold text-dswd-navy text-sm">Employee Portal</h2>
-        <p className="text-xs text-muted-foreground mt-1">Caraga Region XIII</p>
+        <p className="text-xs text-muted-foreground mt-1">{SYSTEM_TAGLINE}</p>
       </div>
       <nav className="flex-1 p-3 space-y-1">
         <Link
@@ -49,14 +50,24 @@ export function EmployeeSidebar({ showTeamLink = false }: EmployeeSidebarProps) 
           My Account
         </Link>
         {showTeamLink && (
-          <Link
-            href="/employee/team"
-            onClick={() => setOpen(false)}
-            className={navLinkClass("/employee/team")}
-          >
-            <Users className="h-4 w-4" />
-            My Team
-          </Link>
+          <>
+            <Link
+              href="/employee/team"
+              onClick={() => setOpen(false)}
+              className={navLinkClass("/employee/team")}
+            >
+              <Users className="h-4 w-4" />
+              My Team
+            </Link>
+            <Link
+              href="/employee/daily-report"
+              onClick={() => setOpen(false)}
+              className={navLinkClass("/employee/daily-report")}
+            >
+              <FileText className="h-4 w-4" />
+              Daily Report
+            </Link>
+          </>
         )}
       </nav>
       <div className="p-3 border-t border-dswd-border">

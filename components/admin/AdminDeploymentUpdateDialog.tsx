@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { Textarea } from "@/components/ui/textarea";
 import { Badge } from "@/components/ui/badge";
 import {
   Select,
@@ -17,7 +18,7 @@ import { getStatusById, statusRequiresDeploymentLocation } from "@/lib/deploymen
 import { getFullName } from "@/lib/utils";
 import type { EmployeeWithRelations, LibraryStatus } from "@/lib/types";
 import { updateEmployeeDeployment } from "@/lib/actions/employees";
-import { Briefcase, MapPin, X } from "lucide-react";
+import { Briefcase, ClipboardList, MapPin, X } from "lucide-react";
 
 interface AdminDeploymentUpdateDialogProps {
   employee: EmployeeWithRelations | null;
@@ -36,11 +37,13 @@ export function AdminDeploymentUpdateDialog({
   const [isPending, startTransition] = useTransition();
   const [error, setError] = useState<string | null>(null);
   const [statusId, setStatusId] = useState("");
+  const [actualTask, setActualTask] = useState("");
   const [deploymentLocation, setDeploymentLocation] = useState("");
 
   useEffect(() => {
     if (!employee) return;
     setStatusId(employee.status_id ?? "");
+    setActualTask(employee.actual_task ?? "");
     setDeploymentLocation(employee.deployment_location ?? "");
     setError(null);
   }, [employee]);
@@ -59,6 +62,10 @@ export function AdminDeploymentUpdateDialog({
       setError("Please select a deployment status.");
       return;
     }
+    if (locationRequired && !actualTask.trim()) {
+      setError("Actual task is required when status is Deployed.");
+      return;
+    }
     if (locationRequired && !deploymentLocation.trim()) {
       setError("Deployment location is required when status is Deployed.");
       return;
@@ -69,7 +76,8 @@ export function AdminDeploymentUpdateDialog({
       const result = await updateEmployeeDeployment(
         employee!.id,
         statusId,
-        locationRequired ? deploymentLocation.trim() : undefined
+        locationRequired ? deploymentLocation.trim() : undefined,
+        locationRequired ? actualTask.trim() : undefined
       );
 
       if (!result.success) {
@@ -79,11 +87,13 @@ export function AdminDeploymentUpdateDialog({
 
       const status = statuses.find((s) => s.id === statusId) ?? null;
       const nextLocation = locationRequired ? deploymentLocation.trim() : null;
+      const nextActualTask = locationRequired ? actualTask.trim() : null;
 
       onUpdated({
         ...employee!,
         status_id: statusId,
         status,
+        actual_task: nextActualTask,
         deployment_location: nextLocation,
         updated_at: new Date().toISOString(),
       });
@@ -116,6 +126,9 @@ export function AdminDeploymentUpdateDialog({
             </h2>
             <p className="text-sm text-muted-foreground mt-1">{employeeName}</p>
             <p className="text-xs font-mono text-muted-foreground">{employee.employee_id}</p>
+            <p className="text-xs text-muted-foreground mt-1">
+              Specialization: {employee.specialization?.name ?? "—"}
+            </p>
           </div>
           <Button variant="outline" size="sm" onClick={onClose} aria-label="Close">
             <X className="h-4 w-4" />
@@ -134,10 +147,22 @@ export function AdminDeploymentUpdateDialog({
                 <span className="text-sm text-muted-foreground">No status set</span>
               )}
             </div>
+            {employee.actual_task && (
+              <p className="text-sm text-muted-foreground flex items-start gap-1">
+                <ClipboardList className="h-4 w-4 shrink-0 mt-0.5" />
+                <span>
+                  <span className="font-medium text-foreground">Actual Task:</span>{" "}
+                  {employee.actual_task}
+                </span>
+              </p>
+            )}
             {employee.deployment_location && (
               <p className="text-sm text-muted-foreground flex items-start gap-1">
                 <MapPin className="h-4 w-4 shrink-0 mt-0.5" />
-                {employee.deployment_location}
+                <span>
+                  <span className="font-medium text-foreground">Deployment Location:</span>{" "}
+                  {employee.deployment_location}
+                </span>
               </p>
             )}
           </div>
@@ -165,24 +190,38 @@ export function AdminDeploymentUpdateDialog({
           </div>
 
           {locationRequired && (
-            <div className="space-y-2">
-              <Label htmlFor="deployment_location">Deployment Location *</Label>
-              <Input
-                id="deployment_location"
-                value={deploymentLocation}
-                onChange={(e) => setDeploymentLocation(e.target.value)}
-                placeholder="e.g. Tacloban Response Center"
-                required
-              />
+            <>
+              <div className="space-y-2">
+                <Label htmlFor="actual_task">Actual Task *</Label>
+                <Textarea
+                  id="actual_task"
+                  value={actualTask}
+                  onChange={(e) => setActualTask(e.target.value)}
+                  placeholder="e.g. Conduct rapid damage assessment and relief distribution"
+                  rows={3}
+                  required
+                />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="deployment_location">Deployment Location *</Label>
+                <Input
+                  id="deployment_location"
+                  value={deploymentLocation}
+                  onChange={(e) => setDeploymentLocation(e.target.value)}
+                  placeholder="e.g. Tacloban Response Center"
+                  required
+                />
+              </div>
               <p className="text-xs text-muted-foreground">
-                Required only when status is Deployed.
+                Actual task and deployment location are required when status is Deployed.
               </p>
-            </div>
+            </>
           )}
 
           {!locationRequired && statusId && (
             <p className="text-xs text-muted-foreground">
-              Deployment location is not required for {selectedStatus?.name ?? "this status"}.
+              Actual task and deployment location are not required for{" "}
+              {selectedStatus?.name ?? "this status"}.
             </p>
           )}
         </div>

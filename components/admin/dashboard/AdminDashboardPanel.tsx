@@ -11,13 +11,23 @@ import { RegionChart } from "@/components/dashboard/RegionChart";
 import { AdminExtendedStats } from "@/components/admin/dashboard/AdminExtendedStats";
 import { SpecializationChart } from "@/components/admin/dashboard/SpecializationChart";
 import { ClockedInPanel } from "@/components/admin/dashboard/ClockedInPanel";
+import { TeamLeaderOverviewPanel } from "@/components/admin/dashboard/TeamLeaderOverviewPanel";
+import { AdminOperationsReportPanel } from "@/components/admin/AdminOperationsReportPanel";
+import { getAdminOperationsReportData } from "@/lib/actions/admin-reports";
 import { getAdminDashboardData } from "@/lib/actions/employees";
-import { downloadAdminReportExcel, printAdminReport } from "@/lib/report-export";
+import { SYSTEM_NAME, CREATED_BY } from "@/lib/branding";
+import {
+  downloadAdminOperationsReportExcel,
+  downloadAdminReportExcel,
+  printAdminOperationsReport,
+  printAdminReport,
+} from "@/lib/report-export";
 import { formatDate, getFullName } from "@/lib/utils";
-import type { AdminDashboardData } from "@/lib/types";
+import type { AdminDashboardData, AdminOperationsReportData } from "@/lib/types";
 import {
   BookOpen,
   Download,
+  FileText,
   Plus,
   Printer,
   RefreshCw,
@@ -26,20 +36,29 @@ import {
 
 interface AdminDashboardPanelProps {
   initialData: AdminDashboardData;
+  operationsReport: AdminOperationsReportData;
 }
 
 const REFRESH_MS = 30000;
 
-export function AdminDashboardPanel({ initialData }: AdminDashboardPanelProps) {
+export function AdminDashboardPanel({
+  initialData,
+  operationsReport: initialOperationsReport,
+}: AdminDashboardPanelProps) {
   const [data, setData] = useState(initialData);
+  const [operationsReport, setOperationsReport] = useState(initialOperationsReport);
   const [isRefreshing, startRefresh] = useTransition();
   const [lastRefresh, setLastRefresh] = useState(initialData.generatedAt);
 
   const refresh = useCallback(() => {
     startRefresh(async () => {
       try {
-        const next = await getAdminDashboardData();
+        const [next, nextOperations] = await Promise.all([
+          getAdminDashboardData(),
+          getAdminOperationsReportData(),
+        ]);
         setData(next);
+        setOperationsReport(nextOperations);
         setLastRefresh(next.generatedAt);
       } catch {
         // keep existing data on refresh failure
@@ -61,10 +80,10 @@ export function AdminDashboardPanel({ initialData }: AdminDashboardPanelProps) {
     <div className="space-y-6 admin-dashboard-report" id="admin-dashboard-report">
       <div className="hidden print:block mb-6 border-b-2 border-dswd-gold pb-4">
         <h1 className="text-2xl font-bold text-dswd-navy">
-          DSWD Augmented Employee Monitoring Report
+          {SYSTEM_NAME} Report
         </h1>
         <p className="text-sm text-muted-foreground">
-          Caraga Region XIII — Generated {formatDate(data.generatedAt)}
+          Generated {formatDate(data.generatedAt)} · Developed by {CREATED_BY}
         </p>
       </div>
 
@@ -92,11 +111,29 @@ export function AdminDashboardPanel({ initialData }: AdminDashboardPanelProps) {
           </Button>
           <Button variant="outline" size="sm" onClick={() => downloadAdminReportExcel(data)}>
             <Download className="h-4 w-4" />
-            Export Excel
+            Export Summary
+          </Button>
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => downloadAdminOperationsReportExcel(operationsReport)}
+          >
+            <FileText className="h-4 w-4" />
+            Export Operations
           </Button>
           <Button variant="outline" size="sm" onClick={printAdminReport}>
             <Printer className="h-4 w-4" />
-            Print Report
+            Print Dashboard
+          </Button>
+          <Button variant="outline" size="sm" onClick={printAdminOperationsReport}>
+            <Printer className="h-4 w-4" />
+            Print Operations
+          </Button>
+          <Button asChild variant="outline" size="sm">
+            <Link href="/admin/reports/daily-operations">
+              <FileText className="h-4 w-4" />
+              Daily Operations Report
+            </Link>
           </Button>
           <Button asChild size="sm">
             <Link href="/admin/employees/new">
@@ -160,6 +197,10 @@ export function AdminDashboardPanel({ initialData }: AdminDashboardPanelProps) {
         <SpecializationChart data={data.bySpecialization} />
         <ClockedInPanel employees={data.clockedInEmployees} />
       </div>
+
+      <TeamLeaderOverviewPanel regionTeams={data.regionTeams} statuses={data.statuses} />
+
+      <AdminOperationsReportPanel initialData={operationsReport} compact />
 
       <Card>
         <CardHeader>

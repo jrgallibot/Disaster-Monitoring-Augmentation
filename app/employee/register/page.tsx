@@ -3,6 +3,7 @@ import { Footer } from "@/components/layout/Footer";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { EmployeeAuthPanel } from "@/components/employee/EmployeeAuthPanel";
 import { getRegions, getSpecializations } from "@/lib/actions/employees";
+import { SYSTEM_TAGLINE } from "@/lib/branding";
 import { Shield } from "lucide-react";
 import Link from "next/link";
 
@@ -24,7 +25,7 @@ export default async function EmployeeRegisterPage() {
               </div>
               <CardTitle className="text-2xl">Create Employee Account</CardTitle>
               <p className="text-sm text-muted-foreground mt-2">
-                DSWD Caraga Region XIII — Register for the augmentation monitoring portal
+                Register for the {SYSTEM_TAGLINE.toLowerCase()} portal
               </p>
               <p className="text-xs text-muted-foreground mt-1">
                 Link your Employee ID and email to start updating your status

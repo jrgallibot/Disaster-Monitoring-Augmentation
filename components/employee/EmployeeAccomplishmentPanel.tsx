@@ -14,19 +14,23 @@ import { ClipboardList, MapPin } from "lucide-react";
 
 interface EmployeeAccomplishmentPanelProps {
   records: EmployeeAccomplishment[];
+  isTeamLeader?: boolean;
 }
 
-export function EmployeeAccomplishmentPanel({ records }: EmployeeAccomplishmentPanelProps) {
+export function EmployeeAccomplishmentPanel({
+  records,
+  isTeamLeader = false,
+}: EmployeeAccomplishmentPanelProps) {
   const router = useRouter();
   const [isPending, startTransition] = useTransition();
   const [error, setError] = useState<string | null>(null);
-  const [success, setSuccess] = useState(false);
+  const [success, setSuccess] = useState<string | null>(null);
   const [content, setContent] = useState("");
 
   function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
     setError(null);
-    setSuccess(false);
+    setSuccess(null);
 
     if (!content.trim()) {
       setError("Please enter your accomplishment or activity update.");
@@ -47,7 +51,15 @@ export function EmployeeAccomplishmentPanel({ records }: EmployeeAccomplishmentP
       }
 
       setContent("");
-      setSuccess(true);
+      if (isTeamLeader && result.sharedCount && result.sharedCount > 0) {
+        setSuccess(
+          `Accomplishment saved and shared with ${result.sharedCount} team member${result.sharedCount === 1 ? "" : "s"}.`
+        );
+      } else if (isTeamLeader) {
+        setSuccess("Accomplishment saved. No team members are currently assigned to you.");
+      } else {
+        setSuccess("Accomplishment saved successfully.");
+      }
       router.refresh();
     });
   }
@@ -61,6 +73,9 @@ export function EmployeeAccomplishmentPanel({ records }: EmployeeAccomplishmentP
         </CardTitle>
         <p className="text-sm text-muted-foreground">
           Submit your work accomplishments and activity updates from time to time. Each entry is timestamped.
+          {isTeamLeader
+            ? " As a team leader, your submissions are automatically copied to each assigned team member's accomplishment history."
+            : " Entries shared by your team leader appear here with a From Team Leader badge."}
         </p>
       </CardHeader>
       <CardContent className="space-y-6">
@@ -72,7 +87,7 @@ export function EmployeeAccomplishmentPanel({ records }: EmployeeAccomplishmentP
           )}
           {success && (
             <div className="bg-green-50 border border-green-200 text-green-700 px-4 py-3 rounded-md text-sm">
-              Accomplishment saved successfully.
+              {success}
             </div>
           )}
 

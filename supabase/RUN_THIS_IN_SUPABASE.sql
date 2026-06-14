@@ -255,6 +255,88 @@ SELECT 'DSWD-2024-005', 'Rosa', 'Fernandez', 'Bautista', 'rosa.fernandez@dswd.go
 WHERE NOT EXISTS (SELECT 1 FROM employees WHERE employee_id = 'DSWD-2024-005');
 
 -- ============================================================
+-- Migration 006: Employee logs, geo, and profile photo storage
+-- ============================================================
+
+ALTER TABLE employees ADD COLUMN IF NOT EXISTS last_latitude DOUBLE PRECISION;
+ALTER TABLE employees ADD COLUMN IF NOT EXISTS last_longitude DOUBLE PRECISION;
+
+CREATE TABLE IF NOT EXISTS employee_update_logs (
+  id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+  employee_id UUID NOT NULL REFERENCES employees(id) ON DELETE CASCADE,
+  user_id UUID REFERENCES auth.users(id) ON DELETE SET NULL,
+  summary TEXT NOT NULL,
+  changes JSONB NOT NULL DEFAULT '{}',
+  deployment_location TEXT,
+  status_name TEXT,
+  latitude DOUBLE PRECISION,
+  longitude DOUBLE PRECISION,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
+CREATE INDEX IF NOT EXISTS employee_update_logs_employee_id_idx ON employee_update_logs(employee_id);
+CREATE INDEX IF NOT EXISTS employee_update_logs_created_at_idx ON employee_update_logs(created_at DESC);
+
+ALTER TABLE employee_update_logs ENABLE ROW LEVEL SECURITY;
+
+DROP POLICY IF EXISTS "Employee read own update logs" ON employee_update_logs;
+CREATE POLICY "Employee read own update logs"
+  ON employee_update_logs FOR SELECT
+  USING (
+    employee_id IN (SELECT id FROM employees WHERE user_id = auth.uid())
+  );
+
+DROP POLICY IF EXISTS "Public read update logs" ON employee_update_logs;
+CREATE POLICY "Public read update logs"
+  ON employee_update_logs FOR SELECT
+  USING (TRUE);
+
+INSERT INTO storage.buckets (id, name, public, file_size_limit, allowed_mime_types)
+VALUES (
+  'employee-photos',
+  'employee-photos',
+  true,
+  5242880,
+  ARRAY['image/jpeg', 'image/jpg', 'image/png', 'image/webp', 'image/gif']
+)
+ON CONFLICT (id) DO UPDATE SET
+  public = EXCLUDED.public,
+  file_size_limit = EXCLUDED.file_size_limit,
+  allowed_mime_types = EXCLUDED.allowed_mime_types;
+
+DROP POLICY IF EXISTS "Employee photos public read" ON storage.objects;
+CREATE POLICY "Employee photos public read"
+  ON storage.objects FOR SELECT
+  USING (bucket_id = 'employee-photos');
+
+DROP POLICY IF EXISTS "Employees upload own photos" ON storage.objects;
+CREATE POLICY "Employees upload own photos"
+  ON storage.objects FOR INSERT
+  TO authenticated
+  WITH CHECK (
+    bucket_id = 'employee-photos'
+    AND (storage.foldername(name))[1] = auth.uid()::text
+  );
+
+DROP POLICY IF EXISTS "Employees update own photos" ON storage.objects;
+CREATE POLICY "Employees update own photos"
+  ON storage.objects FOR UPDATE
+  TO authenticated
+  USING (
+    bucket_id = 'employee-photos'
+    AND (storage.foldername(name))[1] = auth.uid()::text
+  );
+
+DROP POLICY IF EXISTS "Employees delete own photos" ON storage.objects;
+CREATE POLICY "Employees delete own photos"
+  ON storage.objects FOR DELETE
+  TO authenticated
+  USING (
+    bucket_id = 'employee-photos'
+    AND (storage.foldername(name))[1] = auth.uid()::text
+  );
+
+-- ============================================================
 -- Migration 012: Employee accomplishments
 -- ============================================================
 
@@ -293,4 +375,124 @@ DROP POLICY IF EXISTS "Public read accomplishments" ON employee_accomplishments;
 CREATE POLICY "Public read accomplishments"
   ON employee_accomplishments FOR SELECT
   USING (TRUE);
+
+-- ============================================================
+-- Migration 014: Region team leader employee FK
+-- ============================================================
+
+ALTER TABLE library_regions
+  ADD COLUMN IF NOT EXISTS team_leader_employee_id UUID;
+
+ALTER TABLE library_regions
+  DROP CONSTRAINT IF EXISTS library_regions_team_leader_fkey;
+
+ALTER TABLE library_regions
+  ADD CONSTRAINT library_regions_team_leader_fkey
+  FOREIGN KEY (team_leader_employee_id)
+  REFERENCES employees(id)
+  ON DELETE SET NULL;
+
+ALTER TABLE library_regions DROP COLUMN IF EXISTS team_leader_name;
+ALTER TABLE employees DROP COLUMN IF EXISTS team_leader_name;
+
+-- ============================================================
+-- Migration 015: Multiple team leaders per region
+-- ============================================================
+
+CREATE TABLE IF NOT EXISTS library_region_team_leaders (
+  id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+  region_id UUID NOT NULL REFERENCES library_regions(id) ON DELETE CASCADE,
+  employee_id UUID NOT NULL REFERENCES employees(id) ON DELETE CASCADE,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  UNIQUE(region_id, employee_id)
+);
+
+INSERT INTO library_region_team_leaders (region_id, employee_id)
+SELECT id, team_leader_employee_id
+FROM library_regions
+WHERE team_leader_employee_id IS NOT NULL
+ON CONFLICT (region_id, employee_id) DO NOTHING;
+
+ALTER TABLE library_regions DROP CONSTRAINT IF EXISTS library_regions_team_leader_fkey;
+ALTER TABLE library_regions DROP COLUMN IF EXISTS team_leader_employee_id;
+
+ALTER TABLE employees
+  ADD COLUMN IF NOT EXISTS assigned_team_leader_id UUID;
+
+ALTER TABLE employees
+  DROP CONSTRAINT IF EXISTS employees_assigned_team_leader_fkey;
+
+ALTER TABLE employees
+  ADD CONSTRAINT employees_assigned_team_leader_fkey
+  FOREIGN KEY (assigned_team_leader_id)
+  REFERENCES employees(id)
+  ON DELETE SET NULL;
+
+UPDATE employees e
+SET assigned_team_leader_id = sub.employee_id
+FROM (
+  SELECT rtl.region_id, rtl.employee_id
+  FROM library_region_team_leaders rtl
+  INNER JOIN (
+    SELECT region_id
+    FROM library_region_team_leaders
+    GROUP BY region_id
+    HAVING COUNT(*) = 1
+  ) single ON single.region_id = rtl.region_id
+) sub
+WHERE e.region_id = sub.region_id
+  AND e.assigned_team_leader_id IS NULL
+  AND e.id != sub.employee_id;
+
+CREATE INDEX IF NOT EXISTS idx_region_team_leaders_region ON library_region_team_leaders(region_id);
+CREATE INDEX IF NOT EXISTS idx_region_team_leaders_employee ON library_region_team_leaders(employee_id);
+CREATE INDEX IF NOT EXISTS idx_employees_assigned_team_leader ON employees(assigned_team_leader_id);
+
+ALTER TABLE library_region_team_leaders ENABLE ROW LEVEL SECURITY;
+
+DROP POLICY IF EXISTS "Public read region team leaders" ON library_region_team_leaders;
+CREATE POLICY "Public read region team leaders"
+  ON library_region_team_leaders FOR SELECT
+  USING (TRUE);
+
+DROP POLICY IF EXISTS "Admin manage region team leaders" ON library_region_team_leaders;
+CREATE POLICY "Admin manage region team leaders"
+  ON library_region_team_leaders FOR ALL
+  USING (is_admin());
+
+-- ============================================================
+-- Migration 016: Team leader portal role on profiles
+-- ============================================================
+
+ALTER TABLE profiles DROP CONSTRAINT IF EXISTS profiles_role_check;
+ALTER TABLE profiles ADD CONSTRAINT profiles_role_check
+  CHECK (role IN ('admin', 'viewer', 'employee', 'team_leader'));
+
+-- ============================================================
+-- Migration 017: Actual task for deployed employees
+-- ============================================================
+
+ALTER TABLE employees
+  ADD COLUMN IF NOT EXISTS actual_task TEXT;
+
+ALTER TABLE employee_deployment_logs
+  ADD COLUMN IF NOT EXISTS actual_task TEXT;
+
+-- ============================================================
+-- Migration 018: Team leader accomplishment sharing
+-- ============================================================
+
+ALTER TABLE employee_accomplishments
+  ADD COLUMN IF NOT EXISTS source_accomplishment_id UUID
+    REFERENCES employee_accomplishments(id) ON DELETE SET NULL;
+
+ALTER TABLE employee_accomplishments
+  ADD COLUMN IF NOT EXISTS shared_by_team_leader_id UUID
+    REFERENCES employees(id) ON DELETE SET NULL;
+
+CREATE INDEX IF NOT EXISTS employee_accomplishments_source_id_idx
+  ON employee_accomplishments(source_accomplishment_id);
+
+CREATE INDEX IF NOT EXISTS employee_accomplishments_shared_by_idx
+  ON employee_accomplishments(shared_by_team_leader_id);
 

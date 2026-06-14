@@ -1,14 +1,17 @@
 "use client";
 
+import { SYSTEM_NAME } from "@/lib/branding";
 import { useState, useTransition } from "react";
-import { useRouter } from "next/navigation";
+import { useRouter, usePathname } from "next/navigation";
 import Link from "next/link";
-import { Menu, X, LayoutDashboard, Users, BookOpen, LogOut } from "lucide-react";
+import { Menu, X, LayoutDashboard, Users, BookOpen, LogOut, FileText } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { logout } from "@/lib/actions/auth";
+import { cn } from "@/lib/utils";
 
 const navItems = [
   { href: "/admin/dashboard", label: "Dashboard", icon: LayoutDashboard },
+  { href: "/admin/reports/daily-operations", label: "Daily Report", icon: FileText },
   { href: "/admin/employees", label: "Employees", icon: Users },
   { href: "/admin/libraries", label: "Libraries", icon: BookOpen },
 ];
@@ -17,6 +20,17 @@ export function AdminSidebar() {
   const [open, setOpen] = useState(false);
   const [isPending, startTransition] = useTransition();
   const router = useRouter();
+  const pathname = usePathname();
+
+  function navLinkClass(href: string) {
+    const active =
+      pathname === href ||
+      (href !== "/admin/dashboard" && pathname.startsWith(`${href}/`));
+    return cn(
+      "flex items-center gap-3 px-3 py-2 rounded-md text-sm font-medium transition-colors",
+      active ? "bg-dswd-light text-dswd-navy" : "text-dswd-navy hover:bg-dswd-light"
+    );
+  }
 
   function handleLogout() {
     startTransition(async () => {
@@ -28,8 +42,8 @@ export function AdminSidebar() {
   const sidebar = (
     <div className="flex flex-col h-full">
       <div className="p-4 border-b border-dswd-border">
-        <h2 className="font-bold text-dswd-navy text-sm">DSWD Admin Portal</h2>
-        <p className="text-xs text-muted-foreground mt-1">Employee Monitoring</p>
+        <h2 className="font-bold text-dswd-navy text-sm">Admin Portal</h2>
+        <p className="text-xs text-muted-foreground mt-1">{SYSTEM_NAME}</p>
       </div>
       <nav className="flex-1 p-3 space-y-1">
         {navItems.map((item) => (
@@ -37,7 +51,7 @@ export function AdminSidebar() {
             key={item.href}
             href={item.href}
             onClick={() => setOpen(false)}
-            className="flex items-center gap-3 px-3 py-2 rounded-md text-sm font-medium text-dswd-navy hover:bg-dswd-light transition-colors"
+            className={navLinkClass(item.href)}
           >
             <item.icon className="h-4 w-4" />
             {item.label}

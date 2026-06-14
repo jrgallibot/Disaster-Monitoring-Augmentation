@@ -14,15 +14,21 @@ export function getStatusById(
 export function validateDeploymentFields(
   statusId: string | undefined,
   deploymentLocation: string | undefined,
-  statuses: LibraryStatus[]
+  statuses: LibraryStatus[],
+  actualTask?: string | undefined
 ): string | null {
   if (!statusId) return null;
 
   const status = getStatusById(statusId, statuses);
   if (!status) return "Selected deployment status is invalid.";
 
-  if (statusRequiresDeploymentLocation(status.name) && !deploymentLocation?.trim()) {
-    return "Deployment location is required when status is Deployed.";
+  if (statusRequiresDeploymentLocation(status.name)) {
+    if (!actualTask?.trim()) {
+      return "Actual task is required when status is Deployed.";
+    }
+    if (!deploymentLocation?.trim()) {
+      return "Deployment location is required when status is Deployed.";
+    }
   }
 
   return null;

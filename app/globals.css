@@ -65,6 +65,19 @@
     padding: 0;
   }
 
+  .team-daily-report {
+    padding: 0;
+  }
+
+  .admin-operations-report {
+    padding: 0;
+  }
+
+  .admin-operations-report table,
+  .team-daily-report table {
+    font-size: 11px;
+  }
+
   .gov-card,
   [class*="Card"] {
     break-inside: avoid;

@@ -41,6 +41,12 @@ export function EmployeeDeploymentLogList({
               Last record update: {formatDate(employee.updated_at)}
             </span>
           </div>
+          {statusRequiresDeploymentLocation(employee.status?.name) && employee.actual_task ? (
+            <p className="text-sm text-muted-foreground">
+              <span className="font-medium text-foreground">Actual Task:</span>{" "}
+              {employee.actual_task}
+            </p>
+          ) : null}
           {statusRequiresDeploymentLocation(employee.status?.name) && employee.deployment_location ? (
             <p className="text-sm text-muted-foreground flex items-start gap-1">
               <MapPin className="h-4 w-4 shrink-0 mt-0.5" />
@@ -80,6 +86,12 @@ export function EmployeeDeploymentLogList({
                     <Badge color={color}>{log.status_name}</Badge>
                     <p className="text-xs text-muted-foreground">{formatDate(log.created_at)}</p>
                   </div>
+                  {log.actual_task ? (
+                    <p className="text-sm text-muted-foreground">
+                      <span className="font-medium text-foreground">Actual Task:</span>{" "}
+                      {log.actual_task}
+                    </p>
+                  ) : null}
                   {log.deployment_location ? (
                     <p className="text-sm text-muted-foreground flex items-start gap-1">
                       <MapPin className="h-4 w-4 shrink-0 mt-0.5" />

@@ -18,8 +18,9 @@ import { AdminDeploymentUpdateDialog } from "@/components/admin/AdminDeploymentU
 import { AdminEmployeeHistoryDialog } from "@/components/admin/AdminEmployeeHistoryDialog";
 import { EmployeeAvatar } from "@/components/shared/EmployeeAvatar";
 import { statusRequiresDeploymentLocation } from "@/lib/deployment";
-import { Search, History, MapPin, User, Briefcase } from "lucide-react";import { formatCoordinates, getMapUrl, hasValidCoordinates } from "@/lib/geo";
-import { getFullName, getEmployeeTeamLeader, getTeamLeaderSearchText } from "@/lib/utils";
+import { Search, History, MapPin, User, Briefcase } from "lucide-react";
+import { formatCoordinates, getMapUrl, hasValidCoordinates } from "@/lib/geo";
+import { getFullName, getEmployeeTeamLeader, getEmployeeTeamLeaderSearchText } from "@/lib/utils";
 import type {
   EmployeeWithRelations,
   LibraryRegion,
@@ -70,8 +71,17 @@ export function EmployeeTable({
     router.refresh();
   }
 
-  function getDeploymentDisplay(emp: EmployeeWithRelations) {
-    if (!statusRequiresDeploymentLocation(emp.status?.name)) return "—";
+  function isDeployed(emp: EmployeeWithRelations) {
+    return statusRequiresDeploymentLocation(emp.status?.name);
+  }
+
+  function getActualTaskDisplay(emp: EmployeeWithRelations) {
+    if (!isDeployed(emp)) return "—";
+    return emp.actual_task ?? "—";
+  }
+
+  function getDeploymentLocationDisplay(emp: EmployeeWithRelations) {
+    if (!isDeployed(emp)) return "—";
     return emp.deployment_location ?? "—";
   }
 
@@ -83,7 +93,7 @@ export function EmployeeTable({
       e.last_name.toLowerCase().includes(term) ||
       e.employee_id.toLowerCase().includes(term) ||
       (e.deployment_location?.toLowerCase().includes(term) ?? false) ||
-      (getTeamLeaderSearchText(e.region?.team_leader).includes(term));
+      (getEmployeeTeamLeaderSearchText(e).includes(term));
 
     const matchesRegion =
       regionFilter === "all" || e.region_id === regionFilter;
@@ -175,7 +185,8 @@ export function EmployeeTable({
                   {showActions && !hideTeamLeaderColumn && (
                     <th className="text-left p-3 font-semibold text-dswd-navy">Team Leader</th>
                   )}
-                  <th className="text-left p-3 font-semibold text-dswd-navy">Deployment</th>
+                  <th className="text-left p-3 font-semibold text-dswd-navy">Actual Task</th>
+                  <th className="text-left p-3 font-semibold text-dswd-navy">Deployment Location</th>
                   {showActions && (
                     <th className="text-left p-3 font-semibold text-dswd-navy">Last GPS</th>
                   )}
@@ -237,7 +248,10 @@ export function EmployeeTable({
                       </td>
                     )}
                     <td className="p-3 text-muted-foreground max-w-[200px] truncate">
-                      {getDeploymentDisplay(emp)}
+                      {getActualTaskDisplay(emp)}
+                    </td>
+                    <td className="p-3 text-muted-foreground max-w-[200px] truncate">
+                      {getDeploymentLocationDisplay(emp)}
                     </td>
                     {showActions && (
                       <td className="p-3">
@@ -334,17 +348,29 @@ export function EmployeeTable({
                   ) : null}
                 </div>
                 <div className="mt-3 grid grid-cols-2 gap-2 text-xs text-muted-foreground">
-                  <span>Region: <strong className="text-foreground">{emp.region?.code ?? "—"}</strong></span>
-                  <span>Role: <strong className="text-foreground">{emp.specialization?.name ?? "—"}</strong></span>
+                  <span>
+                    Specialization:{" "}
+                    <strong className="text-foreground">{emp.specialization?.name ?? "—"}</strong>
+                  </span>
+                  <span>
+                    Region: <strong className="text-foreground">{emp.region?.code ?? "—"}</strong>
+                  </span>
                   {showActions && !hideTeamLeaderColumn && getEmployeeTeamLeader(emp) && (
                     <span className="col-span-2 truncate">
                       Team Leader: <strong className="text-foreground">{getEmployeeTeamLeader(emp)}</strong>
                     </span>
                   )}
-                  {statusRequiresDeploymentLocation(emp.status?.name) && emp.deployment_location && (
-                    <span className="col-span-2 truncate">
-                      Location: <strong className="text-foreground">{emp.deployment_location}</strong>
-                    </span>
+                  {isDeployed(emp) && (
+                    <>
+                      <span className="col-span-2">
+                        Actual Task:{" "}
+                        <strong className="text-foreground">{emp.actual_task ?? "—"}</strong>
+                      </span>
+                      <span className="col-span-2 truncate">
+                        Deployment Location:{" "}
+                        <strong className="text-foreground">{emp.deployment_location ?? "—"}</strong>
+                      </span>
+                    </>
                   )}
                   {showActions && hasValidCoordinates(emp.last_latitude, emp.last_longitude) && (
                     <span className="col-span-2">
