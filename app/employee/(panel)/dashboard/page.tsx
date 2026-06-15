@@ -20,7 +20,9 @@ import { Shield } from "lucide-react";
 export const dynamic = "force-dynamic";
 
 export default async function EmployeeDashboardPage() {
-  const [employee, specializations, regions, statuses, logs, deploymentLogs, accomplishments, teamLeaderContext, adminAccess] =
+  const teamLeaderContext = await getTeamLeaderContext();
+
+  const [employee, specializations, regions, statuses, logs, deploymentLogs, accomplishments, adminAccess] =
     await Promise.all([
       getMyEmployee(),
       getSpecializationsForEmployee(),
@@ -28,8 +30,7 @@ export default async function EmployeeDashboardPage() {
       getStatuses(),
       getMyUpdateLogs(),
       getMyDeploymentLogs(),
-      getMyAccomplishments(),
-      getTeamLeaderContext(),
+      getMyAccomplishments(teamLeaderContext.isTeamLeader ? 100 : 30),
       getAdminPortalAccess(),
     ]);
 

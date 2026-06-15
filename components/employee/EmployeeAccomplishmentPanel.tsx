@@ -3,15 +3,18 @@
 import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { EmployeeAccomplishmentList } from "@/components/shared/EmployeeAccomplishmentList";
+import { TeamLeaderAccomplishmentHistory } from "@/components/employee/TeamLeaderAccomplishmentHistory";
 import { addMyAccomplishment } from "@/lib/actions/accomplishments";
+import { getTodayInputValue } from "@/lib/report/date-bounds";
 import { toast } from "@/lib/toast";
 import { getCurrentPosition } from "@/lib/geo";
 import type { EmployeeAccomplishment } from "@/lib/types";
-import { ClipboardList, MapPin } from "lucide-react";
+import { CalendarDays, ClipboardList, MapPin } from "lucide-react";
 
 interface EmployeeAccomplishmentPanelProps {
   records: EmployeeAccomplishment[];
@@ -26,6 +29,8 @@ export function EmployeeAccomplishmentPanel({
   const [isPending, startTransition] = useTransition();
   const [error, setError] = useState<string | null>(null);
   const [content, setContent] = useState("");
+  const [accomplishmentDate, setAccomplishmentDate] = useState(getTodayInputValue);
+  const todayKey = getTodayInputValue();
 
   function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
@@ -43,7 +48,8 @@ export function EmployeeAccomplishmentPanel({
       const result = await addMyAccomplishment(
         content,
         position?.latitude,
-        position?.longitude
+        position?.longitude,
+        accomplishmentDate
       );
 
       if (!result.success) {
@@ -53,9 +59,10 @@ export function EmployeeAccomplishmentPanel({
       }
 
       setContent("");
+      setAccomplishmentDate(todayKey);
       if (isTeamLeader && result.sharedCount && result.sharedCount > 0) {
         toast.success(
-          `Accomplishment saved and shared with ${result.sharedCount} team member${result.sharedCount === 1 ? "" : "s"}.`
+          `Accomplishment saved for ${accomplishmentDate} and shared with ${result.sharedCount} team member${result.sharedCount === 1 ? "" : "s"}.`
         );
       } else if (isTeamLeader) {
         toast.success("Accomplishment saved. No team members are currently assigned to you.");
@@ -74,9 +81,10 @@ export function EmployeeAccomplishmentPanel({
           My Accomplishments
         </CardTitle>
         <p className="text-sm text-muted-foreground">
-          Submit your work accomplishments and activity updates from time to time. Each entry is timestamped.
+          Submit your work accomplishments and activity updates. Choose the date the work was done
+          (today or a previous day).
           {isTeamLeader
-            ? " As a team leader, your submissions are automatically copied to each assigned team member's accomplishment history."
+            ? " As a team leader, your submission is automatically copied to each assigned team member with the same date. You can edit or delete any accomplishment you submitted and it will update or remove the team member copies too."
             : " Entries shared by your team leader appear here with a From Team Leader badge."}
         </p>
       </CardHeader>
@@ -88,6 +96,35 @@ export function EmployeeAccomplishmentPanel({
             </div>
           )}
 
+          <div className="grid gap-4 sm:grid-cols-2">
+            <div className="space-y-2">
+              <Label htmlFor="accomplishment-date">Accomplishment Date *</Label>
+              <div className="flex gap-2">
+                <Input
+                  id="accomplishment-date"
+                  type="date"
+                  value={accomplishmentDate}
+                  max={todayKey}
+                  onChange={(event) => setAccomplishmentDate(event.target.value)}
+                  required
+                />
+                <Button
+                  type="button"
+                  variant={accomplishmentDate === todayKey ? "default" : "outline"}
+                  size="sm"
+                  className="shrink-0"
+                  onClick={() => setAccomplishmentDate(todayKey)}
+                >
+                  <CalendarDays className="h-4 w-4" />
+                  Today
+                </Button>
+              </div>
+              <p className="text-xs text-muted-foreground">
+                Philippine time. Use yesterday or earlier for backdated entries.
+              </p>
+            </div>
+          </div>
+
           <div className="space-y-2">
             <Label htmlFor="accomplishment">Accomplishment / Activity Update *</Label>
             <Textarea
@@ -95,7 +132,7 @@ export function EmployeeAccomplishmentPanel({
               value={content}
               onChange={(e) => setContent(e.target.value)}
               rows={4}
-              placeholder="Describe what you accomplished today — tasks completed, families assisted, reports submitted, field activities, etc."
+              placeholder="Describe what you accomplished — tasks completed, families assisted, reports submitted, field activities, etc."
               required
               minLength={10}
             />
@@ -111,7 +148,11 @@ export function EmployeeAccomplishmentPanel({
           </Button>
         </form>
 
-        <EmployeeAccomplishmentList records={records} />
+        {isTeamLeader ? (
+          <TeamLeaderAccomplishmentHistory records={records} />
+        ) : (
+          <EmployeeAccomplishmentList records={records} />
+        )}
       </CardContent>
     </Card>
   );

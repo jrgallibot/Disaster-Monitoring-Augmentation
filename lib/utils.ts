@@ -25,16 +25,11 @@ export function formatTime(date: string | Date): string {
   }).format(new Date(date));
 }
 
+import { getReportDateBounds } from "@/lib/report/date-bounds";
+
 export function getTodayBounds(): { start: string; end: string; label: string } {
-  const now = new Date();
-  const start = new Date(now.getFullYear(), now.getMonth(), now.getDate());
-  const end = new Date(start);
-  end.setDate(end.getDate() + 1);
-  return {
-    start: start.toISOString(),
-    end: end.toISOString(),
-    label: formatDateLong(start),
-  };
+  const bounds = getReportDateBounds();
+  return { start: bounds.start, end: bounds.end, label: bounds.label };
 }
 
 export function getFullName(

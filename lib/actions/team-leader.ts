@@ -23,13 +23,14 @@ import {
 } from "@/lib/report/member-report";
 import type {
   ActionResult,
+  DailyReportFilters,
   EmployeeFormData,
   EmployeeWithRelations,
   LibraryRegion,
   TeamDailyReportData,
   TeamLeaderContext,
 } from "@/lib/types";
-import { getTodayBounds } from "@/lib/utils";
+import { getReportDateBounds } from "@/lib/report/date-bounds";
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 
@@ -85,7 +86,9 @@ export async function getTeamLeaderContext(): Promise<TeamLeaderContext> {
   };
 }
 
-export async function getTeamMembersForLeader(): Promise<EmployeeWithRelations[]> {
+export async function getTeamMembersForLeader(
+  regionId?: string | null
+): Promise<EmployeeWithRelations[]> {
   const session = await getEmployeeSession();
   if ("error" in session) return [];
 
@@ -95,19 +98,24 @@ export async function getTeamMembersForLeader(): Promise<EmployeeWithRelations[]
   const ledRegionIds = await getLedRegionIds(myRecord.id);
   if (ledRegionIds.length === 0) return [];
 
-  const teamLeaderIds = await getTeamLeaderEmployeeIdsForRegions(ledRegionIds);
+  const scopedRegionIds = regionId
+    ? ledRegionIds.filter((id) => id === regionId)
+    : ledRegionIds;
+  if (scopedRegionIds.length === 0) return [];
+
+  const teamLeaderIds = await getTeamLeaderEmployeeIdsForRegions(scopedRegionIds);
   const supabase = createServiceClient();
   const employees = await queryEmployeeRows(supabase, (select) =>
     supabase
       .from("employees")
       .select(select)
-      .in("region_id", ledRegionIds)
+      .in("region_id", scopedRegionIds)
       .neq("id", myRecord.id)
       .order("updated_at", { ascending: false })
   );
 
   return employees.filter((employee) =>
-    employeeIsVisibleTeamMember(employee, myRecord.id, ledRegionIds, teamLeaderIds)
+    employeeIsVisibleTeamMember(employee, myRecord.id, scopedRegionIds, teamLeaderIds)
   );
 }
 
@@ -171,7 +179,9 @@ export async function updateTeamMemberProfile(
   }
 }
 
-export async function getTeamDailyReportData(): Promise<TeamDailyReportData | null> {
+export async function getTeamDailyReportData(
+  filters: DailyReportFilters = {}
+): Promise<TeamDailyReportData | null> {
   const session = await getEmployeeSession();
   if ("error" in session) return null;
 
@@ -180,25 +190,49 @@ export async function getTeamDailyReportData(): Promise<TeamDailyReportData | nu
     return null;
   }
 
-  const members = await getTeamMembersForLeader();
-  const memberIds = members.map((member) => member.id);
-  const { start, end, label } = getTodayBounds();
+  const regionId =
+    filters.regionId &&
+    context.ledRegions.some((region) => region.id === filters.regionId)
+      ? filters.regionId
+      : null;
 
-  const maps = await fetchMemberReportMaps(memberIds, start, end);
+  const ledRegions = regionId
+    ? context.ledRegions.filter((region) => region.id === regionId)
+    : context.ledRegions;
+
+  const members = await getTeamMembersForLeader(regionId);
+  const memberIds = members.map((member) => member.id);
+  const bounds = getReportDateBounds(filters.dateKey);
+
+  const maps = await fetchMemberReportMaps(memberIds, bounds.start, bounds.end);
   const reportMembers = buildMemberReports(
     members,
     maps.accomplishmentsByEmployee,
     maps.attendanceByEmployee,
-    maps.latestAttendanceByEmployee
+    maps.latestAttendanceByEmployee,
+    bounds.isToday
   );
+
+  const scopeLabel =
+    ledRegions.length === 1
+      ? `${ledRegions[0].name} (${ledRegions[0].code})`
+      : ledRegions.map((region) => `${region.name} (${region.code})`).join(", ");
 
   return {
     generatedAt: new Date().toISOString(),
-    reportDate: label,
+    reportDate: bounds.label,
+    reportDateKey: bounds.dateKey,
+    reportIsToday: bounds.isToday,
+    scopeLabel,
     teamLeader: context.myEmployee,
-    ledRegions: context.ledRegions,
+    ledRegions,
     members: reportMembers,
     summary: buildTeamSummary(reportMembers),
+    appliedFilters: {
+      dateKey: bounds.dateKey,
+      regionId,
+      teamLeaderId: null,
+    },
   };
 }
 

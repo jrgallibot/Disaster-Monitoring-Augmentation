@@ -22,13 +22,13 @@ export default async function DailyTeamReportPage() {
       <div>
         <h1 className="gov-section-title">Daily Team Report</h1>
         <p className="text-sm text-muted-foreground mt-2">
-          Today&apos;s operational report for region{" "}
-          <strong className="text-foreground">{regionLabel}</strong> — actual tasks, deployment
-          status, deployment locations, and member activity for the current day.
+          Operational report for region{" "}
+          <strong className="text-foreground">{regionLabel}</strong>. Choose a report date or
+          region, then print or export the snapshot you need.
         </p>
       </div>
 
-      <TeamDailyReportPanel initialData={reportData} />
+      <TeamDailyReportPanel initialData={reportData} allLedRegions={context.ledRegions} />
     </div>
   );
 }

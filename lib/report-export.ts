@@ -114,9 +114,10 @@ export function downloadTeamDailyReportExcel(data: TeamDailyReportData) {
 
   const rows: (string | number)[][] = [
     [SYSTEM_NAME],
-    ["Daily Team Report"],
+    ["Daily Team Report", data.scopeLabel],
     ["Developed by", CREATED_BY],
     ["Report Date", data.reportDate],
+    ["Scope", data.scopeLabel],
     ["Generated", generated],
     ["Team Leader", leaderName],
     ["Team Leader ID", data.teamLeader.employee_id],
@@ -175,7 +176,7 @@ export function downloadTeamDailyReportExcel(data: TeamDailyReportData) {
   const blob = new Blob(["\uFEFF" + csv], { type: "text/csv;charset=utf-8;" });
   const url = URL.createObjectURL(blob);
   const link = document.createElement("a");
-  const stamp = new Date().toISOString().slice(0, 10);
+  const stamp = data.reportDateKey;
   const regionSlug = regionLabel.replace(/[^a-z0-9]+/gi, "-").toLowerCase();
   link.href = url;
   link.download = `dswd-team-daily-report-${regionSlug}-${stamp}.csv`;
@@ -223,9 +224,10 @@ export function downloadAdminOperationsReportExcel(data: AdminOperationsReportDa
 
   const rows: (string | number)[][] = [
     [SYSTEM_NAME],
-    ["Daily Operations Report — All Teams"],
+    ["Daily Operations Report", data.scopeLabel],
     ["Developed by", CREATED_BY],
     ["Report Date", data.reportDate],
+    ["Scope", data.scopeLabel],
     ["Generated", generated],
     [],
     ["GLOBAL SUMMARY"],
@@ -286,7 +288,7 @@ export function downloadAdminOperationsReportExcel(data: AdminOperationsReportDa
   const blob = new Blob(["\uFEFF" + csv], { type: "text/csv;charset=utf-8;" });
   const url = URL.createObjectURL(blob);
   const link = document.createElement("a");
-  const stamp = new Date().toISOString().slice(0, 10);
+  const stamp = data.reportDateKey;
   link.href = url;
   link.download = `dswd-admin-operations-report-${stamp}.csv`;
   link.click();

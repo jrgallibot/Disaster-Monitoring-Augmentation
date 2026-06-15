@@ -28,7 +28,8 @@ export function buildTeamDailyReportMember(
   employee: EmployeeWithRelations,
   accomplishmentsByEmployee: Map<string, EmployeeAccomplishment[]>,
   attendanceByEmployee: Map<string, EmployeeAttendance[]>,
-  latestAttendanceByEmployee: Map<string, EmployeeAttendance | null>
+  latestAttendanceByEmployee: Map<string, EmployeeAttendance | null>,
+  reportIsToday = true
 ): TeamDailyReportMember {
   const todayAccomplishments = accomplishmentsByEmployee.get(employee.id) ?? [];
   const employeeAttendance = attendanceByEmployee.get(employee.id) ?? [];
@@ -39,13 +40,21 @@ export function buildTeamDailyReportMember(
     .reverse()
     .find((record) => record.action === "time_out")?.created_at ?? null;
 
+  const lastDayAction =
+    employeeAttendance.length > 0
+      ? employeeAttendance[employeeAttendance.length - 1]
+      : null;
+  const isClockedIn = reportIsToday
+    ? latestAttendance?.action === "time_in"
+    : lastDayAction?.action === "time_in";
+
   return {
     employee,
     todayAccomplishments,
     todayDutySummary: buildTodayDutySummary(todayAccomplishments),
     todayTimeIn,
     todayTimeOut,
-    isClockedIn: latestAttendance?.action === "time_in",
+    isClockedIn,
   };
 }
 
@@ -117,14 +126,16 @@ export function buildMemberReports(
   employees: EmployeeWithRelations[],
   accomplishmentsByEmployee: Map<string, EmployeeAccomplishment[]>,
   attendanceByEmployee: Map<string, EmployeeAttendance[]>,
-  latestAttendanceByEmployee: Map<string, EmployeeAttendance | null>
+  latestAttendanceByEmployee: Map<string, EmployeeAttendance | null>,
+  reportIsToday = true
 ): TeamDailyReportMember[] {
   return employees.map((employee) =>
     buildTeamDailyReportMember(
       employee,
       accomplishmentsByEmployee,
       attendanceByEmployee,
-      latestAttendanceByEmployee
+      latestAttendanceByEmployee,
+      reportIsToday
     )
   );
 }

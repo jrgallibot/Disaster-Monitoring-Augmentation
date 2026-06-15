@@ -1,9 +1,10 @@
 "use client";
 
-import { useCallback, useState, useTransition } from "react";
+import { useCallback, useMemo, useState, useTransition } from "react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
+import { DailyReportFiltersBar } from "@/components/shared/DailyReportFiltersBar";
 import { getTeamDailyReportData } from "@/lib/actions/team-leader";
 import { SYSTEM_NAME, CREATED_BY } from "@/lib/branding";
 import { formatCoordinates, hasValidCoordinates } from "@/lib/geo";
@@ -12,27 +13,44 @@ import {
   printTeamDailyReport,
 } from "@/lib/report-export";
 import { formatDate, formatTime, getFullName } from "@/lib/utils";
-import type { TeamDailyReportData } from "@/lib/types";
+import type { DailyReportFilterOptions, DailyReportFilters, TeamDailyReportData } from "@/lib/types";
 import { Download, FileText, Printer, RefreshCw } from "lucide-react";
 
 interface TeamDailyReportPanelProps {
   initialData: TeamDailyReportData;
+  allLedRegions: TeamDailyReportData["ledRegions"];
 }
 
-export function TeamDailyReportPanel({ initialData }: TeamDailyReportPanelProps) {
+export function TeamDailyReportPanel({ initialData, allLedRegions }: TeamDailyReportPanelProps) {
   const [data, setData] = useState(initialData);
   const [isRefreshing, startRefresh] = useTransition();
 
-  const refresh = useCallback(() => {
+  const filterOptions = useMemo<DailyReportFilterOptions>(
+    () => ({
+      regions: allLedRegions.map((region) => ({
+        id: region.id,
+        name: region.name,
+        code: region.code,
+      })),
+      teams: [],
+    }),
+    [allLedRegions]
+  );
+
+  const loadReport = useCallback((filters?: DailyReportFilters) => {
     startRefresh(async () => {
       try {
-        const next = await getTeamDailyReportData();
+        const next = await getTeamDailyReportData(filters ?? data.appliedFilters);
         if (next) setData(next);
       } catch {
         // keep existing data on refresh failure
       }
     });
-  }, []);
+  }, [data.appliedFilters]);
+
+  const refresh = useCallback(() => {
+    loadReport(data.appliedFilters);
+  }, [data.appliedFilters, loadReport]);
 
   const regionLabel = data.ledRegions.map((region) => `${region.name} (${region.code})`).join(", ");
   const leaderName = getFullName(
@@ -40,15 +58,21 @@ export function TeamDailyReportPanel({ initialData }: TeamDailyReportPanelProps)
     data.teamLeader.last_name,
     data.teamLeader.middle_name
   );
+  const activityLabel = data.reportIsToday ? "Activity Today" : "Activity";
+  const clockedInLabel = data.reportIsToday ? "Clocked In" : "Clocked In (Day End)";
+  const attendanceNowLabel = data.reportIsToday ? "Now" : "End of Day";
 
   return (
     <div className="space-y-4 team-daily-report" id="team-daily-report">
       <div className="hidden print:block mb-6 border-b-2 border-dswd-gold pb-4">
         <h1 className="text-2xl font-bold text-dswd-navy">{SYSTEM_NAME}</h1>
-        <h2 className="text-lg font-semibold text-dswd-navy mt-1">Daily Team Report</h2>
+        <h2 className="text-lg font-semibold text-dswd-navy mt-1">
+          Daily Team Report — {data.scopeLabel}
+        </h2>
         <p className="text-sm text-muted-foreground mt-2">
-          Report Date: {data.reportDate} · Generated {formatDate(data.generatedAt)} · Developed by{" "}
-          {CREATED_BY}
+          Report Date: {data.reportDate}
+          {data.reportIsToday ? " (Today)" : ""} · Region: {data.scopeLabel} · Generated{" "}
+          {formatDate(data.generatedAt)} · Developed by {CREATED_BY}
         </p>
       </div>
 
@@ -58,10 +82,18 @@ export function TeamDailyReportPanel({ initialData }: TeamDailyReportPanelProps)
             <div>
               <CardTitle className="flex items-center gap-2 text-lg">
                 <FileText className="h-5 w-5" />
-                Today&apos;s Team Snapshot
+                {data.reportIsToday ? "Today's Team Snapshot" : "Team Report"}
               </CardTitle>
               <p className="text-sm text-muted-foreground mt-2">
-                Actual tasks, deployment details, and member activity for {data.reportDate}.
+                Actual tasks, deployment details, and member activity for{" "}
+                <span className="font-medium text-foreground">{data.reportDate}</span>
+                {allLedRegions.length > 1 && (
+                  <>
+                    {" "}
+                    · <span className="font-medium text-foreground">{data.scopeLabel}</span>
+                  </>
+                )}
+                .
               </p>
               <p className="text-xs text-muted-foreground mt-1">
                 Last updated: {formatDate(data.generatedAt)}
@@ -84,6 +116,17 @@ export function TeamDailyReportPanel({ initialData }: TeamDailyReportPanelProps)
             </div>
           </div>
         </CardHeader>
+
+        <div className="px-6 pb-2">
+          <DailyReportFiltersBar
+            filterOptions={filterOptions}
+            appliedFilters={data.appliedFilters}
+            showRegionFilter={allLedRegions.length > 1}
+            showTeamFilter={false}
+            isPending={isRefreshing}
+            onApply={loadReport}
+          />
+        </div>
 
         <CardContent className="space-y-6">
           <div className="rounded-lg border border-dswd-border bg-dswd-light p-4 space-y-3">
@@ -116,8 +159,8 @@ export function TeamDailyReportPanel({ initialData }: TeamDailyReportPanelProps)
               { label: "Deployed", value: data.summary.deployed },
               { label: "On Standby", value: data.summary.onStandby },
               { label: "On Leave", value: data.summary.onLeave },
-              { label: "Clocked In", value: data.summary.clockedInNow },
-              { label: "Activity Today", value: data.summary.withActivityToday },
+              { label: clockedInLabel, value: data.summary.clockedInNow },
+              { label: activityLabel, value: data.summary.withActivityToday },
             ].map((item) => (
               <div
                 key={item.label}
@@ -149,7 +192,7 @@ export function TeamDailyReportPanel({ initialData }: TeamDailyReportPanelProps)
                       Deployment Location
                     </th>
                     <th className="text-left p-3 font-semibold text-dswd-navy min-w-[200px]">
-                      Actual Duty Today
+                      Actual Duty {data.reportIsToday ? "Today" : ""}
                     </th>
                     <th className="text-left p-3 font-semibold text-dswd-navy">Attendance</th>
                   </tr>
@@ -197,7 +240,7 @@ export function TeamDailyReportPanel({ initialData }: TeamDailyReportPanelProps)
                             </span>
                           </p>
                           <p>
-                            Now:{" "}
+                            {attendanceNowLabel}:{" "}
                             <span
                               className={
                                 member.isClockedIn

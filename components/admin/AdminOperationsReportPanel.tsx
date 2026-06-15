@@ -4,6 +4,7 @@ import { useCallback, useState, useTransition } from "react";
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { DailyReportFiltersBar } from "@/components/shared/DailyReportFiltersBar";
 import { OperationsReportMembersTable } from "@/components/shared/OperationsReportMembersTable";
 import { getAdminOperationsReportData } from "@/lib/actions/admin-reports";
 import { SYSTEM_NAME, CREATED_BY } from "@/lib/branding";
@@ -12,35 +13,51 @@ import {
   printAdminOperationsReport,
 } from "@/lib/report-export";
 import { formatDate, getFullName } from "@/lib/utils";
-import type { AdminOperationsReportData } from "@/lib/types";
+import type { AdminOperationsReportData, DailyReportFilterOptions, DailyReportFilters } from "@/lib/types";
 import { Download, ExternalLink, FileText, Printer, RefreshCw, UserCog } from "lucide-react";
 
 interface AdminOperationsReportPanelProps {
   initialData: AdminOperationsReportData;
+  filterOptions?: DailyReportFilterOptions;
   compact?: boolean;
   publicView?: boolean;
-  onRefresh?: () => Promise<AdminOperationsReportData>;
+  showFilters?: boolean;
+  onRefresh?: (filters?: DailyReportFilters) => Promise<AdminOperationsReportData>;
 }
 
 export function AdminOperationsReportPanel({
   initialData,
+  filterOptions,
   compact = false,
   publicView = false,
+  showFilters = false,
   onRefresh,
 }: AdminOperationsReportPanelProps) {
   const [data, setData] = useState(initialData);
   const [isRefreshing, startRefresh] = useTransition();
 
+  const loadReport = useCallback(
+    (filters?: DailyReportFilters) => {
+      startRefresh(async () => {
+        try {
+          const next = onRefresh
+            ? await onRefresh(filters ?? data.appliedFilters)
+            : await getAdminOperationsReportData(filters ?? data.appliedFilters);
+          setData(next);
+        } catch {
+          // keep existing data on refresh failure
+        }
+      });
+    },
+    [data.appliedFilters, onRefresh]
+  );
+
   const refresh = useCallback(() => {
-    startRefresh(async () => {
-      try {
-        const next = onRefresh ? await onRefresh() : await getAdminOperationsReportData();
-        setData(next);
-      } catch {
-        // keep existing data on refresh failure
-      }
-    });
-  }, [onRefresh]);
+    loadReport(data.appliedFilters);
+  }, [data.appliedFilters, loadReport]);
+
+  const activityLabel = data.reportIsToday ? "Activity Today" : "Activity";
+  const clockedInLabel = data.reportIsToday ? "Clocked In" : "Clocked In (Day End)";
 
   const summaryItems = [
     { label: "Team Leaders", value: data.summary.totalTeamLeaders },
@@ -48,8 +65,8 @@ export function AdminOperationsReportPanel({
     { label: "Deployed", value: data.summary.deployed },
     { label: "On Standby", value: data.summary.onStandby },
     { label: "On Leave", value: data.summary.onLeave },
-    { label: "Clocked In", value: data.summary.clockedInNow },
-    { label: "Activity Today", value: data.summary.withActivityToday },
+    { label: clockedInLabel, value: data.summary.clockedInNow },
+    { label: activityLabel, value: data.summary.withActivityToday },
   ];
 
   return (
@@ -57,11 +74,12 @@ export function AdminOperationsReportPanel({
       <div className="hidden print:block mb-6 border-b-2 border-dswd-gold pb-4">
         <h1 className="text-2xl font-bold text-dswd-navy">{SYSTEM_NAME}</h1>
         <h2 className="text-lg font-semibold text-dswd-navy mt-1">
-          Daily Operations Report — All Teams
+          Daily Operations Report — {data.scopeLabel}
         </h2>
         <p className="text-sm text-muted-foreground mt-2">
-          Report Date: {data.reportDate} · Generated {formatDate(data.generatedAt)} · Developed by{" "}
-          {CREATED_BY}
+          Report Date: {data.reportDate}
+          {data.reportIsToday ? " (Today)" : ""} · Scope: {data.scopeLabel} · Generated{" "}
+          {formatDate(data.generatedAt)} · Developed by {CREATED_BY}
         </p>
       </div>
 
@@ -74,8 +92,16 @@ export function AdminOperationsReportPanel({
                 Daily Operations Report
               </CardTitle>
               <p className="text-sm text-muted-foreground mt-2">
-                Team leader and member actual duties, deployment status, locations, and today&apos;s
-                accomplishments for {data.reportDate}.
+                Team leader and member actual duties, deployment status, locations, and{" "}
+                {data.reportIsToday ? "today's" : "selected day"} accomplishments for{" "}
+                <span className="font-medium text-foreground">{data.reportDate}</span>
+                {data.scopeLabel !== "All Teams" && (
+                  <>
+                    {" "}
+                    · <span className="font-medium text-foreground">{data.scopeLabel}</span>
+                  </>
+                )}
+                .
               </p>
               <p className="text-xs text-muted-foreground mt-1">
                 Last updated: {formatDate(data.generatedAt)}
@@ -110,6 +136,19 @@ export function AdminOperationsReportPanel({
             </div>
           </div>
         </CardHeader>
+
+        {showFilters && filterOptions && (
+          <div className="px-6 pb-2">
+            <DailyReportFiltersBar
+              filterOptions={filterOptions}
+              appliedFilters={data.appliedFilters}
+              showRegionFilter
+              showTeamFilter
+              isPending={isRefreshing}
+              onApply={loadReport}
+            />
+          </div>
+        )}
 
         <CardContent className="space-y-6">
           <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-7 gap-3">
@@ -152,7 +191,7 @@ export function AdminOperationsReportPanel({
                       </p>
                     </div>
                     <p className="text-xs text-muted-foreground">
-                      {team.summary.withActivityToday} with activity today
+                      {team.summary.withActivityToday} with {activityLabel.toLowerCase()}
                     </p>
                   </div>
                 );
@@ -212,13 +251,13 @@ export function AdminOperationsReportPanel({
                             <p className="font-bold text-dswd-navy">
                               {team.summary.withActivityToday}
                             </p>
-                            <p className="text-muted-foreground">Activity Today</p>
+                            <p className="text-muted-foreground">{activityLabel}</p>
                           </div>
                         </div>
                       </div>
                       <div className="rounded-md border border-dswd-border bg-white p-3">
                         <p className="text-xs font-semibold text-dswd-navy uppercase tracking-wide">
-                          Team Leader Activity Today
+                          Team Leader Activity {data.reportIsToday ? "Today" : "on Report Date"}
                         </p>
                         <p className="text-sm text-dswd-navy mt-1 whitespace-pre-wrap">
                           {team.leaderActivity.todayDutySummary}

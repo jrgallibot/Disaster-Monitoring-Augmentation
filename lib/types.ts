@@ -143,10 +143,37 @@ export interface TeamDailyReportSummary {
 export interface TeamDailyReportData {
   generatedAt: string;
   reportDate: string;
+  reportDateKey: string;
+  reportIsToday: boolean;
+  scopeLabel: string;
+  appliedFilters: DailyReportFilters;
   teamLeader: EmployeeWithRelations;
   ledRegions: LibraryRegion[];
   members: TeamDailyReportMember[];
   summary: TeamDailyReportSummary;
+}
+
+export interface DailyReportFilters {
+  dateKey?: string | null;
+  regionId?: string | null;
+  teamLeaderId?: string | null;
+}
+
+export interface DailyReportFilterOptionRegion {
+  id: string;
+  name: string;
+  code: string;
+}
+
+export interface DailyReportFilterOptionTeam {
+  regionId: string;
+  teamLeaderId: string;
+  label: string;
+}
+
+export interface DailyReportFilterOptions {
+  regions: DailyReportFilterOptionRegion[];
+  teams: DailyReportFilterOptionTeam[];
 }
 
 export interface AdminTeamLeaderReport {
@@ -165,6 +192,10 @@ export interface AdminOperationsReportSummary extends TeamDailyReportSummary {
 export interface AdminOperationsReportData {
   generatedAt: string;
   reportDate: string;
+  reportDateKey: string;
+  reportIsToday: boolean;
+  scopeLabel: string;
+  appliedFilters: DailyReportFilters;
   teams: AdminTeamLeaderReport[];
   summary: AdminOperationsReportSummary;
 }

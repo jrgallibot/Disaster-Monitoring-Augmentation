@@ -8,6 +8,11 @@ import { getUserRole } from "@/lib/auth/employee-sync";
 import { getLedRegionIds, getTeamMemberIdsForLeader } from "@/lib/auth/team-leader";
 import { isTeamLeaderRole } from "@/lib/auth/roles";
 import type { ActionResult, EmployeeAccomplishment } from "@/lib/types";
+import {
+  accomplishmentTimestampFromDateKey,
+  accomplishmentTimestampWithDateKey,
+  getManilaDateKey,
+} from "@/lib/report/date-bounds";
 import { revalidatePath } from "next/cache";
 
 async function getEmployeeIdForUser(userId: string): Promise<string | null> {
@@ -32,7 +37,8 @@ async function propagateAccomplishmentToTeamMembers(
   sourceAccomplishmentId: string,
   content: string,
   latitude: number | null,
-  longitude: number | null
+  longitude: number | null,
+  createdAt: string
 ): Promise<number> {
   const memberIds = await getTeamMemberIdsForLeader(leaderEmployeeId);
   if (memberIds.length === 0) return 0;
@@ -44,6 +50,7 @@ async function propagateAccomplishmentToTeamMembers(
     content,
     latitude,
     longitude,
+    created_at: createdAt,
     source_accomplishment_id: sourceAccomplishmentId,
     shared_by_team_leader_id: leaderEmployeeId,
   }));
@@ -57,6 +64,110 @@ async function propagateAccomplishmentToTeamMembers(
   }
 
   return memberIds.length;
+}
+
+async function assertOwnLeaderAccomplishment(
+  userId: string,
+  accomplishmentId: string
+): Promise<
+  | { ok: true; employeeId: string; record: EmployeeAccomplishment }
+  | { ok: false; error: string }
+> {
+  const employeeId = await getEmployeeIdForUser(userId);
+  if (!employeeId) {
+    return { ok: false, error: "No employee record linked to your account." };
+  }
+
+  const isLeader = await isTeamLeaderEmployee(employeeId, userId);
+  if (!isLeader) {
+    return { ok: false, error: "Only team leaders can manage shared accomplishments." };
+  }
+
+  const service = createServiceClient();
+  const { data, error } = await service
+    .from("employee_accomplishments")
+    .select("*")
+    .eq("id", accomplishmentId)
+    .maybeSingle();
+
+  if (error) {
+    return { ok: false, error: error.message };
+  }
+  if (!data) {
+    return { ok: false, error: "Accomplishment not found." };
+  }
+
+  const record = data as EmployeeAccomplishment;
+  if (record.employee_id !== employeeId) {
+    return { ok: false, error: "You can only edit your own accomplishments." };
+  }
+  if (record.shared_by_team_leader_id) {
+    return {
+      ok: false,
+      error: "Accomplishments shared by another team leader cannot be edited here.",
+    };
+  }
+
+  return { ok: true, employeeId, record };
+}
+
+async function updateMemberCopiesFromSource(
+  sourceAccomplishmentId: string,
+  content: string,
+  createdAt: string
+): Promise<void> {
+  const service = createServiceClient();
+  const { error } = await service
+    .from("employee_accomplishments")
+    .update({ content, created_at: createdAt })
+    .eq("source_accomplishment_id", sourceAccomplishmentId);
+
+  if (error && !isMissingColumnError(error)) {
+    throw new Error(error.message);
+  }
+}
+
+async function deleteMemberCopiesFromSource(sourceAccomplishmentId: string): Promise<number> {
+  const service = createServiceClient();
+  const { data, error } = await service
+    .from("employee_accomplishments")
+    .delete()
+    .eq("source_accomplishment_id", sourceAccomplishmentId)
+    .select("id");
+
+  if (error) {
+    if (isMissingColumnError(error)) return 0;
+    throw new Error(error.message);
+  }
+
+  return data?.length ?? 0;
+}
+
+function revalidateAccomplishmentPaths() {
+  revalidatePath("/employee/dashboard");
+  revalidatePath("/employee/team");
+  revalidatePath("/employee/daily-report");
+  revalidatePath("/admin/employees");
+}
+
+function validateAccomplishmentContent(content: string): string | null {
+  const trimmed = content.trim();
+  if (!trimmed) {
+    return "Please enter your accomplishment or activity update.";
+  }
+  if (trimmed.length < 10) {
+    return "Accomplishment must be at least 10 characters.";
+  }
+  return null;
+}
+
+function resolveAccomplishmentDateKey(dateKeyInput?: string | null): string | null {
+  if (!dateKeyInput?.trim()) return null;
+  const todayKey = getManilaDateKey();
+  if (dateKeyInput > todayKey) {
+    return "Accomplishment date cannot be in the future.";
+  }
+  return null;
 }
 
 function isMissingColumnError(error: { message?: string; code?: string }) {
@@ -91,20 +202,26 @@ export async function getMyAccomplishments(limit = 30): Promise<EmployeeAccompli
 export async function addMyAccomplishment(
   content: string,
   latitude?: number,
-  longitude?: number
+  longitude?: number,
+  accomplishmentDateKey?: string
 ): Promise<ActionResult> {
   const session = await getEmployeeSession();
   if ("error" in session) {
     return { success: false, error: session.error };
   }
 
+  const validationError = validateAccomplishmentContent(content);
+  if (validationError) {
+    return { success: false, error: validationError };
+  }
+
+  const dateError = resolveAccomplishmentDateKey(accomplishmentDateKey);
+  if (dateError) {
+    return { success: false, error: dateError };
+  }
+
   const trimmed = content.trim();
-  if (!trimmed) {
-    return { success: false, error: "Please enter your accomplishment or activity update." };
-  }
-  if (trimmed.length < 10) {
-    return { success: false, error: "Accomplishment must be at least 10 characters." };
-  }
+  const createdAt = accomplishmentTimestampFromDateKey(accomplishmentDateKey);
 
   const employeeId = await getEmployeeIdForUser(session.user.id);
   if (!employeeId) {
@@ -120,6 +237,7 @@ export async function addMyAccomplishment(
       content: trimmed,
       latitude: latitude ?? null,
       longitude: longitude ?? null,
+      created_at: createdAt,
     })
     .select("id")
     .single();
@@ -143,18 +261,112 @@ export async function addMyAccomplishment(
         inserted.id,
         trimmed,
         latitude ?? null,
-        longitude ?? null
+        longitude ?? null,
+        createdAt
       );
     } catch {
       // Leader record saved; sharing failure should not block submission.
     }
   }
 
-  revalidatePath("/employee/dashboard");
-  revalidatePath("/employee/team");
-  revalidatePath("/employee/daily-report");
-  revalidatePath("/admin/employees");
+  revalidateAccomplishmentPaths();
   return { success: true, sharedCount };
+}
+
+export async function updateMyAccomplishment(
+  accomplishmentId: string,
+  content: string,
+  accomplishmentDateKey?: string
+): Promise<ActionResult & { memberUpdateCount?: number }> {
+  const session = await getEmployeeSession();
+  if ("error" in session) {
+    return { success: false, error: session.error };
+  }
+
+  const validationError = validateAccomplishmentContent(content);
+  if (validationError) {
+    return { success: false, error: validationError };
+  }
+
+  const dateError = resolveAccomplishmentDateKey(accomplishmentDateKey);
+  if (dateError) {
+    return { success: false, error: dateError };
+  }
+
+  const access = await assertOwnLeaderAccomplishment(session.user.id, accomplishmentId);
+  if (!access.ok) {
+    return { success: false, error: access.error };
+  }
+
+  const trimmed = content.trim();
+  const createdAt = accomplishmentDateKey
+    ? accomplishmentTimestampWithDateKey(accomplishmentDateKey, access.record.created_at)
+    : access.record.created_at;
+
+  const service = createServiceClient();
+  const { error } = await service
+    .from("employee_accomplishments")
+    .update({ content: trimmed, created_at: createdAt })
+    .eq("id", accomplishmentId);
+
+  if (error) {
+    return { success: false, error: error.message };
+  }
+
+  let memberUpdateCount = 0;
+  try {
+    await updateMemberCopiesFromSource(accomplishmentId, trimmed, createdAt);
+    const { count } = await service
+      .from("employee_accomplishments")
+      .select("id", { count: "exact", head: true })
+      .eq("source_accomplishment_id", accomplishmentId);
+    memberUpdateCount = count ?? 0;
+  } catch (err) {
+    return {
+      success: false,
+      error: err instanceof Error ? err.message : "Failed to update team member copies.",
+    };
+  }
+
+  revalidateAccomplishmentPaths();
+  return { success: true, memberUpdateCount };
+}
+
+export async function deleteMyAccomplishment(
+  accomplishmentId: string
+): Promise<ActionResult & { memberDeleteCount?: number }> {
+  const session = await getEmployeeSession();
+  if ("error" in session) {
+    return { success: false, error: session.error };
+  }
+
+  const access = await assertOwnLeaderAccomplishment(session.user.id, accomplishmentId);
+  if (!access.ok) {
+    return { success: false, error: access.error };
+  }
+
+  let memberDeleteCount = 0;
+  try {
+    memberDeleteCount = await deleteMemberCopiesFromSource(accomplishmentId);
+  } catch (err) {
+    return {
+      success: false,
+      error: err instanceof Error ? err.message : "Failed to remove team member copies.",
+    };
+  }
+
+  const service = createServiceClient();
+  const { error } = await service
+    .from("employee_accomplishments")
+    .delete()
+    .eq("id", accomplishmentId);
+
+  if (error) {
+    return { success: false, error: error.message };
+  }
+
+  revalidateAccomplishmentPaths();
+  return { success: true, memberDeleteCount };
 }
 
 export async function getAccomplishmentsForAdmin(
