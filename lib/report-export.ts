@@ -1,6 +1,7 @@
-import type { AdminDashboardData, AdminOperationsReportData, TeamDailyReportData } from "@/lib/types";
+import type { AdminDashboardData, AdminOperationsReportData, MobilizationReportData, TeamDailyReportData } from "@/lib/types";
 import { SYSTEM_NAME, CREATED_BY } from "@/lib/branding";
 import { formatCoordinates, hasValidCoordinates } from "@/lib/geo";
+import { formatMobilizationDate, getMobilizationStatusLabel } from "@/lib/mobilization";
 import { formatDate, formatTime, getEmployeeTeamLeader, getFullName } from "@/lib/utils";
 
 function escapeCsv(value: string | number | null | undefined): string {
@@ -296,5 +297,67 @@ export function downloadAdminOperationsReportExcel(data: AdminOperationsReportDa
 }
 
 export function printAdminOperationsReport() {
+  window.print();
+}
+
+export function downloadMobilizationReportExcel(data: MobilizationReportData) {
+  const generated = formatDate(data.generatedAt);
+
+  const rows: (string | number)[][] = [
+    [SYSTEM_NAME],
+    ["Mobilization Report", data.scopeLabel],
+    ["Developed by", CREATED_BY],
+    ["Date From", formatMobilizationDate(data.dateFrom)],
+    ["Date To", formatMobilizationDate(data.dateTo)],
+    ["Scope", data.scopeLabel],
+    ["Generated", generated],
+    [],
+    ["SUMMARY"],
+    ["In Date Range", data.summary.totalInRange],
+    ["Mobilized Now", data.summary.mobilizedNow],
+    ["Demobilized Now", data.summary.demobilizedNow],
+    [],
+    ["PERSONNEL"],
+    [
+      "No.",
+      "Employee ID",
+      "Name",
+      "Region",
+      "Specialization",
+      "Team Leader",
+      "Augmentation Status",
+      "Mobilized Date",
+      "Demobilized Date",
+      "Duration (days)",
+    ],
+    ...data.rows.map((row, index) => {
+      const employee = row.employee;
+      return [
+        index + 1,
+        employee.employee_id,
+        getFullName(employee.first_name, employee.last_name, employee.middle_name),
+        employee.region ? `${employee.region.name} (${employee.region.code})` : "",
+        employee.specialization?.name ?? "",
+        getEmployeeTeamLeader(employee) ?? "",
+        getMobilizationStatusLabel(employee.mobilization_status ?? "mobilized"),
+        formatMobilizationDate(employee.mobilized_at),
+        formatMobilizationDate(employee.demobilized_at),
+        row.durationDays ?? "",
+      ];
+    }),
+  ];
+
+  const csv = rows.map((row) => row.map(escapeCsv).join(",")).join("\r\n");
+  const blob = new Blob(["\uFEFF" + csv], { type: "text/csv;charset=utf-8;" });
+  const url = URL.createObjectURL(blob);
+  const link = document.createElement("a");
+  const stamp = `${data.dateFrom}_to_${data.dateTo}`;
+  link.href = url;
+  link.download = `dswd-mobilization-report-${stamp}.csv`;
+  link.click();
+  URL.revokeObjectURL(url);
+}
+
+export function printMobilizationReport() {
   window.print();
 }

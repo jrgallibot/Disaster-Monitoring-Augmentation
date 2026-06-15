@@ -12,6 +12,7 @@ import type {
   EmployeeAccomplishment,
   EmployeeAttendance,
   EmployeeDeploymentLog,
+  EmployeeMobilizationLog,
   EmployeeFormData,
   EmployeeHistoryBundle,
   EmployeeUpdateLog,
@@ -27,6 +28,7 @@ import {
   queryRegions,
   querySingleEmployeeRow,
 } from "@/lib/supabase/employee-query";
+import { getTodayInputValue } from "@/lib/report/date-bounds";
 import { revalidatePath } from "next/cache";
 
 export async function getEmployees(filters?: {
@@ -187,7 +189,7 @@ export async function getEmployeeHistoryBundleForAdmin(
       return { success: false, error: "Employee not found." };
     }
 
-    const [profileRes, deploymentRes, accomplishmentsRes, attendanceRes] = await Promise.all([
+    const [profileRes, deploymentRes, mobilizationRes, accomplishmentsRes, attendanceRes] = await Promise.all([
       service
         .from("employee_update_logs")
         .select("*")
@@ -196,6 +198,12 @@ export async function getEmployeeHistoryBundleForAdmin(
         .limit(50),
       service
         .from("employee_deployment_logs")
+        .select("*")
+        .eq("employee_id", employeeId)
+        .order("created_at", { ascending: false })
+        .limit(100),
+      service
+        .from("employee_mobilization_logs")
         .select("*")
         .eq("employee_id", employeeId)
         .order("created_at", { ascending: false })
@@ -232,6 +240,15 @@ export async function getEmployeeHistoryBundleForAdmin(
       deploymentLogs = (deploymentRes.data ?? []) as EmployeeDeploymentLog[];
     }
 
+    let mobilizationLogs: EmployeeMobilizationLog[] = [];
+    if (mobilizationRes.error) {
+      errors.mobilization = mobilizationRes.error.message.includes("employee_mobilization_logs")
+        ? "Mobilization logs table not found. Run migration 022 in Supabase SQL Editor."
+        : mobilizationRes.error.message;
+    } else {
+      mobilizationLogs = (mobilizationRes.data ?? []) as EmployeeMobilizationLog[];
+    }
+
     let accomplishments: EmployeeAccomplishment[] = [];
     if (accomplishmentsRes.error) {
       errors.accomplishments = accomplishmentsRes.error.message.includes("employee_accomplishments")
@@ -256,6 +273,7 @@ export async function getEmployeeHistoryBundleForAdmin(
         employee: employeeRecord,
         profileLogs,
         deploymentLogs,
+        mobilizationLogs,
         accomplishments,
         attendance,
         errors,
@@ -524,6 +542,8 @@ export async function createEmployee(data: EmployeeFormData): Promise<ActionResu
       region_id: data.region_id || null,
       notes: data.notes || null,
       photo_url: data.photo_url || null,
+      mobilization_status: "mobilized",
+      mobilized_at: getTodayInputValue(),
     });
 
     if (error) return { success: false, error: error.message };

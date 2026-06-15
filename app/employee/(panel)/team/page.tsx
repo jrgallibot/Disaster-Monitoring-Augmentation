@@ -9,7 +9,7 @@ import {
   getTeamMembersForLeader,
   requireTeamLeaderForPage,
 } from "@/lib/actions/team-leader";
-import { FileText } from "lucide-react";
+import { FileText, UserCheck } from "lucide-react";
 
 export const dynamic = "force-dynamic";
 
@@ -34,12 +34,20 @@ export default async function EmployeeTeamPage() {
             employees in your region — deployment status, profiles, history, and daily reports.
           </p>
         </div>
-        <Button asChild variant="outline" size="sm">
-          <Link href="/employee/daily-report">
-            <FileText className="h-4 w-4" />
-            Daily Team Report
-          </Link>
-        </Button>
+        <div className="flex flex-wrap gap-2">
+          <Button asChild variant="outline" size="sm">
+            <Link href="/employee/daily-report">
+              <FileText className="h-4 w-4" />
+              Daily Team Report
+            </Link>
+          </Button>
+          <Button asChild variant="outline" size="sm">
+            <Link href="/employee/mobilization-report">
+              <UserCheck className="h-4 w-4" />
+              Mobilization Report
+            </Link>
+          </Button>
+        </div>
       </div>
 
       <EmployeeTable

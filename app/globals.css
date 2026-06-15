@@ -109,8 +109,13 @@
     padding: 0;
   }
 
+  .mobilization-report {
+    padding: 0;
+  }
+
   .admin-operations-report table,
-  .team-daily-report table {
+  .team-daily-report table,
+  .mobilization-report table {
     font-size: 11px;
   }
 

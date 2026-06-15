@@ -4,7 +4,7 @@ import { SYSTEM_NAME } from "@/lib/branding";
 import { useState, useTransition } from "react";
 import { useRouter, usePathname } from "next/navigation";
 import Link from "next/link";
-import { Menu, X, LayoutDashboard, Users, BookOpen, LogOut, FileText, UserCircle } from "lucide-react";
+import { Menu, X, LayoutDashboard, Users, BookOpen, LogOut, FileText, UserCircle, UserCheck } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { logout } from "@/lib/actions/auth";
 import { cn } from "@/lib/utils";
@@ -13,6 +13,7 @@ import type { PortalRole } from "@/lib/auth/roles";
 const navItems = [
   { href: "/admin/dashboard", label: "Dashboard", icon: LayoutDashboard, writeOnly: false },
   { href: "/admin/reports/daily-operations", label: "Daily Report", icon: FileText, writeOnly: false },
+  { href: "/admin/reports/mobilization", label: "Mobilization Report", icon: UserCheck, writeOnly: false },
   { href: "/admin/employees", label: "Employees", icon: Users, writeOnly: false },
   { href: "/admin/libraries", label: "Libraries", icon: BookOpen, writeOnly: true },
 ];

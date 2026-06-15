@@ -50,6 +50,7 @@ export function normalizeRegion(
 function normalizeEmployeeRow(row: EmployeeWithRelations): EmployeeWithRelations {
   return applyDailyDeploymentView({
     ...row,
+    mobilization_status: row.mobilization_status ?? "mobilized",
     region: row.region ? normalizeRegion(row.region) : null,
   });
 }

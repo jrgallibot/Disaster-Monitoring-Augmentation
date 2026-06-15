@@ -8,6 +8,7 @@ import { EmployeeAvatar } from "@/components/shared/EmployeeAvatar";
 import { EmployeeAttendanceList } from "@/components/shared/EmployeeAttendanceList";
 import { EmployeeUpdateLogList } from "@/components/shared/EmployeeUpdateLogList";
 import { EmployeeDeploymentLogList } from "@/components/shared/EmployeeDeploymentLogList";
+import { EmployeeMobilizationLogList } from "@/components/shared/EmployeeMobilizationLogList";
 import { AdminEmployeePortalPasswordPanel } from "@/components/admin/AdminEmployeePortalPasswordPanel";
 import { EmployeeAccomplishmentList } from "@/components/shared/EmployeeAccomplishmentList";
 import { getEmployeeHistoryBundleForAdmin } from "@/lib/actions/employees";
@@ -15,7 +16,7 @@ import { statusRequiresDeploymentLocation } from "@/lib/deployment";
 import { formatCoordinates, getMapUrl, hasValidCoordinates } from "@/lib/geo";
 import { getFullName } from "@/lib/utils";
 import type { EmployeeHistoryBundle, EmployeeWithRelations, LibraryStatus } from "@/lib/types";
-import { Briefcase, ClipboardList, Clock, History, KeyRound, MapPin, X } from "lucide-react";
+import { Briefcase, ClipboardList, Clock, History, KeyRound, MapPin, UserCheck, X } from "lucide-react";
 
 interface AdminEmployeeHistoryDialogProps {
   employee: EmployeeWithRelations | null;
@@ -128,7 +129,7 @@ export function AdminEmployeeHistoryDialog({
           )}
 
           <Tabs value={tab} onValueChange={setTab}>
-            <TabsList className="grid w-full grid-cols-2 sm:grid-cols-5 mb-4 h-auto gap-1">
+            <TabsList className="grid w-full grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 mb-4 h-auto gap-1">
               {employee.user_id && (
                 <TabsTrigger value="portal" className="gap-1 text-xs sm:text-sm">
                   <KeyRound className="h-4 w-4 shrink-0" />
@@ -141,6 +142,15 @@ export function AdminEmployeeHistoryDialog({
                 {bundle && (
                   <span className="text-[10px] bg-dswd-light px-1.5 rounded-full">
                     {bundle.deploymentLogs.length}
+                  </span>
+                )}
+              </TabsTrigger>
+              <TabsTrigger value="mobilization" className="gap-1 text-xs sm:text-sm">
+                <UserCheck className="h-4 w-4 shrink-0" />
+                Mobilization
+                {bundle && (
+                  <span className="text-[10px] bg-dswd-light px-1.5 rounded-full">
+                    {bundle.mobilizationLogs.length}
                   </span>
                 )}
               </TabsTrigger>
@@ -189,6 +199,15 @@ export function AdminEmployeeHistoryDialog({
                 statuses={statuses}
                 tabError={bundle?.errors.deployment}
                 emptyMessage="No deployment status changes logged yet. Update deployment from the Actions column."
+              />
+            </TabsContent>
+
+            <TabsContent value="mobilization">
+              <EmployeeMobilizationLogList
+                employee={snapshot}
+                logs={bundle?.mobilizationLogs ?? []}
+                tabError={bundle?.errors.mobilization}
+                emptyMessage="No augmentation status changes logged yet."
               />
             </TabsContent>
 

@@ -4,7 +4,7 @@ import { SYSTEM_TAGLINE } from "@/lib/branding";
 import { useState, useTransition } from "react";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
-import { LayoutDashboard, LogOut, Menu, Shield, Users, FileText, X, KeyRound } from "lucide-react";
+import { LayoutDashboard, LogOut, Menu, Shield, Users, FileText, X, KeyRound, UserCheck } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { employeeLogout } from "@/lib/actions/auth";
 import { cn } from "@/lib/utils";
@@ -84,6 +84,14 @@ export function EmployeeSidebar({
             >
               <FileText className="h-4 w-4" />
               Daily Report
+            </Link>
+            <Link
+              href="/employee/mobilization-report"
+              onClick={() => setOpen(false)}
+              className={navLinkClass("/employee/mobilization-report")}
+            >
+              <UserCheck className="h-4 w-4" />
+              Mobilization Report
             </Link>
           </>
         )}

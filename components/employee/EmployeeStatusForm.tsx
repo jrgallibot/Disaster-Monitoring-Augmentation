@@ -16,11 +16,14 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { AdminDeploymentUpdateDialog } from "@/components/admin/AdminDeploymentUpdateDialog";
+import { MobilizationUpdateDialog } from "@/components/shared/MobilizationUpdateDialog";
+import { MobilizationStatusBadge } from "@/components/shared/MobilizationStatusBadge";
 import { EmployeeActivityLogs } from "@/components/employee/EmployeeActivityLogs";
 import { EmployeeDeploymentHistory } from "@/components/employee/EmployeeDeploymentHistory";
 import { updateMyEmployee, uploadMyProfilePhoto } from "@/lib/actions/employee-portal";
 import { toast } from "@/lib/toast";
 import { DEPLOYMENT_DAILY_RESET_NOTICE } from "@/lib/deployment-daily";
+import { formatMobilizationDate } from "@/lib/mobilization";
 import { formatCoordinates, getCurrentPosition, getMapUrl, hasValidCoordinates } from "@/lib/geo";
 import { formatDate, getEmployeeTeamLeader, getAutoAssignedTeamLeaderId, getRegionTeamLeaderSummaries, getTeamLeaderDisplay, shouldSelectTeamLeader } from "@/lib/utils";
 import type {
@@ -31,7 +34,7 @@ import type {
   LibrarySpecialization,
   LibraryStatus,
 } from "@/lib/types";
-import { Briefcase, Camera, MapPin } from "lucide-react";
+import { Briefcase, Camera, MapPin, UserCheck } from "lucide-react";
 
 interface EmployeeStatusFormProps {
   employee: EmployeeWithRelations;
@@ -54,6 +57,7 @@ export function EmployeeStatusForm({
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [employee, setEmployee] = useState(initialEmployee);
   const [showDeploymentDialog, setShowDeploymentDialog] = useState(false);
+  const [showMobilizationDialog, setShowMobilizationDialog] = useState(false);
   const [isPending, startTransition] = useTransition();
   const [error, setError] = useState<string | null>(null);
   const [specializationId, setSpecializationId] = useState(employee.specialization_id ?? "");
@@ -64,6 +68,11 @@ export function EmployeeStatusForm({
   }, [initialEmployee]);
 
   function handleDeploymentUpdated(updated: EmployeeWithRelations) {
+    setEmployee(updated);
+    router.refresh();
+  }
+
+  function handleMobilizationUpdated(updated: EmployeeWithRelations) {
     setEmployee(updated);
     router.refresh();
   }
@@ -184,6 +193,55 @@ export function EmployeeStatusForm({
           <p className="mt-1 text-amber-800">{DEPLOYMENT_DAILY_RESET_NOTICE}</p>
         </div>
       )}
+
+      <Card>
+        <CardHeader>
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+            <div>
+              <CardTitle className="text-xl flex items-center gap-2">
+                <UserCheck className="h-5 w-5" />
+                Augmentation Status
+              </CardTitle>
+              <p className="text-sm text-muted-foreground mt-1">
+                Your mobilization lifecycle — separate from daily deployment status.
+              </p>
+            </div>
+            <MobilizationStatusBadge status={employee.mobilization_status ?? "mobilized"} />
+          </div>
+        </CardHeader>
+        <CardContent className="space-y-3">
+          <p className="text-sm text-muted-foreground flex items-center gap-1">
+            <UserCheck className="h-4 w-4 shrink-0" />
+            Mobilized:{" "}
+            <span className="font-medium text-foreground">
+              {formatMobilizationDate(employee.mobilized_at)}
+            </span>
+          </p>
+          {employee.demobilized_at && (
+            <p className="text-sm text-muted-foreground flex items-center gap-1">
+              <UserCheck className="h-4 w-4 shrink-0" />
+              Demobilized:{" "}
+              <span className="font-medium text-foreground">
+                {formatMobilizationDate(employee.demobilized_at)}
+              </span>
+            </p>
+          )}
+          <div className="flex flex-wrap items-center gap-2">
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              onClick={() => setShowMobilizationDialog(true)}
+            >
+              <UserCheck className="h-4 w-4" />
+              Update Augmentation Status
+            </Button>
+            <p className="text-xs text-muted-foreground">
+              Set when you mobilized and when you demobilized from augmentation duty.
+            </p>
+          </div>
+        </CardContent>
+      </Card>
 
       <Card>
         <CardHeader>
@@ -474,6 +532,12 @@ export function EmployeeStatusForm({
         statuses={statuses}
         onClose={() => setShowDeploymentDialog(false)}
         onUpdated={handleDeploymentUpdated}
+      />
+
+      <MobilizationUpdateDialog
+        employee={showMobilizationDialog ? employee : null}
+        onClose={() => setShowMobilizationDialog(false)}
+        onUpdated={handleMobilizationUpdated}
       />
     </div>
   );

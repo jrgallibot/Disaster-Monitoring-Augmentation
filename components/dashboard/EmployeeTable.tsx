@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -17,16 +17,21 @@ import {
 import { AdminDeploymentUpdateDialog } from "@/components/admin/AdminDeploymentUpdateDialog";
 import { AdminEmployeeHistoryDialog } from "@/components/admin/AdminEmployeeHistoryDialog";
 import { AdminEmployeePasswordDialog } from "@/components/admin/AdminEmployeePasswordDialog";
+import { MobilizationUpdateDialog } from "@/components/shared/MobilizationUpdateDialog";
+import { BulkMobilizationUpdateDialog } from "@/components/shared/BulkMobilizationUpdateDialog";
+import { MobilizationStatusBadge } from "@/components/shared/MobilizationStatusBadge";
 import { EmployeeAvatar } from "@/components/shared/EmployeeAvatar";
 import { statusRequiresDeploymentLocation } from "@/lib/deployment";
+import { formatMobilizationDate } from "@/lib/mobilization";
 import { formatCoordinates, getMapUrl, hasValidCoordinates } from "@/lib/geo";
-import { Search, History, MapPin, User, Briefcase, KeyRound, Eye } from "lucide-react";
+import { Search, History, MapPin, User, Briefcase, KeyRound, Eye, UserCheck } from "lucide-react";
 import { getFullName, getEmployeeTeamLeader, getEmployeeTeamLeaderSearchText } from "@/lib/utils";
 import type {
   EmployeeWithRelations,
   LibraryRegion,
   LibrarySpecialization,
   LibraryStatus,
+  MobilizationStatus,
 } from "@/lib/types";
 
 interface EmployeeTableProps {
@@ -70,9 +75,13 @@ export function EmployeeTable({
   const [search, setSearch] = useState("");
   const [regionFilter, setRegionFilter] = useState("all");
   const [statusFilter, setStatusFilter] = useState("all");
+  const [mobilizationFilter, setMobilizationFilter] = useState("all");
   const [specFilter, setSpecFilter] = useState("all");
   const [historyEmployee, setHistoryEmployee] = useState<EmployeeWithRelations | null>(null);
   const [deploymentEmployee, setDeploymentEmployee] = useState<EmployeeWithRelations | null>(null);
+  const [mobilizationEmployee, setMobilizationEmployee] = useState<EmployeeWithRelations | null>(null);
+  const [showBulkMobilizationDialog, setShowBulkMobilizationDialog] = useState(false);
+  const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
   const [passwordEmployee, setPasswordEmployee] = useState<EmployeeWithRelations | null>(null);
   const [passwordMode, setPasswordMode] = useState<"view" | "reset" | null>(null);
 
@@ -88,13 +97,102 @@ export function EmployeeTable({
 
   useEffect(() => {
     setEmployees(initialEmployees);
+    setSelectedIds(new Set());
   }, [initialEmployees]);
+
+  function toggleEmployeeSelection(id: string, checked: boolean) {
+    setSelectedIds((prev) => {
+      const next = new Set(prev);
+      if (checked) next.add(id);
+      else next.delete(id);
+      return next;
+    });
+  }
+
+  function toggleSelectAllFiltered(checked: boolean) {
+    setSelectedIds((prev) => {
+      const next = new Set(prev);
+      for (const employee of filtered) {
+        if (checked) next.add(employee.id);
+        else next.delete(employee.id);
+      }
+      return next;
+    });
+  }
+
+  function clearSelection() {
+    setSelectedIds(new Set());
+  }
 
   function handleDeploymentUpdated(updated: EmployeeWithRelations) {
     setEmployees((prev) =>
       prev.map((e) => (e.id === updated.id ? { ...e, ...updated } : e))
     );
     router.refresh();
+  }
+
+  function handleMobilizationUpdated(updated: EmployeeWithRelations) {
+    setEmployees((prev) =>
+      prev.map((e) => (e.id === updated.id ? { ...e, ...updated } : e))
+    );
+    router.refresh();
+  }
+
+  function handleBulkMobilizationUpdated(input: {
+    status: MobilizationStatus;
+    mobilizedAt: string;
+    demobilizedAt: string | null;
+    employeeIds: string[];
+  }) {
+    const idSet = new Set(input.employeeIds);
+    setEmployees((prev) =>
+      prev.map((employee) =>
+        idSet.has(employee.id)
+          ? {
+              ...employee,
+              mobilization_status: input.status,
+              mobilized_at: input.mobilizedAt,
+              demobilized_at: input.demobilizedAt,
+              mobilization_updated_at: new Date().toISOString(),
+              updated_at: new Date().toISOString(),
+            }
+          : employee
+      )
+    );
+    clearSelection();
+    router.refresh();
+  }
+
+  function renderMobilizationCell(emp: EmployeeWithRelations) {
+    const status = emp.mobilization_status ?? "mobilized";
+    const badge = <MobilizationStatusBadge status={status} interactive={showActions} />;
+
+    if (showActions) {
+      return (
+        <button
+          type="button"
+          onClick={() => setMobilizationEmployee(emp)}
+          className="inline-flex flex-col items-start gap-1"
+          title="Click to update augmentation status"
+        >
+          {badge}
+          <span className="text-xs text-muted-foreground">
+            {formatMobilizationDate(emp.mobilized_at)}
+            {emp.demobilized_at ? ` — ${formatMobilizationDate(emp.demobilized_at)}` : ""}
+          </span>
+        </button>
+      );
+    }
+
+    return (
+      <div className="flex flex-col gap-1">
+        {badge}
+        <span className="text-xs text-muted-foreground">
+          {formatMobilizationDate(emp.mobilized_at)}
+          {emp.demobilized_at ? ` — ${formatMobilizationDate(emp.demobilized_at)}` : ""}
+        </span>
+      </div>
+    );
   }
 
   function renderStatusCell(emp: EmployeeWithRelations) {
@@ -185,11 +283,26 @@ export function EmployeeTable({
       statusFilter === "all" ||
       (statusFilter === "__pending__" && e.deploymentPending) ||
       e.status_id === statusFilter;
+    const matchesMobilization =
+      mobilizationFilter === "all" ||
+      (e.mobilization_status ?? "mobilized") === mobilizationFilter;
     const matchesSpec =
       specFilter === "all" || e.specialization_id === specFilter;
 
-    return matchesSearch && matchesRegion && matchesStatus && matchesSpec;
+    return matchesSearch && matchesRegion && matchesStatus && matchesMobilization && matchesSpec;
   });
+
+  const selectedEmployees = useMemo(
+    () => employees.filter((employee) => selectedIds.has(employee.id)),
+    [employees, selectedIds]
+  );
+
+  const allFilteredSelected =
+    filtered.length > 0 && filtered.every((employee) => selectedIds.has(employee.id));
+  const someFilteredSelected = filtered.some((employee) => selectedIds.has(employee.id));
+
+  const checkboxClassName =
+    "h-4 w-4 rounded border-dswd-border text-dswd-navy focus:ring-dswd-navy cursor-pointer";
 
   return (
     <>
@@ -224,16 +337,26 @@ export function EmployeeTable({
             )}
             <Select value={statusFilter} onValueChange={setStatusFilter}>
               <SelectTrigger className="w-full sm:w-[160px]">
-                <SelectValue placeholder="Status" />
+                <SelectValue placeholder="Deployment" />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="all">All Statuses</SelectItem>
+                <SelectItem value="all">All Deployment</SelectItem>
                 <SelectItem value="__pending__">Pending Today</SelectItem>
                 {statuses.map((s) => (
                   <SelectItem key={s.id} value={s.id}>
                     {s.name}
                   </SelectItem>
                 ))}
+              </SelectContent>
+            </Select>
+            <Select value={mobilizationFilter} onValueChange={setMobilizationFilter}>
+              <SelectTrigger className="w-full sm:w-[160px]">
+                <SelectValue placeholder="Augmentation" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">All Augmentation</SelectItem>
+                <SelectItem value="mobilized">Mobilized</SelectItem>
+                <SelectItem value="demobilized">Demobilized</SelectItem>
               </SelectContent>
             </Select>
             <Select value={specFilter} onValueChange={setSpecFilter}>
@@ -252,6 +375,27 @@ export function EmployeeTable({
           </div>
         </CardHeader>
         <CardContent>
+          {showActions && selectedIds.size > 0 && (
+            <div className="mb-4 flex flex-col sm:flex-row sm:items-center justify-between gap-3 rounded-lg border border-dswd-border bg-dswd-light/70 px-4 py-3">
+              <p className="text-sm text-dswd-navy font-medium">
+                {selectedIds.size} employee{selectedIds.size === 1 ? "" : "s"} selected
+              </p>
+              <div className="flex flex-wrap gap-2">
+                <Button
+                  type="button"
+                  size="sm"
+                  onClick={() => setShowBulkMobilizationDialog(true)}
+                >
+                  <UserCheck className="h-4 w-4" />
+                  Update Augmentation
+                </Button>
+                <Button type="button" variant="outline" size="sm" onClick={clearSelection}>
+                  Clear Selection
+                </Button>
+              </div>
+            </div>
+          )}
+
           <p className="text-sm text-muted-foreground mb-4">
             Showing {filtered.length} of {employees.length} employees
           </p>
@@ -261,6 +405,20 @@ export function EmployeeTable({
             <table className="w-full text-sm">
               <thead>
                 <tr className="border-b border-dswd-border bg-dswd-light">
+                  {showActions && (
+                    <th className="p-3 w-10">
+                      <input
+                        type="checkbox"
+                        className={checkboxClassName}
+                        checked={allFilteredSelected}
+                        ref={(element) => {
+                          if (element) element.indeterminate = someFilteredSelected && !allFilteredSelected;
+                        }}
+                        onChange={(event) => toggleSelectAllFiltered(event.target.checked)}
+                        aria-label="Select all visible employees"
+                      />
+                    </th>
+                  )}
                   {showAdminColumns && (
                     <th className="text-left p-3 font-semibold text-dswd-navy">Photo</th>
                   )}
@@ -268,7 +426,8 @@ export function EmployeeTable({
                   <th className="text-left p-3 font-semibold text-dswd-navy">Name</th>
                   <th className="text-left p-3 font-semibold text-dswd-navy">Specialization</th>
                   <th className="text-left p-3 font-semibold text-dswd-navy">Region</th>
-                  <th className="text-left p-3 font-semibold text-dswd-navy">Status</th>
+                  <th className="text-left p-3 font-semibold text-dswd-navy">Augmentation</th>
+                  <th className="text-left p-3 font-semibold text-dswd-navy">Deployment</th>
                   {showAdminColumns && !hideTeamLeaderColumn && (
                     <th className="text-left p-3 font-semibold text-dswd-navy">Team Leader</th>
                   )}
@@ -285,6 +444,17 @@ export function EmployeeTable({
               <tbody>
                 {filtered.map((emp) => (
                   <tr key={emp.id} className="border-b border-dswd-border hover:bg-dswd-light/50">
+                    {showActions && (
+                      <td className="p-3">
+                        <input
+                          type="checkbox"
+                          className={checkboxClassName}
+                          checked={selectedIds.has(emp.id)}
+                          onChange={(event) => toggleEmployeeSelection(emp.id, event.target.checked)}
+                          aria-label={`Select ${getFullName(emp.first_name, emp.last_name, emp.middle_name)}`}
+                        />
+                      </td>
+                    )}
                     {showAdminColumns && (
                       <td className="p-3">
                         <EmployeeAvatar photoUrl={emp.photo_url} size={40} />
@@ -301,6 +471,7 @@ export function EmployeeTable({
                     </td>
                     <td className="p-3">{emp.specialization?.name ?? "—"}</td>
                     <td className="p-3">{emp.region?.code ?? "—"}</td>
+                    <td className="p-3">{renderMobilizationCell(emp)}</td>
                     <td className="p-3">{renderStatusCell(emp)}</td>
                     {showAdminColumns && !hideTeamLeaderColumn && (
                       <td className="p-3 text-muted-foreground max-w-[160px] truncate">
@@ -336,6 +507,14 @@ export function EmployeeTable({
                         <div className="flex items-center gap-3 flex-wrap">
                           {showActions && (
                             <>
+                              <button
+                                type="button"
+                                onClick={() => setMobilizationEmployee(emp)}
+                                className="text-dswd-blue hover:underline text-xs inline-flex items-center gap-1"
+                              >
+                                <UserCheck className="h-3 w-3" />
+                                Augmentation
+                              </button>
                               <button
                                 type="button"
                                 onClick={() => setDeploymentEmployee(emp)}
@@ -391,10 +570,33 @@ export function EmployeeTable({
 
           {/* Mobile cards */}
           <div className="md:hidden space-y-3">
+            {showActions && filtered.length > 0 && (
+              <label className="flex items-center gap-2 text-sm text-dswd-navy font-medium px-1">
+                <input
+                  type="checkbox"
+                  className={checkboxClassName}
+                  checked={allFilteredSelected}
+                  ref={(element) => {
+                    if (element) element.indeterminate = someFilteredSelected && !allFilteredSelected;
+                  }}
+                  onChange={(event) => toggleSelectAllFiltered(event.target.checked)}
+                />
+                Select all visible ({filtered.length})
+              </label>
+            )}
             {filtered.map((emp) => (
               <div key={emp.id} className="gov-card p-4">
                 <div className="flex items-start justify-between gap-2">
                   <div className="flex items-center gap-3 min-w-0">
+                    {showActions && (
+                      <input
+                        type="checkbox"
+                        className={`${checkboxClassName} mt-1`}
+                        checked={selectedIds.has(emp.id)}
+                        onChange={(event) => toggleEmployeeSelection(emp.id, event.target.checked)}
+                        aria-label={`Select ${getFullName(emp.first_name, emp.last_name, emp.middle_name)}`}
+                      />
+                    )}
                     {showAdminColumns ? (
                       <EmployeeAvatar photoUrl={emp.photo_url} size={48} />
                     ) : (
@@ -418,6 +620,17 @@ export function EmployeeTable({
                   </span>
                   <span>
                     Region: <strong className="text-foreground">{emp.region?.code ?? "—"}</strong>
+                  </span>
+                  <span className="col-span-2">
+                    Augmentation:{" "}
+                    <strong className="text-foreground">
+                      {(emp.mobilization_status ?? "mobilized") === "mobilized"
+                        ? "Mobilized"
+                        : "Demobilized"}
+                    </strong>
+                    {" — "}
+                    {formatMobilizationDate(emp.mobilized_at)}
+                    {emp.demobilized_at ? ` to ${formatMobilizationDate(emp.demobilized_at)}` : ""}
                   </span>
                   {showAdminColumns && !hideTeamLeaderColumn && getEmployeeTeamLeader(emp) && (
                     <span className="col-span-2 truncate">
@@ -452,6 +665,10 @@ export function EmployeeTable({
                 </div>
                 {showActions && (
                   <div className="mt-3 flex gap-2 flex-wrap">
+                    <Button variant="outline" size="sm" onClick={() => setMobilizationEmployee(emp)}>
+                      <UserCheck className="h-4 w-4" />
+                      Augmentation
+                    </Button>
                     <Button variant="outline" size="sm" onClick={() => setDeploymentEmployee(emp)}>
                       <Briefcase className="h-4 w-4" />
                       Deployment
@@ -522,12 +739,24 @@ export function EmployeeTable({
       </Card>
 
       {showActions && (
-        <AdminDeploymentUpdateDialog
-          employee={deploymentEmployee}
-          statuses={statuses}
-          onClose={() => setDeploymentEmployee(null)}
-          onUpdated={handleDeploymentUpdated}
-        />
+        <>
+          <AdminDeploymentUpdateDialog
+            employee={deploymentEmployee}
+            statuses={statuses}
+            onClose={() => setDeploymentEmployee(null)}
+            onUpdated={handleDeploymentUpdated}
+          />
+          <MobilizationUpdateDialog
+            employee={mobilizationEmployee}
+            onClose={() => setMobilizationEmployee(null)}
+            onUpdated={handleMobilizationUpdated}
+          />
+          <BulkMobilizationUpdateDialog
+            employees={showBulkMobilizationDialog ? selectedEmployees : []}
+            onClose={() => setShowBulkMobilizationDialog(false)}
+            onUpdated={handleBulkMobilizationUpdated}
+          />
+        </>
       )}
       {showHistory && (
         <AdminEmployeeHistoryDialog

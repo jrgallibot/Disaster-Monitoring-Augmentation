@@ -47,6 +47,10 @@ export interface LibraryStatus {
   created_at: string;
 }
 
+export type MobilizationStatus = "mobilized" | "demobilized";
+
+export type MobilizationStatusFilter = "all" | MobilizationStatus;
+
 export interface Employee {
   id: string;
   user_id: string | null;
@@ -68,6 +72,10 @@ export interface Employee {
   last_latitude: number | null;
   last_longitude: number | null;
   deployment_set_at: string | null;
+  mobilization_status: MobilizationStatus;
+  mobilized_at: string | null;
+  demobilized_at: string | null;
+  mobilization_updated_at: string | null;
   created_at: string;
   updated_at: string;
 }
@@ -259,6 +267,16 @@ export interface EmployeeDeploymentLog {
   created_at: string;
 }
 
+export interface EmployeeMobilizationLog {
+  id: string;
+  employee_id: string;
+  user_id: string | null;
+  mobilization_status: MobilizationStatus;
+  mobilized_at: string;
+  demobilized_at: string | null;
+  created_at: string;
+}
+
 export interface EmployeeUpdateLog {
   id: string;
   employee_id: string;
@@ -303,15 +321,46 @@ export interface EmployeeAccomplishment {
   created_at: string;
 }
 
+export interface MobilizationReportFilters {
+  dateFrom?: string | null;
+  dateTo?: string | null;
+  regionId?: string | null;
+  teamLeaderId?: string | null;
+  statusFilter?: MobilizationStatusFilter;
+}
+
+export interface MobilizationReportRow {
+  employee: EmployeeWithRelations;
+  durationDays: number | null;
+}
+
+export interface MobilizationReportSummary {
+  totalInRange: number;
+  mobilizedNow: number;
+  demobilizedNow: number;
+}
+
+export interface MobilizationReportData {
+  generatedAt: string;
+  dateFrom: string;
+  dateTo: string;
+  scopeLabel: string;
+  appliedFilters: MobilizationReportFilters;
+  rows: MobilizationReportRow[];
+  summary: MobilizationReportSummary;
+}
+
 export type EmployeeHistoryBundle = {
   employee: EmployeeWithRelations;
   profileLogs: EmployeeUpdateLog[];
   deploymentLogs: EmployeeDeploymentLog[];
+  mobilizationLogs: EmployeeMobilizationLog[];
   accomplishments: EmployeeAccomplishment[];
   attendance: EmployeeAttendance[];
   errors: {
     profile?: string;
     deployment?: string;
+    mobilization?: string;
     accomplishments?: string;
     attendance?: string;
   };
