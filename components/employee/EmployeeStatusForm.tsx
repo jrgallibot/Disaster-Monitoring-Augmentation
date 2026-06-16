@@ -34,7 +34,7 @@ import type {
   LibrarySpecialization,
   LibraryStatus,
 } from "@/lib/types";
-import { Briefcase, Camera, MapPin, UserCheck } from "lucide-react";
+import { Briefcase, Camera, MapPin, MessageSquare, UserCheck } from "lucide-react";
 
 interface EmployeeStatusFormProps {
   employee: EmployeeWithRelations;
@@ -316,6 +316,15 @@ export function EmployeeStatusForm({
               <span>
                 Deployment Location:{" "}
                 <span className="font-medium text-foreground">{employee.deployment_location}</span>
+              </span>
+            </p>
+          )}
+          {employee.deployment_remarks && (
+            <p className="text-sm text-muted-foreground flex items-start gap-1">
+              <MessageSquare className="h-4 w-4 shrink-0 mt-0.5" />
+              <span>
+                Remarks:{" "}
+                <span className="font-medium text-foreground">{employee.deployment_remarks}</span>
               </span>
             </p>
           )}

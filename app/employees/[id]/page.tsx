@@ -59,6 +59,7 @@ export default async function EmployeeDetailPage({ params }: PageProps) {
               <InfoItem label="Region" value={employee.region ? `${employee.region.name} (${employee.region.code})` : undefined} />
               <InfoItem label="Actual Task" value={employee.actual_task} />
               <InfoItem label="Deployment Location" value={employee.deployment_location} icon={<MapPin className="h-4 w-4" />} />
+              <InfoItem label="Remarks" value={employee.deployment_remarks} className="sm:col-span-2" />
             </div>
 
             <div className="border-t border-dswd-border pt-4">
@@ -109,13 +110,15 @@ function InfoItem({
   label,
   value,
   icon,
+  className,
 }: {
   label: string;
   value?: string | null;
   icon?: React.ReactNode;
+  className?: string;
 }) {
   return (
-    <div>
+    <div className={className}>
       <p className="text-xs text-muted-foreground uppercase tracking-wide">{label}</p>
       <p className="font-medium text-dswd-navy mt-1 flex items-center gap-2">
         {icon}

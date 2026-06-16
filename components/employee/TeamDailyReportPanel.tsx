@@ -191,6 +191,9 @@ export function TeamDailyReportPanel({ initialData, allLedRegions }: TeamDailyRe
                     <th className="text-left p-3 font-semibold text-dswd-navy min-w-[140px]">
                       Deployment Location
                     </th>
+                    <th className="text-left p-3 font-semibold text-dswd-navy min-w-[160px]">
+                      Remarks
+                    </th>
                     <th className="text-left p-3 font-semibold text-dswd-navy min-w-[200px]">
                       Actual Duty {data.reportIsToday ? "Today" : ""}
                     </th>
@@ -225,6 +228,7 @@ export function TeamDailyReportPanel({ initialData, allLedRegions }: TeamDailyRe
                         </td>
                         <td className="p-3 whitespace-pre-wrap">{employee.actual_task ?? "—"}</td>
                         <td className="p-3">{employee.deployment_location ?? "—"}</td>
+                        <td className="p-3 whitespace-pre-wrap">{employee.deployment_remarks ?? "—"}</td>
                         <td className="p-3 whitespace-pre-wrap">{member.todayDutySummary}</td>
                         <td className="p-3 space-y-1">
                           <p>

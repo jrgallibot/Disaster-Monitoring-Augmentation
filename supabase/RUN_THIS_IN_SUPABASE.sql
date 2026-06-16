@@ -600,3 +600,13 @@ DROP POLICY IF EXISTS "Public read mobilization logs" ON employee_mobilization_l
 CREATE POLICY "Public read mobilization logs"
   ON employee_mobilization_logs FOR SELECT
   USING (TRUE);
+
+-- ============================================================
+-- Migration 023: Deployment remarks for non-deployed statuses
+-- ============================================================
+
+ALTER TABLE employees
+  ADD COLUMN IF NOT EXISTS deployment_remarks TEXT;
+
+ALTER TABLE employee_deployment_logs
+  ADD COLUMN IF NOT EXISTS deployment_remarks TEXT;

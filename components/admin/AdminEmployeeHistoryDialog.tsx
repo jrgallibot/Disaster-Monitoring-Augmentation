@@ -12,11 +12,11 @@ import { EmployeeMobilizationLogList } from "@/components/shared/EmployeeMobiliz
 import { AdminEmployeePortalPasswordPanel } from "@/components/admin/AdminEmployeePortalPasswordPanel";
 import { EmployeeAccomplishmentList } from "@/components/shared/EmployeeAccomplishmentList";
 import { getEmployeeHistoryBundleForAdmin } from "@/lib/actions/employees";
-import { statusRequiresDeploymentLocation } from "@/lib/deployment";
+import { statusRequiresDeploymentLocation, statusRequiresDeploymentRemarks } from "@/lib/deployment";
 import { formatCoordinates, getMapUrl, hasValidCoordinates } from "@/lib/geo";
 import { getFullName } from "@/lib/utils";
 import type { EmployeeHistoryBundle, EmployeeWithRelations, LibraryStatus } from "@/lib/types";
-import { Briefcase, ClipboardList, Clock, History, KeyRound, MapPin, UserCheck, X } from "lucide-react";
+import { Briefcase, ClipboardList, Clock, History, KeyRound, MapPin, MessageSquare, UserCheck, X } from "lucide-react";
 
 interface AdminEmployeeHistoryDialogProps {
   employee: EmployeeWithRelations | null;
@@ -100,6 +100,12 @@ export function AdminEmployeeHistoryDialog({
                 <p className="text-xs text-muted-foreground flex items-center gap-1 mt-1">
                   <MapPin className="h-3 w-3" />
                   {snapshot.deployment_location}
+                </p>
+              )}
+              {statusRequiresDeploymentRemarks(snapshot.status?.name) && snapshot.deployment_remarks && (
+                <p className="text-xs text-muted-foreground flex items-start gap-1 mt-1">
+                  <MessageSquare className="h-3 w-3 shrink-0 mt-0.5" />
+                  <span>{snapshot.deployment_remarks}</span>
                 </p>
               )}
               {hasValidCoordinates(snapshot.last_latitude, snapshot.last_longitude) && (

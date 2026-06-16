@@ -21,7 +21,7 @@ import { MobilizationUpdateDialog } from "@/components/shared/MobilizationUpdate
 import { BulkMobilizationUpdateDialog } from "@/components/shared/BulkMobilizationUpdateDialog";
 import { MobilizationStatusBadge } from "@/components/shared/MobilizationStatusBadge";
 import { EmployeeAvatar } from "@/components/shared/EmployeeAvatar";
-import { statusRequiresDeploymentLocation } from "@/lib/deployment";
+import { statusRequiresDeploymentLocation, statusRequiresDeploymentRemarks } from "@/lib/deployment";
 import { formatMobilizationDate } from "@/lib/mobilization";
 import { formatCoordinates, getMapUrl, hasValidCoordinates } from "@/lib/geo";
 import { Search, History, MapPin, User, Briefcase, KeyRound, Eye, UserCheck } from "lucide-react";
@@ -267,6 +267,11 @@ export function EmployeeTable({
     return emp.deployment_location ?? "—";
   }
 
+  function getDeploymentRemarksDisplay(emp: EmployeeWithRelations) {
+    if (!statusRequiresDeploymentRemarks(emp.status?.name)) return "—";
+    return emp.deployment_remarks ?? "—";
+  }
+
   const filtered = employees.filter((e) => {
     const term = search.toLowerCase();
     const matchesSearch =
@@ -433,6 +438,7 @@ export function EmployeeTable({
                   )}
                   <th className="text-left p-3 font-semibold text-dswd-navy">Actual Task</th>
                   <th className="text-left p-3 font-semibold text-dswd-navy">Deployment Location</th>
+                  <th className="text-left p-3 font-semibold text-dswd-navy min-w-[160px]">Remarks</th>
                   {showAdminColumns && (
                     <th className="text-left p-3 font-semibold text-dswd-navy">Last GPS</th>
                   )}
@@ -483,6 +489,9 @@ export function EmployeeTable({
                     </td>
                     <td className="p-3 text-muted-foreground max-w-[200px] truncate">
                       {getDeploymentLocationDisplay(emp)}
+                    </td>
+                    <td className="p-3 text-muted-foreground max-w-[220px] whitespace-pre-wrap">
+                      {getDeploymentRemarksDisplay(emp)}
                     </td>
                     {showAdminColumns && (
                       <td className="p-3">
@@ -648,6 +657,12 @@ export function EmployeeTable({
                         <strong className="text-foreground">{emp.deployment_location ?? "—"}</strong>
                       </span>
                     </>
+                  )}
+                  {statusRequiresDeploymentRemarks(emp.status?.name) && (
+                    <span className="col-span-2 whitespace-pre-wrap">
+                      Remarks:{" "}
+                      <strong className="text-foreground">{getDeploymentRemarksDisplay(emp)}</strong>
+                    </span>
                   )}
                   {showAdminColumns && hasValidCoordinates(emp.last_latitude, emp.last_longitude) && (
                     <span className="col-span-2">

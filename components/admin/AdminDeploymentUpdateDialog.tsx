@@ -14,13 +14,13 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { getStatusById, statusRequiresDeploymentLocation } from "@/lib/deployment";
+import { getStatusById, statusRequiresDeploymentLocation, statusRequiresDeploymentRemarks } from "@/lib/deployment";
 import { DEPLOYMENT_DAILY_RESET_NOTICE } from "@/lib/deployment-daily";
 import { getFullName } from "@/lib/utils";
 import type { EmployeeWithRelations, LibraryStatus } from "@/lib/types";
 import { updateEmployeeDeployment } from "@/lib/actions/employees";
 import { toast } from "@/lib/toast";
-import { Briefcase, ClipboardList, MapPin, X } from "lucide-react";
+import { Briefcase, ClipboardList, MapPin, MessageSquare, X } from "lucide-react";
 
 interface AdminDeploymentUpdateDialogProps {
   employee: EmployeeWithRelations | null;
@@ -41,6 +41,7 @@ export function AdminDeploymentUpdateDialog({
   const [statusId, setStatusId] = useState("");
   const [actualTask, setActualTask] = useState("");
   const [deploymentLocation, setDeploymentLocation] = useState("");
+  const [deploymentRemarks, setDeploymentRemarks] = useState("");
 
   useEffect(() => {
     if (!employee) return;
@@ -48,6 +49,7 @@ export function AdminDeploymentUpdateDialog({
     setStatusId(pending ? "" : (employee.status_id ?? ""));
     setActualTask(pending ? "" : (employee.actual_task ?? ""));
     setDeploymentLocation(pending ? "" : (employee.deployment_location ?? ""));
+    setDeploymentRemarks(pending ? "" : (employee.deployment_remarks ?? ""));
     setError(null);
   }, [employee]);
 
@@ -59,6 +61,7 @@ export function AdminDeploymentUpdateDialog({
   if (!employee) return null;
 
   const locationRequired = statusRequiresDeploymentLocation(selectedStatus?.name);
+  const remarksRequired = statusRequiresDeploymentRemarks(selectedStatus?.name);
   const deploymentPending = employee.deploymentPending ?? false;
 
   function handleSave() {
@@ -80,6 +83,12 @@ export function AdminDeploymentUpdateDialog({
       toast.error(message);
       return;
     }
+    if (remarksRequired && !deploymentRemarks.trim()) {
+      const message = `Remarks are required when status is ${selectedStatus?.name}. Explain why.`;
+      setError(message);
+      toast.error(message);
+      return;
+    }
 
     startTransition(async () => {
       setError(null);
@@ -87,7 +96,8 @@ export function AdminDeploymentUpdateDialog({
         employee!.id,
         statusId,
         locationRequired ? deploymentLocation.trim() : undefined,
-        locationRequired ? actualTask.trim() : undefined
+        locationRequired ? actualTask.trim() : undefined,
+        remarksRequired ? deploymentRemarks.trim() : undefined
       );
 
       if (!result.success) {
@@ -99,6 +109,7 @@ export function AdminDeploymentUpdateDialog({
       const status = statuses.find((s) => s.id === statusId) ?? null;
       const nextLocation = locationRequired ? deploymentLocation.trim() : null;
       const nextActualTask = locationRequired ? actualTask.trim() : null;
+      const nextRemarks = remarksRequired ? deploymentRemarks.trim() : null;
 
       onUpdated({
         ...employee!,
@@ -106,6 +117,7 @@ export function AdminDeploymentUpdateDialog({
         status,
         actual_task: nextActualTask,
         deployment_location: nextLocation,
+        deployment_remarks: nextRemarks,
         deployment_set_at: new Date().toISOString(),
         deploymentPending: false,
         updated_at: new Date().toISOString(),
@@ -187,6 +199,15 @@ export function AdminDeploymentUpdateDialog({
                 </span>
               </p>
             )}
+            {employee.deployment_remarks && (
+              <p className="text-sm text-muted-foreground flex items-start gap-1">
+                <MessageSquare className="h-4 w-4 shrink-0 mt-0.5" />
+                <span>
+                  <span className="font-medium text-foreground">Remarks:</span>{" "}
+                  {employee.deployment_remarks}
+                </span>
+              </p>
+            )}
           </div>
 
           {error && (
@@ -240,10 +261,26 @@ export function AdminDeploymentUpdateDialog({
             </>
           )}
 
-          {!locationRequired && statusId && (
+          {remarksRequired && (
+            <div className="space-y-2">
+              <Label htmlFor="deployment_remarks">Remarks / Reason *</Label>
+              <Textarea
+                id="deployment_remarks"
+                value={deploymentRemarks}
+                onChange={(e) => setDeploymentRemarks(e.target.value)}
+                placeholder="e.g. On medical leave, awaiting reassignment, personal emergency..."
+                rows={3}
+                required
+              />
+              <p className="text-xs text-muted-foreground">
+                Required for {selectedStatus?.name}. Team leaders and admins will see this reason.
+              </p>
+            </div>
+          )}
+
+          {!locationRequired && !remarksRequired && statusId && (
             <p className="text-xs text-muted-foreground">
-              Actual task and deployment location are not required for{" "}
-              {selectedStatus?.name ?? "this status"}.
+              No additional fields required for {selectedStatus?.name ?? "this status"}.
             </p>
           )}
         </div>

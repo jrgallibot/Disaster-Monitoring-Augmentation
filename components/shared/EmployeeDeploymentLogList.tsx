@@ -1,9 +1,9 @@
 import { Badge } from "@/components/ui/badge";
-import { statusRequiresDeploymentLocation } from "@/lib/deployment";
+import { statusRequiresDeploymentLocation, statusRequiresDeploymentRemarks } from "@/lib/deployment";
 import { DEPLOYMENT_DAILY_RESET_NOTICE } from "@/lib/deployment-daily";
 import { formatDate } from "@/lib/utils";
 import type { EmployeeDeploymentLog, EmployeeWithRelations, LibraryStatus } from "@/lib/types";
-import { MapPin } from "lucide-react";
+import { MapPin, MessageSquare } from "lucide-react";
 
 interface EmployeeDeploymentLogListProps {
   employee?: EmployeeWithRelations;
@@ -68,6 +68,15 @@ export function EmployeeDeploymentLogList({
           ) : !employee.deploymentPending ? (
             <p className="text-xs text-muted-foreground">No deployment location on file</p>
           ) : null}
+          {!employee.deploymentPending && employee.deployment_remarks ? (
+            <p className="text-sm text-muted-foreground flex items-start gap-1">
+              <MessageSquare className="h-4 w-4 shrink-0 mt-0.5" />
+              <span>
+                <span className="font-medium text-foreground">Remarks:</span>{" "}
+                {employee.deployment_remarks}
+              </span>
+            </p>
+          ) : null}
         </div>
       )}
 
@@ -105,9 +114,20 @@ export function EmployeeDeploymentLogList({
                       <MapPin className="h-4 w-4 shrink-0 mt-0.5" />
                       <span>{log.deployment_location}</span>
                     </p>
-                  ) : (
+                  ) : statusRequiresDeploymentRemarks(log.status_name) ? (
                     <p className="text-xs text-muted-foreground">No deployment location recorded</p>
-                  )}
+                  ) : null}
+                  {log.deployment_remarks ? (
+                    <p className="text-sm text-muted-foreground flex items-start gap-1">
+                      <MessageSquare className="h-4 w-4 shrink-0 mt-0.5" />
+                      <span>
+                        <span className="font-medium text-foreground">Remarks:</span>{" "}
+                        {log.deployment_remarks}
+                      </span>
+                    </p>
+                  ) : statusRequiresDeploymentRemarks(log.status_name) ? (
+                    <p className="text-xs text-muted-foreground">No remarks recorded</p>
+                  ) : null}
                 </div>
               );
             })}

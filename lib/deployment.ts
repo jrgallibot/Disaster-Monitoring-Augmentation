@@ -4,6 +4,11 @@ export function statusRequiresDeploymentLocation(statusName: string | null | und
   return statusName?.trim().toLowerCase() === "deployed";
 }
 
+export function statusRequiresDeploymentRemarks(statusName: string | null | undefined): boolean {
+  const name = statusName?.trim().toLowerCase();
+  return name === "on standby" || name === "on leave" || name === "unavailable";
+}
+
 export function getStatusById(
   statusId: string,
   statuses: LibraryStatus[]
@@ -15,7 +20,8 @@ export function validateDeploymentFields(
   statusId: string | undefined,
   deploymentLocation: string | undefined,
   statuses: LibraryStatus[],
-  actualTask?: string | undefined
+  actualTask?: string | undefined,
+  deploymentRemarks?: string | undefined
 ): string | null {
   if (!statusId) return null;
 
@@ -29,6 +35,10 @@ export function validateDeploymentFields(
     if (!deploymentLocation?.trim()) {
       return "Deployment location is required when status is Deployed.";
     }
+  }
+
+  if (statusRequiresDeploymentRemarks(status.name) && !deploymentRemarks?.trim()) {
+    return `Remarks are required when status is ${status.name}. Explain why.`;
   }
 
   return null;

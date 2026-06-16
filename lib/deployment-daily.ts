@@ -47,5 +47,6 @@ export function applyDailyDeploymentView(
     status: null,
     deployment_location: null,
     actual_task: null,
+    deployment_remarks: null,
   };
 }

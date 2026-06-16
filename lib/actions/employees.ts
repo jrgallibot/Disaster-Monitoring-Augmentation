@@ -4,7 +4,7 @@ import { createClient } from "@/lib/supabase/server";
 import { createServiceClient } from "@/lib/supabase/service";
 import { requireAdmin, updateEmployeePortalRole } from "@/lib/actions/auth";
 import { canManageEmployee, canViewEmployeeInPortal } from "@/lib/auth/team-leader";
-import { getStatusById, statusRequiresDeploymentLocation, validateDeploymentFields } from "@/lib/deployment";
+import { getStatusById, statusRequiresDeploymentLocation, statusRequiresDeploymentRemarks, validateDeploymentFields } from "@/lib/deployment";
 import type {
   ActionResult,
   AdminDashboardData,
@@ -294,19 +294,23 @@ async function logDeploymentChange(
   statusName: string,
   deploymentLocation: string | null | undefined,
   actualTask: string | null | undefined,
-  before: Pick<EmployeeWithRelations, "status_id" | "deployment_location" | "actual_task"> | null
+  deploymentRemarks: string | null | undefined,
+  before: Pick<EmployeeWithRelations, "status_id" | "deployment_location" | "actual_task" | "deployment_remarks"> | null
 ) {
   const nextStatusId = statusId || null;
   const nextLocation = deploymentLocation?.trim() || null;
   const nextActualTask = actualTask?.trim() || null;
+  const nextRemarks = deploymentRemarks?.trim() || null;
   const prevStatusId = before?.status_id ?? null;
   const prevLocation = before?.deployment_location?.trim() || null;
   const prevActualTask = before?.actual_task?.trim() || null;
+  const prevRemarks = before?.deployment_remarks?.trim() || null;
 
   if (
     nextStatusId === prevStatusId &&
     nextLocation === prevLocation &&
-    nextActualTask === prevActualTask
+    nextActualTask === prevActualTask &&
+    nextRemarks === prevRemarks
   ) {
     return;
   }
@@ -319,6 +323,7 @@ async function logDeploymentChange(
     status_name: statusName,
     deployment_location: nextLocation,
     actual_task: nextActualTask,
+    deployment_remarks: nextRemarks,
   });
 }
 
@@ -598,7 +603,8 @@ export async function updateEmployeeDeployment(
   id: string,
   statusId: string,
   deploymentLocation?: string,
-  actualTask?: string
+  actualTask?: string,
+  deploymentRemarks?: string
 ): Promise<ActionResult> {
   try {
     const authClient = await createClient();
@@ -617,7 +623,8 @@ export async function updateEmployeeDeployment(
       statusId,
       deploymentLocation,
       statuses,
-      actualTask
+      actualTask,
+      deploymentRemarks
     );
     if (deploymentError) {
       return { success: false, error: deploymentError };
@@ -629,13 +636,15 @@ export async function updateEmployeeDeployment(
     }
 
     const isDeployed = statusRequiresDeploymentLocation(status.name);
+    const requiresRemarks = statusRequiresDeploymentRemarks(status.name);
     const nextLocation = isDeployed ? deploymentLocation?.trim() || null : null;
     const nextActualTask = isDeployed ? actualTask?.trim() || null : null;
+    const nextRemarks = requiresRemarks ? deploymentRemarks?.trim() || null : null;
 
     const supabase = createServiceClient();
     const { data: before, error: fetchError } = await supabase
       .from("employees")
-      .select("status_id, deployment_location, actual_task")
+      .select("status_id, deployment_location, actual_task, deployment_remarks")
       .eq("id", id)
       .single();
 
@@ -647,6 +656,7 @@ export async function updateEmployeeDeployment(
         status_id: statusId,
         deployment_location: nextLocation,
         actual_task: nextActualTask,
+        deployment_remarks: nextRemarks,
         deployment_set_at: new Date().toISOString(),
       })
       .eq("id", id);
@@ -660,6 +670,7 @@ export async function updateEmployeeDeployment(
       status.name,
       nextLocation,
       nextActualTask,
+      nextRemarks,
       before
     );
 

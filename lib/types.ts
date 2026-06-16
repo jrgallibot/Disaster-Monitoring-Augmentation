@@ -67,6 +67,7 @@ export interface Employee {
   status_id: string | null;
   deployment_location: string | null;
   actual_task: string | null;
+  deployment_remarks: string | null;
   notes: string | null;
   photo_url: string | null;
   last_latitude: number | null;
@@ -264,6 +265,7 @@ export interface EmployeeDeploymentLog {
   status_name: string;
   deployment_location: string | null;
   actual_task: string | null;
+  deployment_remarks: string | null;
   created_at: string;
 }
 
