@@ -93,7 +93,7 @@ export function BulkMobilizationUpdateDialog({
       onClick={onClose}
     >
       <div
-        className="bg-white rounded-lg shadow-xl w-full max-w-lg max-h-[90vh] flex flex-col"
+        className="bg-white rounded-lg shadow-xl w-full max-w-lg max-h-[92vh] flex flex-col"
         onClick={(e) => e.stopPropagation()}
       >
         <div className="flex items-start justify-between gap-4 p-5 border-b border-dswd-border">

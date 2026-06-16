@@ -560,7 +560,12 @@ export function EmployeeStatusForm({
 
       <EmployeeActivityLogs logs={logs} />
 
-      <EmployeeDeploymentHistory employee={employee} logs={deploymentLogs} statuses={statuses} />
+      <EmployeeDeploymentHistory
+        employee={employee}
+        logs={deploymentLogs}
+        statuses={statuses}
+        editableActualTask
+      />
 
       <AdminDeploymentUpdateDialog
         employee={showDeploymentDialog ? employee : null}

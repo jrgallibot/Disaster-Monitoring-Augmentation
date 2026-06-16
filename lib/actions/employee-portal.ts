@@ -19,6 +19,8 @@ import { revalidatePath } from "next/cache";
 import { getEmployeeSession } from "@/lib/actions/auth";
 import { getFormDataPhotoFile } from "@/lib/photo-upload";
 import { uploadToEmployeePhotoBucket } from "@/lib/actions/photo-storage";
+import { canManageEmployee } from "@/lib/auth/team-leader";
+import { statusRequiresDeploymentLocation } from "@/lib/deployment";
 
 function buildChanges(
   before: EmployeeWithRelations,
@@ -262,6 +264,75 @@ export async function updateMyEmployee(data: EmployeeSelfUpdate): Promise<Action
   revalidatePath("/employee/dashboard");
   revalidatePath("/admin/dashboard");
   revalidatePath("/admin/employees");
+  return { success: true };
+}
+
+export async function updateDeploymentLogActualTask(
+  logId: string,
+  actualTask: string
+): Promise<ActionResult> {
+  const trimmed = actualTask.trim();
+  if (!trimmed) {
+    return { success: false, error: "Actual task is required." };
+  }
+
+  const authClient = await createClient();
+  const {
+    data: { user },
+  } = await authClient.auth.getUser();
+  if (!user) {
+    return { success: false, error: "You must be logged in." };
+  }
+
+  const service = createServiceClient();
+  const { data: log, error: logError } = await service
+    .from("employee_deployment_logs")
+    .select("id, employee_id, status_name, actual_task")
+    .eq("id", logId)
+    .single();
+
+  if (logError || !log) {
+    return { success: false, error: "Deployment log not found." };
+  }
+
+  if (!statusRequiresDeploymentLocation(log.status_name)) {
+    return { success: false, error: "Actual task can only be edited for Deployed entries." };
+  }
+
+  const access = await canManageEmployee(user.id, log.employee_id);
+  if (!access.allowed) {
+    return { success: false, error: access.error };
+  }
+
+  if (trimmed === (log.actual_task?.trim() ?? "")) {
+    return { success: true };
+  }
+
+  const { error: updateError } = await service
+    .from("employee_deployment_logs")
+    .update({ actual_task: trimmed })
+    .eq("id", logId);
+
+  if (updateError) {
+    return { success: false, error: updateError.message };
+  }
+
+  const { data: latestLog } = await service
+    .from("employee_deployment_logs")
+    .select("id")
+    .eq("employee_id", log.employee_id)
+    .order("created_at", { ascending: false })
+    .limit(1)
+    .maybeSingle();
+
+  if (latestLog?.id === logId) {
+    await service.from("employees").update({ actual_task: trimmed }).eq("id", log.employee_id);
+  }
+
+  revalidatePath("/employee/dashboard");
+  revalidatePath("/admin/employees");
+  revalidatePath("/admin/dashboard");
+  revalidatePath("/employee/team");
   return { success: true };
 }
 

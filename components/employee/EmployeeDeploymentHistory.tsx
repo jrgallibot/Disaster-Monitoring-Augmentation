@@ -7,12 +7,14 @@ interface EmployeeDeploymentHistoryProps {
   employee: EmployeeWithRelations;
   logs: EmployeeDeploymentLog[];
   statuses: LibraryStatus[];
+  editableActualTask?: boolean;
 }
 
 export function EmployeeDeploymentHistory({
   employee,
   logs,
   statuses,
+  editableActualTask = false,
 }: EmployeeDeploymentHistoryProps) {
   return (
     <Card>
@@ -22,7 +24,8 @@ export function EmployeeDeploymentHistory({
           Deployment History
         </CardTitle>
         <p className="text-sm text-muted-foreground">
-          Past deployment status updates are kept here even after the daily midnight reset.
+          Past deployment status updates are kept here even after the daily midnight reset. For
+          Deployed entries, you can edit the actual task only — status and location stay unchanged.
         </p>
       </CardHeader>
       <CardContent>
@@ -30,6 +33,7 @@ export function EmployeeDeploymentHistory({
           employee={employee}
           logs={logs}
           statuses={statuses}
+          editableActualTask={editableActualTask}
           emptyMessage="Your deployment updates will appear here after you set your status."
         />
       </CardContent>

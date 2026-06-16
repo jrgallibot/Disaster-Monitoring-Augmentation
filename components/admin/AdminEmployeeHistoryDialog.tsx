@@ -73,18 +73,18 @@ export function AdminEmployeeHistoryDialog({
 
   return (
     <div
-      className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50"
+      className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-6 bg-black/50"
       onClick={onClose}
     >
       <div
-        className="bg-white rounded-lg shadow-xl w-full max-w-2xl max-h-[90vh] flex flex-col"
+        className="bg-white rounded-lg shadow-xl w-full max-w-4xl max-h-[92vh] min-h-[min(720px,92vh)] flex flex-col"
         onClick={(e) => e.stopPropagation()}
       >
-        <div className="flex items-start justify-between gap-4 p-5 border-b border-dswd-border">
+        <div className="flex items-start justify-between gap-4 p-5 sm:p-6 border-b border-dswd-border shrink-0">
           <div className="flex items-center gap-4 min-w-0">
-            <EmployeeAvatar photoUrl={snapshot.photo_url} size={56} />
+            <EmployeeAvatar photoUrl={snapshot.photo_url} size={64} />
             <div className="min-w-0">
-              <h2 className="text-lg font-bold text-dswd-navy truncate">{employeeName}</h2>
+              <h2 className="text-xl font-bold text-dswd-navy truncate">{employeeName}</h2>
               <p className="text-sm font-mono text-muted-foreground">{snapshot.employee_id}</p>
               <div className="flex items-center gap-2 flex-wrap mt-2">
                 {snapshot.status ? (
@@ -126,7 +126,7 @@ export function AdminEmployeeHistoryDialog({
           </Button>
         </div>
 
-        <div className="p-5 overflow-y-auto flex-1">
+        <div className="p-5 sm:p-6 overflow-y-auto flex-1 min-h-0">
           {isPending && (
             <p className="text-sm text-muted-foreground mb-4">Loading employee history...</p>
           )}
@@ -134,8 +134,8 @@ export function AdminEmployeeHistoryDialog({
             <p className="text-sm text-red-600 mb-4">{loadError}</p>
           )}
 
-          <Tabs value={tab} onValueChange={setTab}>
-            <TabsList className="grid w-full grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 mb-4 h-auto gap-1">
+          <Tabs value={tab} onValueChange={setTab} className="min-h-[480px] flex flex-col">
+            <TabsList className="grid w-full grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 mb-4 h-auto gap-1 shrink-0">
               {employee.user_id && (
                 <TabsTrigger value="portal" className="gap-1 text-xs sm:text-sm">
                   <KeyRound className="h-4 w-4 shrink-0" />
@@ -190,7 +190,7 @@ export function AdminEmployeeHistoryDialog({
             </TabsList>
 
             {employee.user_id && (
-              <TabsContent value="portal">
+              <TabsContent value="portal" className="flex-1 mt-0">
                 <AdminEmployeePortalPasswordPanel
                   employee={snapshot}
                   canManage={canManagePortalPassword}
@@ -198,7 +198,7 @@ export function AdminEmployeeHistoryDialog({
               </TabsContent>
             )}
 
-            <TabsContent value="deployment">
+            <TabsContent value="deployment" className="flex-1 mt-0">
               <EmployeeDeploymentLogList
                 employee={snapshot}
                 logs={bundle?.deploymentLogs ?? []}
@@ -208,7 +208,7 @@ export function AdminEmployeeHistoryDialog({
               />
             </TabsContent>
 
-            <TabsContent value="mobilization">
+            <TabsContent value="mobilization" className="flex-1 mt-0">
               <EmployeeMobilizationLogList
                 employee={snapshot}
                 logs={bundle?.mobilizationLogs ?? []}
@@ -217,7 +217,7 @@ export function AdminEmployeeHistoryDialog({
               />
             </TabsContent>
 
-            <TabsContent value="updates">
+            <TabsContent value="updates" className="flex-1 mt-0">
               <EmployeeUpdateLogList
                 logs={bundle?.profileLogs ?? []}
                 tabError={bundle?.errors.profile}
@@ -225,7 +225,7 @@ export function AdminEmployeeHistoryDialog({
               />
             </TabsContent>
 
-            <TabsContent value="accomplishments">
+            <TabsContent value="accomplishments" className="flex-1 mt-0">
               <EmployeeAccomplishmentList
                 records={bundle?.accomplishments ?? []}
                 tabError={bundle?.errors.accomplishments}
@@ -233,7 +233,7 @@ export function AdminEmployeeHistoryDialog({
               />
             </TabsContent>
 
-            <TabsContent value="attendance">
+            <TabsContent value="attendance" className="flex-1 mt-0">
               {bundle?.errors.attendance && (
                 <div className="bg-amber-50 border border-amber-200 text-amber-800 px-4 py-3 rounded-md text-sm mb-4">
                   {bundle.errors.attendance}

@@ -1,4 +1,7 @@
+"use client";
+
 import { Badge } from "@/components/ui/badge";
+import { DeploymentLogActualTaskEditor } from "@/components/shared/DeploymentLogActualTaskEditor";
 import { statusRequiresDeploymentLocation, statusRequiresDeploymentRemarks } from "@/lib/deployment";
 import { DEPLOYMENT_DAILY_RESET_NOTICE } from "@/lib/deployment-daily";
 import { formatDate } from "@/lib/utils";
@@ -11,6 +14,7 @@ interface EmployeeDeploymentLogListProps {
   statuses?: LibraryStatus[];
   emptyMessage?: string;
   tabError?: string;
+  editableActualTask?: boolean;
 }
 
 function getStatusColor(statusId: string | null, statuses: LibraryStatus[]): string | undefined {
@@ -24,6 +28,7 @@ export function EmployeeDeploymentLogList({
   statuses = [],
   emptyMessage = "No deployment status changes logged yet.",
   tabError,
+  editableActualTask = false,
 }: EmployeeDeploymentLogListProps) {
   return (
     <div className="space-y-4">
@@ -49,18 +54,15 @@ export function EmployeeDeploymentLogList({
           {employee.deploymentPending && (
             <p className="text-xs text-amber-800">{DEPLOYMENT_DAILY_RESET_NOTICE}</p>
           )}
-          {!employee.deploymentPending && statusRequiresDeploymentLocation(employee.status?.name) && employee.actual_task ? (
+          {!employee.deploymentPending &&
+          statusRequiresDeploymentLocation(employee.status?.name) &&
+          employee.actual_task ? (
             <p className="text-sm text-muted-foreground">
               <span className="font-medium text-foreground">Actual Task:</span>{" "}
               {employee.actual_task}
             </p>
           ) : null}
-          {!employee.deploymentPending && statusRequiresDeploymentLocation(employee.status?.name) && employee.deployment_location ? (
-            <p className="text-sm text-muted-foreground flex items-start gap-1">
-              <MapPin className="h-4 w-4 shrink-0 mt-0.5" />
-              <span>{employee.deployment_location}</span>
-            </p>
-          ) : !employee.deploymentPending && employee.deployment_location ? (
+          {!employee.deploymentPending && employee.deployment_location ? (
             <p className="text-sm text-muted-foreground flex items-start gap-1">
               <MapPin className="h-4 w-4 shrink-0 mt-0.5" />
               <span>{employee.deployment_location}</span>
@@ -97,13 +99,18 @@ export function EmployeeDeploymentLogList({
           <div className="space-y-3">
             {logs.map((log) => {
               const color = getStatusColor(log.status_id, statuses) ?? employee?.status?.color;
+              const canEditLog =
+                editableActualTask && statusRequiresDeploymentLocation(log.status_name);
+
               return (
                 <div key={log.id} className="border border-dswd-border rounded-lg p-4 space-y-2">
                   <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
                     <Badge color={color}>{log.status_name}</Badge>
                     <p className="text-xs text-muted-foreground">{formatDate(log.created_at)}</p>
                   </div>
-                  {log.actual_task ? (
+                  {canEditLog ? (
+                    <DeploymentLogActualTaskEditor log={log} />
+                  ) : log.actual_task ? (
                     <p className="text-sm text-muted-foreground">
                       <span className="font-medium text-foreground">Actual Task:</span>{" "}
                       {log.actual_task}
