@@ -3,18 +3,16 @@
 import { useCallback, useMemo, useState, useTransition } from "react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Badge } from "@/components/ui/badge";
 import { DailyReportFiltersBar } from "@/components/shared/DailyReportFiltersBar";
+import { OperationsReportMembersTable } from "@/components/shared/OperationsReportMembersTable";
 import { SexBreakdown } from "@/components/shared/SexBreakdown";
 import { getTeamDailyReportData } from "@/lib/actions/team-leader";
 import { SYSTEM_NAME, CREATED_BY } from "@/lib/branding";
-import { formatCoordinates, hasValidCoordinates } from "@/lib/geo";
 import {
   downloadTeamDailyReportExcel,
   printTeamDailyReport,
 } from "@/lib/report-export";
-import { formatDate, formatTime, getFullName } from "@/lib/utils";
-import { formatSexLabel } from "@/lib/sex-stats";
+import { formatDate, getFullName } from "@/lib/utils";
 import type { DailyReportFilterOptions, DailyReportFilters, SexCount, TeamDailyReportData } from "@/lib/types";
 import { Download, FileText, Printer, RefreshCw } from "lucide-react";
 
@@ -62,7 +60,6 @@ export function TeamDailyReportPanel({ initialData, allLedRegions }: TeamDailyRe
   );
   const activityLabel = data.reportIsToday ? "Activity Today" : "Activity";
   const clockedInLabel = data.reportIsToday ? "Clocked In" : "Clocked In (Day End)";
-  const attendanceNowLabel = data.reportIsToday ? "Now" : "End of Day";
   const summaryItems: { label: string; value: number; sex: SexCount }[] = [
     { label: "Team Members", value: data.summary.totalMembers, sex: data.summary.sex.totalMembers },
     { label: "Deployed", value: data.summary.deployed, sex: data.summary.sex.deployed },
@@ -85,8 +82,8 @@ export function TeamDailyReportPanel({ initialData, allLedRegions }: TeamDailyRe
         </h2>
         <p className="text-sm text-muted-foreground mt-2">
           Report Date: {data.reportDate}
-          {data.reportIsToday ? " (Today)" : ""} · Region: {data.scopeLabel} · Generated{" "}
-          {formatDate(data.generatedAt)} · Developed by {CREATED_BY}
+          {data.reportIsToday ? " (Today)" : ""} · Team Leader: {leaderName} · Region:{" "}
+          {data.scopeLabel} · Generated {formatDate(data.generatedAt)} · Developed by {CREATED_BY}
         </p>
       </div>
 
@@ -99,7 +96,7 @@ export function TeamDailyReportPanel({ initialData, allLedRegions }: TeamDailyRe
                 {data.reportIsToday ? "Today's Team Snapshot" : "Team Report"}
               </CardTitle>
               <p className="text-sm text-muted-foreground mt-2">
-                Actual tasks, deployment details, and member activity for{" "}
+                Team leader and member deployment details for{" "}
                 <span className="font-medium text-foreground">{data.reportDate}</span>
                 {allLedRegions.length > 1 && (
                   <>
@@ -107,7 +104,7 @@ export function TeamDailyReportPanel({ initialData, allLedRegions }: TeamDailyRe
                     · <span className="font-medium text-foreground">{data.scopeLabel}</span>
                   </>
                 )}
-                .
+                . Row 1 is the team leader; following rows are team members.
               </p>
               <p className="text-xs text-muted-foreground mt-1">
                 Last updated: {formatDate(data.generatedAt)}
@@ -143,18 +140,15 @@ export function TeamDailyReportPanel({ initialData, allLedRegions }: TeamDailyRe
         </div>
 
         <CardContent className="space-y-6">
-          <div className="rounded-lg border border-dswd-border bg-dswd-light p-4 space-y-3">
+          <div className="rounded-lg border border-dswd-border bg-dswd-light p-4 space-y-2 text-sm">
             <p className="text-xs font-semibold text-dswd-navy uppercase tracking-wide">
-              Team Leader
+              Report Coverage
             </p>
-            <div className="grid sm:grid-cols-2 lg:grid-cols-4 gap-3 text-sm">
+            <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-3">
               <div>
-                <p className="text-muted-foreground">Name</p>
+                <p className="text-muted-foreground">Team Leader</p>
                 <p className="font-semibold text-dswd-navy">{leaderName}</p>
-              </div>
-              <div>
-                <p className="text-muted-foreground">Employee ID</p>
-                <p className="font-mono font-medium">{data.teamLeader.employee_id}</p>
+                <p className="text-xs font-mono text-muted-foreground">{data.teamLeader.employee_id}</p>
               </div>
               <div>
                 <p className="text-muted-foreground">Region</p>
@@ -180,104 +174,13 @@ export function TeamDailyReportPanel({ initialData, allLedRegions }: TeamDailyRe
             ))}
           </div>
 
-          {data.members.length === 0 ? (
-            <p className="text-sm text-muted-foreground">
-              No team members are assigned to you yet.
-            </p>
-          ) : (
-            <div className="overflow-x-auto rounded-lg border border-dswd-border">
-              <table className="w-full text-sm">
-                <thead className="bg-dswd-light">
-                  <tr>
-                    <th className="text-left p-3 font-semibold text-dswd-navy">#</th>
-                    <th className="text-left p-3 font-semibold text-dswd-navy">Member</th>
-                    <th className="text-left p-3 font-semibold text-dswd-navy">Sex</th>
-                    <th className="text-left p-3 font-semibold text-dswd-navy">Specialization</th>
-                    <th className="text-left p-3 font-semibold text-dswd-navy">Status</th>
-                    <th className="text-left p-3 font-semibold text-dswd-navy min-w-[160px]">
-                      Actual Task
-                    </th>
-                    <th className="text-left p-3 font-semibold text-dswd-navy min-w-[140px]">
-                      Deployment Location
-                    </th>
-                    <th className="text-left p-3 font-semibold text-dswd-navy min-w-[160px]">
-                      Remarks
-                    </th>
-                    <th className="text-left p-3 font-semibold text-dswd-navy min-w-[200px]">
-                      Actual Duty {data.reportIsToday ? "Today" : ""}
-                    </th>
-                    <th className="text-left p-3 font-semibold text-dswd-navy">Attendance</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {data.members.map((member, index) => {
-                    const employee = member.employee;
-                    const memberName = getFullName(
-                      employee.first_name,
-                      employee.last_name,
-                      employee.middle_name
-                    );
-
-                    return (
-                      <tr key={employee.id} className="border-t border-dswd-border align-top">
-                        <td className="p-3 text-muted-foreground">{index + 1}</td>
-                        <td className="p-3">
-                          <p className="font-medium text-dswd-navy">{memberName}</p>
-                          <p className="text-xs font-mono text-muted-foreground">
-                            {employee.employee_id}
-                          </p>
-                        </td>
-                        <td className="p-3">{formatSexLabel(employee.sex)}</td>
-                        <td className="p-3">{employee.specialization?.name ?? "—"}</td>
-                        <td className="p-3">
-                          {employee.status ? (
-                            <Badge color={employee.status.color}>{employee.status.name}</Badge>
-                          ) : (
-                            "—"
-                          )}
-                        </td>
-                        <td className="p-3 whitespace-pre-wrap">{employee.actual_task ?? "—"}</td>
-                        <td className="p-3">{employee.deployment_location ?? "—"}</td>
-                        <td className="p-3 whitespace-pre-wrap">{employee.deployment_remarks ?? "—"}</td>
-                        <td className="p-3 whitespace-pre-wrap">{member.todayDutySummary}</td>
-                        <td className="p-3 space-y-1">
-                          <p>
-                            In:{" "}
-                            <span className="font-medium">
-                              {member.todayTimeIn ? formatTime(member.todayTimeIn) : "—"}
-                            </span>
-                          </p>
-                          <p>
-                            Out:{" "}
-                            <span className="font-medium">
-                              {member.todayTimeOut ? formatTime(member.todayTimeOut) : "—"}
-                            </span>
-                          </p>
-                          <p>
-                            {attendanceNowLabel}:{" "}
-                            <span
-                              className={
-                                member.isClockedIn
-                                  ? "font-medium text-green-700"
-                                  : "font-medium text-muted-foreground"
-                              }
-                            >
-                              {member.isClockedIn ? "Clocked In" : "Not Clocked In"}
-                            </span>
-                          </p>
-                          {hasValidCoordinates(employee.last_latitude, employee.last_longitude) && (
-                            <p className="text-xs text-muted-foreground">
-                              GPS: {formatCoordinates(employee.last_latitude, employee.last_longitude)}
-                            </p>
-                          )}
-                        </td>
-                      </tr>
-                    );
-                  })}
-                </tbody>
-              </table>
-            </div>
-          )}
+          <OperationsReportMembersTable
+            leaderRow={data.leaderActivity}
+            members={data.members}
+            showAttendance={false}
+            showDutyColumn={false}
+            emptyMessage="No team personnel records to display."
+          />
         </CardContent>
       </Card>
     </div>

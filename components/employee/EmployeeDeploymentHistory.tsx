@@ -24,8 +24,9 @@ export function EmployeeDeploymentHistory({
           Deployment History
         </CardTitle>
         <p className="text-sm text-muted-foreground">
-          Past deployment status updates are kept here even after the daily midnight reset. For
-          Deployed entries, you can edit the actual task only — status and location stay unchanged.
+          Past deployment status updates are kept here even after the daily midnight reset. If you
+          forgot yesterday&apos;s status or actual task, use the yesterday backfill section. For older
+          Deployed entries, you can edit the actual task only.
         </p>
       </CardHeader>
       <CardContent>

@@ -18,6 +18,7 @@ import {
 } from "@/lib/supabase/employee-query";
 import {
   buildMemberReports,
+  buildTeamDailyReportMember,
   buildTeamSummary,
   fetchMemberReportMaps,
 } from "@/lib/report/member-report";
@@ -203,8 +204,17 @@ export async function getTeamDailyReportData(
   const members = await getTeamMembersForLeader(regionId);
   const memberIds = members.map((member) => member.id);
   const bounds = getReportDateBounds(filters.dateKey);
+  const teamLeader = context.myEmployee;
+  const reportIds = Array.from(new Set([teamLeader.id, ...memberIds]));
 
-  const maps = await fetchMemberReportMaps(memberIds, bounds.start, bounds.end);
+  const maps = await fetchMemberReportMaps(reportIds, bounds.start, bounds.end);
+  const leaderActivity = buildTeamDailyReportMember(
+    teamLeader,
+    maps.accomplishmentsByEmployee,
+    maps.attendanceByEmployee,
+    maps.latestAttendanceByEmployee,
+    bounds.isToday
+  );
   const reportMembers = buildMemberReports(
     members,
     maps.accomplishmentsByEmployee,
@@ -224,7 +234,8 @@ export async function getTeamDailyReportData(
     reportDateKey: bounds.dateKey,
     reportIsToday: bounds.isToday,
     scopeLabel,
-    teamLeader: context.myEmployee,
+    teamLeader,
+    leaderActivity,
     ledRegions,
     members: reportMembers,
     summary: buildTeamSummary(reportMembers),

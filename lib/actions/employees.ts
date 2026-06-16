@@ -583,26 +583,42 @@ export async function getAdminDashboardData(): Promise<AdminDashboardData> {
 
 export async function createEmployee(data: EmployeeFormData): Promise<ActionResult> {
   try {
-    await requireAdmin();
+    const { user } = await requireAdmin();
     const supabase = createServiceClient();
-    const { error } = await supabase.from("employees").insert({
-      employee_id: data.employee_id,
-      first_name: data.first_name,
-      last_name: data.last_name,
-      middle_name: data.middle_name || null,
-      sex: data.sex || null,
-      email: data.email || null,
-      phone: data.phone || null,
-      address: data.address || null,
-      specialization_id: data.specialization_id || null,
-      region_id: data.region_id || null,
-      notes: data.notes || null,
-      photo_url: data.photo_url || null,
-      mobilization_status: "mobilized",
-      mobilized_at: getTodayInputValue(),
-    });
+    const { data: created, error } = await supabase
+      .from("employees")
+      .insert({
+        employee_id: data.employee_id,
+        first_name: data.first_name,
+        last_name: data.last_name,
+        middle_name: data.middle_name || null,
+        sex: data.sex || null,
+        email: data.email || null,
+        phone: data.phone || null,
+        address: data.address || null,
+        specialization_id: data.specialization_id || null,
+        region_id: data.region_id || null,
+        notes: data.notes || null,
+        photo_url: data.photo_url || null,
+        mobilization_status: "mobilized",
+        mobilized_at: getTodayInputValue(),
+      })
+      .select("id")
+      .single();
 
     if (error) return { success: false, error: error.message };
+
+    if (created?.id) {
+      await supabase.from("employee_update_logs").insert({
+        employee_id: created.id,
+        user_id: user.id,
+        summary: "Admin created employee record",
+        changes: {
+          employee_id: { from: null, to: data.employee_id },
+        },
+      });
+    }
+
     revalidatePath("/");
     revalidatePath("/admin/employees");
     revalidatePath("/admin/dashboard");
@@ -614,8 +630,16 @@ export async function createEmployee(data: EmployeeFormData): Promise<ActionResu
 
 export async function updateEmployee(id: string, data: EmployeeFormData): Promise<ActionResult> {
   try {
-    await requireAdmin();
+    const { user } = await requireAdmin();
     const supabase = createServiceClient();
+
+    const before = await querySingleEmployeeRow(supabase, (select) =>
+      supabase.from("employees").select(select).eq("id", id).single()
+    );
+    if (!before) {
+      return { success: false, error: "Employee not found." };
+    }
+
     const { error } = await supabase
       .from("employees")
       .update({
@@ -635,6 +659,37 @@ export async function updateEmployee(id: string, data: EmployeeFormData): Promis
       .eq("id", id);
 
     if (error) return { success: false, error: error.message };
+
+    const changes: Record<string, { from: string | null; to: string | null }> = {};
+    const track = (field: string, from: string | null | undefined, to: string | null | undefined) => {
+      const fromVal = from ?? null;
+      const toVal = to ?? null;
+      if (fromVal !== toVal) changes[field] = { from: fromVal, to: toVal };
+    };
+
+    track("employee_id", before.employee_id, data.employee_id);
+    track("first_name", before.first_name, data.first_name);
+    track("last_name", before.last_name, data.last_name);
+    track("middle_name", before.middle_name, data.middle_name || null);
+    track("sex", before.sex, data.sex || null);
+    track("email", before.email, data.email || null);
+    track("phone", before.phone, data.phone || null);
+    track("address", before.address, data.address || null);
+    track("specialization_id", before.specialization_id, data.specialization_id || null);
+    track("region_id", before.region_id, data.region_id || null);
+    track("notes", before.notes, data.notes || null);
+    track("photo_url", before.photo_url, data.photo_url || null);
+
+    if (Object.keys(changes).length > 0) {
+      await supabase.from("employee_update_logs").insert({
+        employee_id: id,
+        user_id: user.id,
+        summary: "Admin updated employee record",
+        changes,
+        deployment_location: before.deployment_location,
+        status_name: before.status?.name ?? null,
+      });
+    }
 
     if (data.portal_role) {
       const roleResult = await updateEmployeePortalRole(id, data.portal_role);

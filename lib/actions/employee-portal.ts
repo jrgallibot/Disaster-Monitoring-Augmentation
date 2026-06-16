@@ -20,7 +20,15 @@ import { getEmployeeSession } from "@/lib/actions/auth";
 import { getFormDataPhotoFile } from "@/lib/photo-upload";
 import { uploadToEmployeePhotoBucket } from "@/lib/actions/photo-storage";
 import { canManageEmployee } from "@/lib/auth/team-leader";
-import { statusRequiresDeploymentLocation } from "@/lib/deployment";
+import {
+  getStatusById,
+  statusRequiresDeploymentLocation,
+  statusRequiresDeploymentRemarks,
+  validateDeploymentFields,
+} from "@/lib/deployment";
+import { getYesterdayReportBounds } from "@/lib/deployment-yesterday";
+import { accomplishmentTimestampFromDateKey } from "@/lib/report/date-bounds";
+import { getStatuses } from "@/lib/actions/employees";
 
 function buildChanges(
   before: EmployeeWithRelations,
@@ -333,6 +341,132 @@ export async function updateDeploymentLogActualTask(
   revalidatePath("/admin/employees");
   revalidatePath("/admin/dashboard");
   revalidatePath("/employee/team");
+  return { success: true };
+}
+
+export async function saveMyYesterdayDeployment(
+  statusId: string,
+  deploymentLocation?: string,
+  actualTask?: string,
+  deploymentRemarks?: string,
+  logId?: string
+): Promise<ActionResult> {
+  const authClient = await createClient();
+  const {
+    data: { user },
+  } = await authClient.auth.getUser();
+  if (!user) {
+    return { success: false, error: "You must be logged in." };
+  }
+
+  const { data: employee } = await authClient
+    .from("employees")
+    .select("id")
+    .eq("user_id", user.id)
+    .maybeSingle();
+
+  if (!employee) {
+    return { success: false, error: "Employee record not found." };
+  }
+
+  const statuses = await getStatuses();
+  const deploymentError = validateDeploymentFields(
+    statusId,
+    deploymentLocation,
+    statuses,
+    actualTask,
+    deploymentRemarks
+  );
+  if (deploymentError) {
+    return { success: false, error: deploymentError };
+  }
+
+  const status = getStatusById(statusId, statuses);
+  if (!status) {
+    return { success: false, error: "Selected deployment status is invalid." };
+  }
+
+  const isDeployed = statusRequiresDeploymentLocation(status.name);
+  const nextLocation = isDeployed ? deploymentLocation?.trim() || null : null;
+  const nextActualTask = isDeployed ? actualTask?.trim() || null : null;
+  const nextRemarks = statusRequiresDeploymentRemarks(status.name)
+    ? deploymentRemarks?.trim() || null
+    : null;
+
+  const service = createServiceClient();
+  const { start, end } = getYesterdayReportBounds();
+
+  if (logId) {
+    const { data: log, error: logError } = await service
+      .from("employee_deployment_logs")
+      .select("id, employee_id, created_at")
+      .eq("id", logId)
+      .single();
+
+    if (logError || !log) {
+      return { success: false, error: "Deployment log not found." };
+    }
+
+    if (log.employee_id !== employee.id) {
+      return { success: false, error: "You can only update your own deployment records." };
+    }
+
+    const createdAt = new Date(log.created_at);
+    if (createdAt < new Date(start) || createdAt >= new Date(end)) {
+      return { success: false, error: "Only yesterday's deployment record can be updated here." };
+    }
+
+    const { error: updateError } = await service
+      .from("employee_deployment_logs")
+      .update({
+        status_id: statusId,
+        status_name: status.name,
+        deployment_location: nextLocation,
+        actual_task: nextActualTask,
+        deployment_remarks: nextRemarks,
+      })
+      .eq("id", logId);
+
+    if (updateError) {
+      return { success: false, error: updateError.message };
+    }
+  } else {
+    const { data: existing } = await service
+      .from("employee_deployment_logs")
+      .select("id")
+      .eq("employee_id", employee.id)
+      .gte("created_at", start)
+      .lt("created_at", end)
+      .limit(1);
+
+    if (existing && existing.length > 0) {
+      return {
+        success: false,
+        error: "Yesterday's deployment is already recorded. Use Edit to update it.",
+      };
+    }
+
+    const { error: insertError } = await service.from("employee_deployment_logs").insert({
+      employee_id: employee.id,
+      user_id: user.id,
+      status_id: statusId,
+      status_name: status.name,
+      deployment_location: nextLocation,
+      actual_task: nextActualTask,
+      deployment_remarks: nextRemarks,
+      created_at: accomplishmentTimestampFromDateKey(getYesterdayReportBounds().dateKey),
+    });
+
+    if (insertError) {
+      return { success: false, error: insertError.message };
+    }
+  }
+
+  revalidatePath("/employee/dashboard");
+  revalidatePath("/admin/employees");
+  revalidatePath("/admin/dashboard");
+  revalidatePath("/employee/team");
+  revalidatePath("/employee/daily-report");
   return { success: true };
 }
 

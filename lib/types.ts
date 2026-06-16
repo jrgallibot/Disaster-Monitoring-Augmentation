@@ -194,6 +194,7 @@ export interface TeamDailyReportData {
   scopeLabel: string;
   appliedFilters: DailyReportFilters;
   teamLeader: EmployeeWithRelations;
+  leaderActivity: TeamDailyReportMember;
   ledRegions: LibraryRegion[];
   members: TeamDailyReportMember[];
   summary: TeamDailyReportSummary;
@@ -252,6 +253,32 @@ export interface Profile {
   full_name: string | null;
   role: "admin" | "viewer" | "employee" | "team_leader";
   created_at: string;
+}
+
+export type AuditTrailCategory = "all" | "profile" | "deployment" | "mobilization";
+
+export interface AuditTrailFilters {
+  category?: AuditTrailCategory;
+  employeeId?: string | null;
+  limit?: number;
+}
+
+export interface AuditTrailEntry {
+  id: string;
+  category: Exclude<AuditTrailCategory, "all">;
+  created_at: string;
+  employee_id: string;
+  employee_code: string;
+  employee_name: string;
+  actor_label: string;
+  title: string;
+  details: string[];
+}
+
+export interface AuditTrailData {
+  entries: AuditTrailEntry[];
+  generatedAt: string;
+  totalShown: number;
 }
 
 export type EmployeeFormData = {

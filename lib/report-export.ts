@@ -117,10 +117,38 @@ function getTeamLeaderReportName(data: TeamDailyReportData) {
   );
 }
 
+function teamDailyReportPersonRow(
+  member: TeamDailyReportData["members"][0],
+  index: number,
+  roleLabel: string
+): (string | number)[] {
+  const employee = member.employee;
+
+  return [
+    index + 1,
+    roleLabel,
+    employee.employee_id,
+    getFullName(employee.first_name, employee.last_name, employee.middle_name),
+    formatSexLabel(employee.sex),
+    employee.specialization?.name ?? "",
+    employee.status?.name ?? "",
+    employee.actual_task ?? "",
+    employee.deployment_location ?? "",
+    employee.deployment_remarks ?? "",
+  ];
+}
+
 export function downloadTeamDailyReportExcel(data: TeamDailyReportData) {
   const regionLabel = data.ledRegions.map((region) => region.code).join(", ");
   const leaderName = getTeamLeaderReportName(data);
   const generated = formatDate(data.generatedAt);
+
+  const personnelRows: (string | number)[][] = [
+    teamDailyReportPersonRow(data.leaderActivity, 0, "Team Leader"),
+    ...data.members
+      .filter((member) => member.employee.id !== data.teamLeader.id)
+      .map((member, index) => teamDailyReportPersonRow(member, index + 1, "Team Member")),
+  ];
 
   const rows: (string | number)[][] = [
     [SYSTEM_NAME],
@@ -133,7 +161,7 @@ export function downloadTeamDailyReportExcel(data: TeamDailyReportData) {
     ["Team Leader ID", data.teamLeader.employee_id],
     ["Region", regionLabel],
     [],
-    ["SUMMARY"],
+    ["SUMMARY (Team Members)"],
     ["Total Team Members", data.summary.totalMembers, `M: ${data.summary.sex.totalMembers.male}`, `F: ${data.summary.sex.totalMembers.female}`],
     ["Deployed", data.summary.deployed, `M: ${data.summary.sex.deployed.male}`, `F: ${data.summary.sex.deployed.female}`],
     ["On Standby", data.summary.onStandby, `M: ${data.summary.sex.onStandby.male}`, `F: ${data.summary.sex.onStandby.female}`],
@@ -141,9 +169,10 @@ export function downloadTeamDailyReportExcel(data: TeamDailyReportData) {
     ["Clocked In Now", data.summary.clockedInNow, `M: ${data.summary.sex.clockedInNow.male}`, `F: ${data.summary.sex.clockedInNow.female}`],
     ["With Activity Today", data.summary.withActivityToday, `M: ${data.summary.sex.withActivityToday.male}`, `F: ${data.summary.sex.withActivityToday.female}`],
     [],
-    ["TEAM MEMBER DAILY STATUS"],
+    ["TEAM DAILY STATUS (Team Leader + Members)"],
     [
       "No.",
+      "Role",
       "Employee ID",
       "Name",
       "Sex",
@@ -152,38 +181,8 @@ export function downloadTeamDailyReportExcel(data: TeamDailyReportData) {
       "Actual Task",
       "Deployment Location",
       "Remarks",
-      "Actual Duty Today",
-      "Time In Today",
-      "Time Out Today",
-      "Clocked In Now",
-      "Phone",
-      "Last GPS",
     ],
-    ...data.members.map((member, index) => {
-      const employee = member.employee;
-      const gps =
-        hasValidCoordinates(employee.last_latitude, employee.last_longitude)
-          ? formatCoordinates(employee.last_latitude, employee.last_longitude)
-          : "";
-
-      return [
-        index + 1,
-        employee.employee_id,
-        getFullName(employee.first_name, employee.last_name, employee.middle_name),
-        formatSexLabel(employee.sex),
-        employee.specialization?.name ?? "",
-        employee.status?.name ?? "",
-        employee.actual_task ?? "",
-        employee.deployment_location ?? "",
-        employee.deployment_remarks ?? "",
-        member.todayDutySummary,
-        member.todayTimeIn ? formatTime(member.todayTimeIn) : "",
-        member.todayTimeOut ? formatTime(member.todayTimeOut) : "",
-        member.isClockedIn ? "Yes" : "No",
-        employee.phone ?? "",
-        gps,
-      ];
-    }),
+    ...personnelRows,
   ];
 
   const csv = rows.map((row) => row.map(escapeCsv).join(",")).join("\r\n");

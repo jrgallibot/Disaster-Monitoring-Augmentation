@@ -48,6 +48,10 @@ export function getTodayInputValue(): string {
   return getManilaDateKey();
 }
 
+export function getYesterdayDateKey(): string {
+  return addDaysToDateKey(getManilaDateKey(), -1);
+}
+
 export function getManilaDateKeyFromTimestamp(iso: string): string {
   return new Intl.DateTimeFormat("en-CA", {
     timeZone: DEPLOYMENT_TIMEZONE,

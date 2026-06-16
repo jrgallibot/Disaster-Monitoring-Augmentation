@@ -1,9 +1,14 @@
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
 import { EmployeeImportPanel } from "@/components/admin/EmployeeImportPanel";
+import { EmployeeAuditTrailPanel } from "@/components/admin/EmployeeAuditTrailPanel";
 import { EmployeeTable } from "@/components/dashboard/EmployeeTable";
 import { Plus } from "lucide-react";
 import { requireAdminForPage } from "@/lib/actions/auth";
+import {
+  getEmployeeAuditTrail,
+  getEmployeeAuditTrailFilterOptions,
+} from "@/lib/actions/audit-trail";
 import {
   getEmployees,
   getRegions,
@@ -15,12 +20,15 @@ export const dynamic = "force-dynamic";
 
 export default async function AdminEmployeesPage() {
   const access = await requireAdminForPage();
-  const [employees, regions, statuses, specializations] = await Promise.all([
-    getEmployees(),
-    getRegions(),
-    getStatuses(),
-    getSpecializations(),
-  ]);
+  const [employees, regions, statuses, specializations, auditTrail, auditEmployeeOptions] =
+    await Promise.all([
+      getEmployees(),
+      getRegions(),
+      getStatuses(),
+      getSpecializations(),
+      getEmployeeAuditTrail({ limit: 100 }),
+      getEmployeeAuditTrailFilterOptions(),
+    ]);
 
   return (
     <div className="space-y-6">
@@ -31,8 +39,8 @@ export default async function AdminEmployeesPage() {
           </h1>
           <p className="text-sm text-muted-foreground mt-2">
             {access.canWrite
-              ? "Add, edit, and monitor augmented employee records. Update deployment status, reset portal passwords, or view passwords (admin verification required)."
-              : "Browse augmented employee records and view history. Changes are disabled for co-admin accounts."}
+              ? "Add, edit, and monitor augmented employee records. Update deployment status, reset portal passwords, or view passwords (admin verification required). Scroll down for the system audit trail."
+              : "Browse augmented employee records and view history. Scroll down for the audit trail. Changes are disabled for co-admin accounts."}
           </p>
         </div>
         {access.canWrite && (
@@ -56,6 +64,11 @@ export default async function AdminEmployeesPage() {
         showActions={access.canWrite}
         showAdminPasswordActions={access.canWrite}
         viewOnly={!access.canWrite}
+      />
+
+      <EmployeeAuditTrailPanel
+        initialData={auditTrail}
+        employeeOptions={auditEmployeeOptions}
       />
     </div>
   );

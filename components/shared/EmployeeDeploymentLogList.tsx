@@ -2,7 +2,10 @@
 
 import { Badge } from "@/components/ui/badge";
 import { DeploymentLogActualTaskEditor } from "@/components/shared/DeploymentLogActualTaskEditor";
+import { YesterdayDeploymentBackfill } from "@/components/shared/YesterdayDeploymentBackfill";
 import { statusRequiresDeploymentLocation, statusRequiresDeploymentRemarks } from "@/lib/deployment";
+import { isDeploymentLogOnDateKey } from "@/lib/deployment-yesterday";
+import { getYesterdayDateKey } from "@/lib/report/date-bounds";
 import { DEPLOYMENT_DAILY_RESET_NOTICE } from "@/lib/deployment-daily";
 import { formatDate } from "@/lib/utils";
 import type { EmployeeDeploymentLog, EmployeeWithRelations, LibraryStatus } from "@/lib/types";
@@ -30,6 +33,8 @@ export function EmployeeDeploymentLogList({
   tabError,
   editableActualTask = false,
 }: EmployeeDeploymentLogListProps) {
+  const yesterdayKey = getYesterdayDateKey();
+
   return (
     <div className="space-y-4">
       {employee && (
@@ -88,6 +93,10 @@ export function EmployeeDeploymentLogList({
         </div>
       )}
 
+      {editableActualTask && statuses.length > 0 && (
+        <YesterdayDeploymentBackfill logs={logs} statuses={statuses} />
+      )}
+
       <div>
         <p className="text-xs font-semibold text-dswd-navy uppercase tracking-wide mb-3">
           Deployment Change History ({logs.length})
@@ -99,8 +108,11 @@ export function EmployeeDeploymentLogList({
           <div className="space-y-3">
             {logs.map((log) => {
               const color = getStatusColor(log.status_id, statuses) ?? employee?.status?.color;
+              const isYesterdayLog = isDeploymentLogOnDateKey(log, yesterdayKey);
               const canEditLog =
-                editableActualTask && statusRequiresDeploymentLocation(log.status_name);
+                editableActualTask &&
+                !isYesterdayLog &&
+                statusRequiresDeploymentLocation(log.status_name);
 
               return (
                 <div key={log.id} className="border border-dswd-border rounded-lg p-4 space-y-2">
