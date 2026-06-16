@@ -28,6 +28,7 @@ import { formatCoordinates, getCurrentPosition, getMapUrl, hasValidCoordinates }
 import { formatDate, getEmployeeTeamLeader, getAutoAssignedTeamLeaderId, getRegionTeamLeaderSummaries, getTeamLeaderDisplay, shouldSelectTeamLeader } from "@/lib/utils";
 import type {
   EmployeeDeploymentLog,
+  EmployeeSex,
   EmployeeUpdateLog,
   EmployeeWithRelations,
   LibraryRegion,
@@ -62,9 +63,11 @@ export function EmployeeStatusForm({
   const [error, setError] = useState<string | null>(null);
   const [specializationId, setSpecializationId] = useState(employee.specialization_id ?? "");
   const [regionId, setRegionId] = useState(employee.region_id ?? "");
+  const [sex, setSex] = useState<EmployeeSex | "">(employee.sex ?? "");
 
   useEffect(() => {
     setEmployee(initialEmployee);
+    setSex(initialEmployee.sex ?? "");
   }, [initialEmployee]);
 
   function handleDeploymentUpdated(updated: EmployeeWithRelations) {
@@ -125,6 +128,13 @@ export function EmployeeStatusForm({
       return;
     }
 
+    if (!sex) {
+      const message = "Please select your sex for monitoring and reporting.";
+      setError(message);
+      toast.error(message);
+      return;
+    }
+
     if (needsTeamLeaderSelection && !assignedTeamLeaderId) {
       const message = "Please select your team leader for this region.";
       setError(message);
@@ -158,6 +168,7 @@ export function EmployeeStatusForm({
         first_name: (form.get("first_name") as string) || undefined,
         last_name: (form.get("last_name") as string) || undefined,
         middle_name: (form.get("middle_name") as string) || undefined,
+        sex: sex || undefined,
         specialization_id: specializationId || undefined,
         region_id: regionId || undefined,
         assigned_team_leader_id: assignedTeamLeaderId || undefined,
@@ -438,6 +449,21 @@ export function EmployeeStatusForm({
             </div>
 
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              <div className="space-y-2">
+                <Label>Sex *</Label>
+                <Select value={sex} onValueChange={(value) => setSex(value as EmployeeSex)}>
+                  <SelectTrigger>
+                    <SelectValue placeholder="Select sex" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="male">Male</SelectItem>
+                    <SelectItem value="female">Female</SelectItem>
+                  </SelectContent>
+                </Select>
+                <p className="text-xs text-muted-foreground">
+                  Used for sex-disaggregated monitoring and reporting.
+                </p>
+              </div>
               <div className="space-y-2">
                 <Label>Specialization *</Label>
                 <Select value={specializationId} onValueChange={setSpecializationId}>

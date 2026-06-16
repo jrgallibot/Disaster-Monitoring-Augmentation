@@ -37,6 +37,7 @@ function buildChanges(
   if (data.first_name !== undefined) track("first_name", before.first_name, data.first_name.trim());
   if (data.last_name !== undefined) track("last_name", before.last_name, data.last_name.trim());
   if (data.middle_name !== undefined) track("middle_name", before.middle_name, data.middle_name.trim() || null);
+  if (data.sex !== undefined) track("sex", before.sex, data.sex || null);
   if (data.phone !== undefined) track("phone", before.phone, data.phone || null);
   if (data.address !== undefined) track("address", before.address, data.address || null);
   if (data.notes !== undefined) track("notes", before.notes, data.notes || null);
@@ -217,6 +218,7 @@ export async function updateMyEmployee(data: EmployeeSelfUpdate): Promise<Action
 
   if (data.first_name?.trim()) updatePayload.first_name = data.first_name.trim();
   if (data.last_name?.trim()) updatePayload.last_name = data.last_name.trim();
+  if (data.sex !== undefined) updatePayload.sex = data.sex || null;
   if (data.photo_url) updatePayload.photo_url = data.photo_url;
   if (data.latitude != null) updatePayload.last_latitude = data.latitude;
   if (data.longitude != null) updatePayload.last_longitude = data.longitude;

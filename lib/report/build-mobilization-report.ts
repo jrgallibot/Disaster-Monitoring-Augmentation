@@ -4,6 +4,7 @@ import {
   computeAugmentationDurationDays,
   employeeOverlapsMobilizationRange,
 } from "@/lib/mobilization";
+import { countSex } from "@/lib/sex-stats";
 import { getTodayInputValue } from "@/lib/report/date-bounds";
 import type {
   EmployeeWithRelations,
@@ -134,6 +135,19 @@ export async function buildMobilizationReportData(
     totalInRange: rows.length,
     mobilizedNow: rows.filter((row) => row.employee.mobilization_status === "mobilized").length,
     demobilizedNow: rows.filter((row) => row.employee.mobilization_status === "demobilized").length,
+    sex: {
+      totalInRange: countSex(rows.map((row) => row.employee)),
+      mobilizedNow: countSex(
+        rows
+          .filter((row) => row.employee.mobilization_status === "mobilized")
+          .map((row) => row.employee)
+      ),
+      demobilizedNow: countSex(
+        rows
+          .filter((row) => row.employee.mobilization_status === "demobilized")
+          .map((row) => row.employee)
+      ),
+    },
   };
 
   return {

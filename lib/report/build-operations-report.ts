@@ -1,6 +1,7 @@
 import { employeeIsVisibleTeamMember } from "@/lib/auth/team-leader";
 import { getEmployees, getRegions } from "@/lib/actions/employees";
 import { getReportDateBounds } from "@/lib/report/date-bounds";
+import { countSex } from "@/lib/sex-stats";
 import {
   buildMemberReports,
   buildTeamDailyReportMember,
@@ -156,6 +157,24 @@ export async function buildOperationsReportData(
       onLeave: uniqueMembers.filter((employee) => employee.status?.name === "On Leave").length,
       clockedInNow: membersClockedIn.size,
       withActivityToday: membersWithActivity.size,
+      sex: {
+        totalMembers: countSex(uniqueMembers),
+        deployed: countSex(
+          uniqueMembers.filter((employee) => employee.status?.name === "Deployed")
+        ),
+        onStandby: countSex(
+          uniqueMembers.filter((employee) => employee.status?.name === "On Standby")
+        ),
+        onLeave: countSex(
+          uniqueMembers.filter((employee) => employee.status?.name === "On Leave")
+        ),
+        clockedInNow: countSex(
+          uniqueMembers.filter((employee) => membersClockedIn.has(employee.id))
+        ),
+        withActivityToday: countSex(
+          uniqueMembers.filter((employee) => membersWithActivity.has(employee.id))
+        ),
+      },
     },
   };
 }

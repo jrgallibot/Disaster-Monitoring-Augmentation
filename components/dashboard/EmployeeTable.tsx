@@ -26,6 +26,7 @@ import { formatMobilizationDate } from "@/lib/mobilization";
 import { formatCoordinates, getMapUrl, hasValidCoordinates } from "@/lib/geo";
 import { Search, History, MapPin, User, Briefcase, KeyRound, Eye, UserCheck } from "lucide-react";
 import { getFullName, getEmployeeTeamLeader, getEmployeeTeamLeaderSearchText } from "@/lib/utils";
+import { formatSexLabel } from "@/lib/sex-stats";
 import type {
   EmployeeWithRelations,
   LibraryRegion,
@@ -429,6 +430,7 @@ export function EmployeeTable({
                   )}
                   <th className="text-left p-3 font-semibold text-dswd-navy">Employee ID</th>
                   <th className="text-left p-3 font-semibold text-dswd-navy">Name</th>
+                  <th className="text-left p-3 font-semibold text-dswd-navy">Sex</th>
                   <th className="text-left p-3 font-semibold text-dswd-navy">Specialization</th>
                   <th className="text-left p-3 font-semibold text-dswd-navy">Region</th>
                   <th className="text-left p-3 font-semibold text-dswd-navy">Augmentation</th>
@@ -475,6 +477,7 @@ export function EmployeeTable({
                         {getFullName(emp.first_name, emp.last_name, emp.middle_name)}
                       </Link>
                     </td>
+                    <td className="p-3">{formatSexLabel(emp.sex)}</td>
                     <td className="p-3">{emp.specialization?.name ?? "—"}</td>
                     <td className="p-3">{emp.region?.code ?? "—"}</td>
                     <td className="p-3">{renderMobilizationCell(emp)}</td>
@@ -623,6 +626,9 @@ export function EmployeeTable({
                   {renderStatusCell(emp)}
                 </div>
                 <div className="mt-3 grid grid-cols-2 gap-2 text-xs text-muted-foreground">
+                  <span>
+                    Sex: <strong className="text-foreground">{formatSexLabel(emp.sex)}</strong>
+                  </span>
                   <span>
                     Specialization:{" "}
                     <strong className="text-foreground">{emp.specialization?.name ?? "—"}</strong>

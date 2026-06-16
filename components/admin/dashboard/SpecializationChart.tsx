@@ -9,14 +9,12 @@ import {
   CartesianGrid,
   Tooltip,
   ResponsiveContainer,
-  Cell,
+  Legend,
 } from "recharts";
 
 interface SpecializationChartProps {
-  data: { name: string; count: number }[];
+  data: { name: string; count: number; male: number; female: number }[];
 }
-
-const COLORS = ["#003366", "#0066CC", "#D4A017", "#10B981", "#8B5CF6", "#F59E0B"];
 
 export function SpecializationChart({ data }: SpecializationChartProps) {
   const chartData = data.slice(0, 8);
@@ -50,12 +48,12 @@ export function SpecializationChart({ data }: SpecializationChartProps) {
               width={120}
               tick={{ fontSize: 11 }}
             />
-            <Tooltip formatter={(value) => [value, "Employees"]} />
-            <Bar dataKey="count" radius={[0, 4, 4, 0]}>
-              {chartData.map((_, index) => (
-                <Cell key={index} fill={COLORS[index % COLORS.length]} />
-              ))}
-            </Bar>
+            <Tooltip
+              formatter={(value, name) => [value, name === "male" ? "Male" : name === "female" ? "Female" : "Employees"]}
+            />
+            <Legend />
+            <Bar dataKey="male" stackId="sex" fill="#2563EB" name="Male" />
+            <Bar dataKey="female" stackId="sex" fill="#DB2777" radius={[0, 4, 4, 0]} name="Female" />
           </BarChart>
         </ResponsiveContainer>
       </CardContent>

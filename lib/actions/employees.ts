@@ -22,6 +22,7 @@ import type {
   LibraryStatus,
   RegionTeamOverview,
 } from "@/lib/types";
+import { countSex } from "@/lib/sex-stats";
 import { getFullName, getEmployeeTeamLeaderSearchText, getRegionTeamLeaderSummaries } from "@/lib/utils";
 import {
   queryEmployeeRows,
@@ -333,43 +334,51 @@ export async function getDashboardStats(): Promise<DashboardStats> {
 }
 
 function buildDashboardStats(employees: EmployeeWithRelations[]): DashboardStats {
-  const deployed = employees.filter(
-    (e) => e.status?.name === "Deployed"
-  ).length;
-  const onStandby = employees.filter(
-    (e) => e.status?.name === "On Standby"
-  ).length;
-  const onLeave = employees.filter(
-    (e) => e.status?.name === "On Leave"
-  ).length;
+  const deployedEmployees = employees.filter((e) => e.status?.name === "Deployed");
+  const onStandbyEmployees = employees.filter((e) => e.status?.name === "On Standby");
+  const onLeaveEmployees = employees.filter((e) => e.status?.name === "On Leave");
 
-  const statusMap = new Map<string, { name: string; count: number; color: string }>();
+  const statusMap = new Map<
+    string,
+    { name: string; count: number; color: string; male: number; female: number }
+  >();
   employees.forEach((e) => {
     if (e.status) {
       const existing = statusMap.get(e.status.id);
       if (existing) {
         existing.count++;
+        if (e.sex === "male") existing.male++;
+        else if (e.sex === "female") existing.female++;
       } else {
         statusMap.set(e.status.id, {
           name: e.status.name,
           count: 1,
           color: e.status.color,
+          male: e.sex === "male" ? 1 : 0,
+          female: e.sex === "female" ? 1 : 0,
         });
       }
     }
   });
 
-  const regionMap = new Map<string, { name: string; code: string; count: number }>();
+  const regionMap = new Map<
+    string,
+    { name: string; code: string; count: number; male: number; female: number }
+  >();
   employees.forEach((e) => {
     if (e.region) {
       const existing = regionMap.get(e.region.id);
       if (existing) {
         existing.count++;
+        if (e.sex === "male") existing.male++;
+        else if (e.sex === "female") existing.female++;
       } else {
         regionMap.set(e.region.id, {
           name: e.region.name,
           code: e.region.code,
           count: 1,
+          male: e.sex === "male" ? 1 : 0,
+          female: e.sex === "female" ? 1 : 0,
         });
       }
     }
@@ -377,9 +386,15 @@ function buildDashboardStats(employees: EmployeeWithRelations[]): DashboardStats
 
   return {
     total: employees.length,
-    deployed,
-    onStandby,
-    onLeave,
+    deployed: deployedEmployees.length,
+    onStandby: onStandbyEmployees.length,
+    onLeave: onLeaveEmployees.length,
+    sex: {
+      total: countSex(employees),
+      deployed: countSex(deployedEmployees),
+      onStandby: countSex(onStandbyEmployees),
+      onLeave: countSex(onLeaveEmployees),
+    },
     byStatus: Array.from(statusMap.values()),
     byRegion: Array.from(regionMap.values()).sort((a, b) => b.count - a.count),
   };
@@ -450,17 +465,32 @@ export async function getAdminDashboardData(): Promise<AdminDashboardData> {
   const stats = buildDashboardStats(employees);
   const regionTeams = buildRegionTeamOverviews(regions, employees);
 
-  const specMap = new Map<string, number>();
+  const specMap = new Map<string, { count: number; male: number; female: number }>();
   employees.forEach((e) => {
     const name = e.specialization?.name ?? "Unassigned";
-    specMap.set(name, (specMap.get(name) ?? 0) + 1);
+    const existing = specMap.get(name);
+    if (existing) {
+      existing.count++;
+      if (e.sex === "male") existing.male++;
+      else if (e.sex === "female") existing.female++;
+    } else {
+      specMap.set(name, {
+        count: 1,
+        male: e.sex === "male" ? 1 : 0,
+        female: e.sex === "female" ? 1 : 0,
+      });
+    }
   });
 
-  const withPhoto = employees.filter((e) => e.photo_url).length;
-  const withGps = employees.filter(
+  const withPhotoEmployees = employees.filter((e) => e.photo_url);
+  const withGpsEmployees = employees.filter(
     (e) => e.last_latitude != null && e.last_longitude != null
-  ).length;
-  const registeredAccounts = employees.filter((e) => e.user_id).length;
+  );
+  const registeredEmployees = employees.filter((e) => e.user_id);
+
+  const withPhoto = withPhotoEmployees.length;
+  const withGps = withGpsEmployees.length;
+  const registeredAccounts = registeredEmployees.length;
   const deploymentRate =
     stats.total > 0 ? Math.round((stats.deployed / stats.total) * 100) : 0;
 
@@ -468,6 +498,9 @@ export async function getAdminDashboardData(): Promise<AdminDashboardData> {
   let todayTimeIn = 0;
   let todayTimeOut = 0;
   const clockedInEmployees: AdminDashboardData["clockedInEmployees"] = [];
+  const clockedInList: EmployeeWithRelations[] = [];
+  const todayTimeInList: EmployeeWithRelations[] = [];
+  const todayTimeOutList: EmployeeWithRelations[] = [];
   const employeeMap = new Map(employees.map((e) => [e.id, e]));
 
   try {
@@ -485,8 +518,15 @@ export async function getAdminDashboardData(): Promise<AdminDashboardData> {
         latestByEmployee.set(record.employee_id, record);
       }
       if (record.created_at.startsWith(today)) {
-        if (record.action === "time_in") todayTimeIn++;
-        if (record.action === "time_out") todayTimeOut++;
+        const emp = employeeMap.get(record.employee_id);
+        if (record.action === "time_in") {
+          todayTimeIn++;
+          if (emp) todayTimeInList.push(emp);
+        }
+        if (record.action === "time_out") {
+          todayTimeOut++;
+          if (emp) todayTimeOutList.push(emp);
+        }
       }
     }
 
@@ -495,12 +535,14 @@ export async function getAdminDashboardData(): Promise<AdminDashboardData> {
         clockedIn++;
         const emp = employeeMap.get(employeeId);
         if (emp) {
+          clockedInList.push(emp);
           clockedInEmployees.push({
             id: emp.id,
             employee_id: emp.employee_id,
             name: getFullName(emp.first_name, emp.last_name, emp.middle_name),
             lastTimeIn: record.created_at,
             deployment_location: emp.deployment_location,
+            sex: emp.sex,
           });
         }
       }
@@ -519,9 +561,17 @@ export async function getAdminDashboardData(): Promise<AdminDashboardData> {
       todayTimeIn,
       todayTimeOut,
       deploymentRate,
+      sex: {
+        clockedIn: countSex(clockedInList),
+        withPhoto: countSex(withPhotoEmployees),
+        withGps: countSex(withGpsEmployees),
+        registeredAccounts: countSex(registeredEmployees),
+        todayTimeIn: countSex(todayTimeInList),
+        todayTimeOut: countSex(todayTimeOutList),
+      },
     },
     bySpecialization: Array.from(specMap.entries())
-      .map(([name, count]) => ({ name, count }))
+      .map(([name, value]) => ({ name, ...value }))
       .sort((a, b) => b.count - a.count),
     employees,
     clockedInEmployees,
@@ -540,6 +590,7 @@ export async function createEmployee(data: EmployeeFormData): Promise<ActionResu
       first_name: data.first_name,
       last_name: data.last_name,
       middle_name: data.middle_name || null,
+      sex: data.sex || null,
       email: data.email || null,
       phone: data.phone || null,
       address: data.address || null,
@@ -572,6 +623,7 @@ export async function updateEmployee(id: string, data: EmployeeFormData): Promis
         first_name: data.first_name,
         last_name: data.last_name,
         middle_name: data.middle_name || null,
+        sex: data.sex || null,
         email: data.email || null,
         phone: data.phone || null,
         address: data.address || null,

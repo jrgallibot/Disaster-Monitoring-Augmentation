@@ -610,3 +610,10 @@ ALTER TABLE employees
 
 ALTER TABLE employee_deployment_logs
   ADD COLUMN IF NOT EXISTS deployment_remarks TEXT;
+
+-- ============================================================
+-- Migration 024: Employee sex for dashboard disaggregation
+-- ============================================================
+
+ALTER TABLE employees
+  ADD COLUMN IF NOT EXISTS sex TEXT CHECK (sex IN ('male', 'female'));

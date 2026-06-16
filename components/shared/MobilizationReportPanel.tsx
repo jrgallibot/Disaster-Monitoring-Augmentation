@@ -5,6 +5,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { MobilizationReportFiltersBar } from "@/components/shared/MobilizationReportFiltersBar";
 import { MobilizationStatusBadge } from "@/components/shared/MobilizationStatusBadge";
+import { SexBreakdown } from "@/components/shared/SexBreakdown";
 import { SYSTEM_NAME, CREATED_BY } from "@/lib/branding";
 import { formatMobilizationDate } from "@/lib/mobilization";
 import {
@@ -12,10 +13,12 @@ import {
   printMobilizationReport,
 } from "@/lib/report-export";
 import { formatDate, getEmployeeTeamLeader, getFullName } from "@/lib/utils";
+import { formatSexLabel } from "@/lib/sex-stats";
 import type {
   DailyReportFilterOptions,
   MobilizationReportData,
   MobilizationReportFilters,
+  SexCount,
 } from "@/lib/types";
 import { Download, Printer, RefreshCw } from "lucide-react";
 
@@ -58,10 +61,14 @@ export function MobilizationReportPanel({
     loadReport(data.appliedFilters);
   }, [data.appliedFilters, loadReport]);
 
-  const summaryItems = [
-    { label: "In Date Range", value: data.summary.totalInRange },
-    { label: "Mobilized Now", value: data.summary.mobilizedNow },
-    { label: "Demobilized Now", value: data.summary.demobilizedNow },
+  const summaryItems: { label: string; value: number; sex: SexCount }[] = [
+    { label: "In Date Range", value: data.summary.totalInRange, sex: data.summary.sex.totalInRange },
+    { label: "Mobilized Now", value: data.summary.mobilizedNow, sex: data.summary.sex.mobilizedNow },
+    {
+      label: "Demobilized Now",
+      value: data.summary.demobilizedNow,
+      sex: data.summary.sex.demobilizedNow,
+    },
   ];
 
   return (
@@ -114,6 +121,7 @@ export function MobilizationReportPanel({
             </CardHeader>
             <CardContent>
               <p className="text-2xl font-bold text-dswd-navy">{item.value}</p>
+              <SexBreakdown count={item.sex} />
             </CardContent>
           </Card>
         ))}
@@ -141,6 +149,7 @@ export function MobilizationReportPanel({
                     <th className="text-left p-3 font-semibold text-dswd-navy">No.</th>
                     <th className="text-left p-3 font-semibold text-dswd-navy">Employee ID</th>
                     <th className="text-left p-3 font-semibold text-dswd-navy">Name</th>
+                    <th className="text-left p-3 font-semibold text-dswd-navy">Sex</th>
                     <th className="text-left p-3 font-semibold text-dswd-navy">Region</th>
                     <th className="text-left p-3 font-semibold text-dswd-navy">Specialization</th>
                     <th className="text-left p-3 font-semibold text-dswd-navy">Team Leader</th>
@@ -160,6 +169,7 @@ export function MobilizationReportPanel({
                         <td className="p-3">
                           {getFullName(employee.first_name, employee.last_name, employee.middle_name)}
                         </td>
+                        <td className="p-3">{formatSexLabel(employee.sex)}</td>
                         <td className="p-3">{employee.region?.code ?? "—"}</td>
                         <td className="p-3">{employee.specialization?.name ?? "—"}</td>
                         <td className="p-3">{getEmployeeTeamLeader(employee) ?? "—"}</td>

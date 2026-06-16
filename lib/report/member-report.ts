@@ -5,6 +5,7 @@ import type {
   TeamDailyReportMember,
   TeamDailyReportSummary,
 } from "@/lib/types";
+import { buildTeamReportSexStats } from "@/lib/sex-stats";
 import { createServiceClient } from "@/lib/supabase/service";
 
 export function buildTodayDutySummary(accomplishments: EmployeeAccomplishment[]): string {
@@ -66,6 +67,7 @@ export function buildTeamSummary(members: TeamDailyReportMember[]): TeamDailyRep
     onLeave: members.filter((member) => member.employee.status?.name === "On Leave").length,
     clockedInNow: members.filter((member) => member.isClockedIn).length,
     withActivityToday: members.filter((member) => member.todayAccomplishments.length > 0).length,
+    sex: buildTeamReportSexStats(members),
   };
 }
 

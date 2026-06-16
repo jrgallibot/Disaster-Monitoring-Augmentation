@@ -8,6 +8,8 @@ import { Button } from "@/components/ui/button";
 import { AdminEmployeeHistoryDialog } from "@/components/admin/AdminEmployeeHistoryDialog";
 import { EmployeeAvatar } from "@/components/shared/EmployeeAvatar";
 import { getFullName, getRegionTeamLeaderSummaries, getTeamLeaderDisplay } from "@/lib/utils";
+import { SexBreakdown } from "@/components/shared/SexBreakdown";
+import { countSex } from "@/lib/sex-stats";
 import type { EmployeeWithRelations, LibraryStatus, RegionTeamOverview } from "@/lib/types";
 import { BookOpen, History, Users, UserCog } from "lucide-react";
 
@@ -89,6 +91,7 @@ export function TeamLeaderOverviewPanel({
                         <Badge variant="outline" className="w-fit shrink-0">
                           {members.length} monitored member{members.length === 1 ? "" : "s"}
                         </Badge>
+                        <SexBreakdown count={countSex(members)} />
                       </div>
 
                       {regionLeaders.length > 0 ? (

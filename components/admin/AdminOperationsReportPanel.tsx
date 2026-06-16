@@ -6,6 +6,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { DailyReportFiltersBar } from "@/components/shared/DailyReportFiltersBar";
 import { OperationsReportMembersTable } from "@/components/shared/OperationsReportMembersTable";
+import { SexBreakdown } from "@/components/shared/SexBreakdown";
 import { getAdminOperationsReportData } from "@/lib/actions/admin-reports";
 import { SYSTEM_NAME, CREATED_BY } from "@/lib/branding";
 import {
@@ -13,7 +14,7 @@ import {
   printAdminOperationsReport,
 } from "@/lib/report-export";
 import { formatDate, getFullName } from "@/lib/utils";
-import type { AdminOperationsReportData, DailyReportFilterOptions, DailyReportFilters } from "@/lib/types";
+import type { AdminOperationsReportData, DailyReportFilterOptions, DailyReportFilters, SexCount } from "@/lib/types";
 import { Download, ExternalLink, FileText, Printer, RefreshCw, UserCog } from "lucide-react";
 
 interface AdminOperationsReportPanelProps {
@@ -59,14 +60,18 @@ export function AdminOperationsReportPanel({
   const activityLabel = data.reportIsToday ? "Activity Today" : "Activity";
   const clockedInLabel = data.reportIsToday ? "Clocked In" : "Clocked In (Day End)";
 
-  const summaryItems = [
+  const summaryItems: { label: string; value: number; sex?: SexCount }[] = [
     { label: "Team Leaders", value: data.summary.totalTeamLeaders },
-    { label: "Team Members", value: data.summary.totalMembers },
-    { label: "Deployed", value: data.summary.deployed },
-    { label: "On Standby", value: data.summary.onStandby },
-    { label: "On Leave", value: data.summary.onLeave },
-    { label: clockedInLabel, value: data.summary.clockedInNow },
-    { label: activityLabel, value: data.summary.withActivityToday },
+    { label: "Team Members", value: data.summary.totalMembers, sex: data.summary.sex.totalMembers },
+    { label: "Deployed", value: data.summary.deployed, sex: data.summary.sex.deployed },
+    { label: "On Standby", value: data.summary.onStandby, sex: data.summary.sex.onStandby },
+    { label: "On Leave", value: data.summary.onLeave, sex: data.summary.sex.onLeave },
+    { label: clockedInLabel, value: data.summary.clockedInNow, sex: data.summary.sex.clockedInNow },
+    {
+      label: activityLabel,
+      value: data.summary.withActivityToday,
+      sex: data.summary.sex.withActivityToday,
+    },
   ];
 
   return (
@@ -158,6 +163,7 @@ export function AdminOperationsReportPanel({
                 className="rounded-lg border border-dswd-border p-3 text-center bg-white"
               >
                 <p className="text-xl font-bold text-dswd-navy">{item.value}</p>
+                {item.sex && <SexBreakdown count={item.sex} className="mt-0.5" />}
                 <p className="text-xs text-muted-foreground mt-1">{item.label}</p>
               </div>
             ))}
@@ -241,16 +247,19 @@ export function AdminOperationsReportPanel({
                         <div className="grid grid-cols-2 sm:grid-cols-3 gap-2 text-center text-xs">
                           <div className="rounded-md border border-dswd-border bg-white px-3 py-2">
                             <p className="font-bold text-dswd-navy">{team.summary.totalMembers}</p>
+                            <SexBreakdown count={team.summary.sex.totalMembers} className="mt-0.5" />
                             <p className="text-muted-foreground">Members</p>
                           </div>
                           <div className="rounded-md border border-dswd-border bg-white px-3 py-2">
                             <p className="font-bold text-dswd-navy">{team.summary.deployed}</p>
+                            <SexBreakdown count={team.summary.sex.deployed} className="mt-0.5" />
                             <p className="text-muted-foreground">Deployed</p>
                           </div>
                           <div className="rounded-md border border-dswd-border bg-white px-3 py-2">
                             <p className="font-bold text-dswd-navy">
                               {team.summary.withActivityToday}
                             </p>
+                            <SexBreakdown count={team.summary.sex.withActivityToday} className="mt-0.5" />
                             <p className="text-muted-foreground">{activityLabel}</p>
                           </div>
                         </div>

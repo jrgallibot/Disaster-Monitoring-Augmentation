@@ -3,6 +3,7 @@ import { SYSTEM_NAME, CREATED_BY } from "@/lib/branding";
 import { formatCoordinates, hasValidCoordinates } from "@/lib/geo";
 import { formatMobilizationDate, getMobilizationStatusLabel } from "@/lib/mobilization";
 import { formatDate, formatTime, getEmployeeTeamLeader, getFullName } from "@/lib/utils";
+import { formatSexLabel } from "@/lib/sex-stats";
 
 function escapeCsv(value: string | number | null | undefined): string {
   const text = value == null ? "" : String(value);
@@ -20,25 +21,29 @@ export function downloadAdminReportExcel(data: AdminDashboardData) {
     ["Generated", generated],
     [],
     ["SUMMARY METRICS"],
-    ["Total Employees", stats.total],
-    ["Deployed", stats.deployed],
-    ["On Standby", stats.onStandby],
-    ["On Leave", stats.onLeave],
-    ["Currently Timed In", extended.clockedIn],
-    ["Today's Time In", extended.todayTimeIn],
-    ["Today's Time Out", extended.todayTimeOut],
-    ["With Profile Photo", extended.withPhoto],
-    ["With GPS Location", extended.withGps],
-    ["Registered Portal Accounts", extended.registeredAccounts],
+    ["Total Employees", stats.total, `M: ${stats.sex.total.male}`, `F: ${stats.sex.total.female}`],
+    ["Deployed", stats.deployed, `M: ${stats.sex.deployed.male}`, `F: ${stats.sex.deployed.female}`],
+    ["On Standby", stats.onStandby, `M: ${stats.sex.onStandby.male}`, `F: ${stats.sex.onStandby.female}`],
+    ["On Leave", stats.onLeave, `M: ${stats.sex.onLeave.male}`, `F: ${stats.sex.onLeave.female}`],
+    ["Currently Timed In", extended.clockedIn, `M: ${extended.sex.clockedIn.male}`, `F: ${extended.sex.clockedIn.female}`],
+    ["Today's Time In", extended.todayTimeIn, `M: ${extended.sex.todayTimeIn.male}`, `F: ${extended.sex.todayTimeIn.female}`],
+    ["Today's Time Out", extended.todayTimeOut, `M: ${extended.sex.todayTimeOut.male}`, `F: ${extended.sex.todayTimeOut.female}`],
+    ["With Profile Photo", extended.withPhoto, `M: ${extended.sex.withPhoto.male}`, `F: ${extended.sex.withPhoto.female}`],
+    ["With GPS Location", extended.withGps, `M: ${extended.sex.withGps.male}`, `F: ${extended.sex.withGps.female}`],
+    ["Registered Portal Accounts", extended.registeredAccounts, `M: ${extended.sex.registeredAccounts.male}`, `F: ${extended.sex.registeredAccounts.female}`],
     ["Deployment Rate (%)", extended.deploymentRate],
     [],
     ["STATUS BREAKDOWN"],
-    ["Status", "Count"],
-    ...stats.byStatus.map((s) => [s.name, s.count]),
+    ["Status", "Total", "Male", "Female"],
+    ...stats.byStatus.map((s) => [s.name, s.count, s.male, s.female]),
     [],
     ["REGION BREAKDOWN"],
-    ["Region Code", "Region Name", "Count"],
-    ...stats.byRegion.map((r) => [r.code, r.name, r.count]),
+    ["Region Code", "Region Name", "Total", "Male", "Female"],
+    ...stats.byRegion.map((r) => [r.code, r.name, r.count, r.male, r.female]),
+    [],
+    ["SPECIALIZATION BREAKDOWN"],
+    ["Specialization", "Total", "Male", "Female"],
+    ...data.bySpecialization.map((s) => [s.name, s.count, s.male, s.female]),
     [],
     ["EMPLOYEE ROSTER"],
     [
@@ -46,6 +51,7 @@ export function downloadAdminReportExcel(data: AdminDashboardData) {
       "Last Name",
       "First Name",
       "Middle Name",
+      "Sex",
       "Email",
       "Phone",
       "Specialization",
@@ -66,6 +72,7 @@ export function downloadAdminReportExcel(data: AdminDashboardData) {
       e.last_name,
       e.first_name,
       e.middle_name ?? "",
+      e.sex ?? "",
       e.email ?? "",
       e.phone ?? "",
       e.specialization?.name ?? "",
@@ -127,18 +134,19 @@ export function downloadTeamDailyReportExcel(data: TeamDailyReportData) {
     ["Region", regionLabel],
     [],
     ["SUMMARY"],
-    ["Total Team Members", data.summary.totalMembers],
-    ["Deployed", data.summary.deployed],
-    ["On Standby", data.summary.onStandby],
-    ["On Leave", data.summary.onLeave],
-    ["Clocked In Now", data.summary.clockedInNow],
-    ["With Activity Today", data.summary.withActivityToday],
+    ["Total Team Members", data.summary.totalMembers, `M: ${data.summary.sex.totalMembers.male}`, `F: ${data.summary.sex.totalMembers.female}`],
+    ["Deployed", data.summary.deployed, `M: ${data.summary.sex.deployed.male}`, `F: ${data.summary.sex.deployed.female}`],
+    ["On Standby", data.summary.onStandby, `M: ${data.summary.sex.onStandby.male}`, `F: ${data.summary.sex.onStandby.female}`],
+    ["On Leave", data.summary.onLeave, `M: ${data.summary.sex.onLeave.male}`, `F: ${data.summary.sex.onLeave.female}`],
+    ["Clocked In Now", data.summary.clockedInNow, `M: ${data.summary.sex.clockedInNow.male}`, `F: ${data.summary.sex.clockedInNow.female}`],
+    ["With Activity Today", data.summary.withActivityToday, `M: ${data.summary.sex.withActivityToday.male}`, `F: ${data.summary.sex.withActivityToday.female}`],
     [],
     ["TEAM MEMBER DAILY STATUS"],
     [
       "No.",
       "Employee ID",
       "Name",
+      "Sex",
       "Specialization",
       "Deployment Status",
       "Actual Task",
@@ -162,6 +170,7 @@ export function downloadTeamDailyReportExcel(data: TeamDailyReportData) {
         index + 1,
         employee.employee_id,
         getFullName(employee.first_name, employee.last_name, employee.middle_name),
+        formatSexLabel(employee.sex),
         employee.specialization?.name ?? "",
         employee.status?.name ?? "",
         employee.actual_task ?? "",
@@ -211,6 +220,7 @@ function memberReportRow(
     teamLeaderName,
     employee.employee_id,
     getFullName(employee.first_name, employee.last_name, employee.middle_name),
+    formatSexLabel(employee.sex),
     employee.specialization?.name ?? "",
     employee.status?.name ?? "",
     employee.actual_task ?? "",
@@ -238,12 +248,12 @@ export function downloadAdminOperationsReportExcel(data: AdminOperationsReportDa
     [],
     ["GLOBAL SUMMARY"],
     ["Team Leaders", data.summary.totalTeamLeaders],
-    ["Team Members", data.summary.totalMembers],
-    ["Deployed", data.summary.deployed],
-    ["On Standby", data.summary.onStandby],
-    ["On Leave", data.summary.onLeave],
-    ["Clocked In Now", data.summary.clockedInNow],
-    ["With Activity Today", data.summary.withActivityToday],
+    ["Team Members", data.summary.totalMembers, `M: ${data.summary.sex.totalMembers.male}`, `F: ${data.summary.sex.totalMembers.female}`],
+    ["Deployed", data.summary.deployed, `M: ${data.summary.sex.deployed.male}`, `F: ${data.summary.sex.deployed.female}`],
+    ["On Standby", data.summary.onStandby, `M: ${data.summary.sex.onStandby.male}`, `F: ${data.summary.sex.onStandby.female}`],
+    ["On Leave", data.summary.onLeave, `M: ${data.summary.sex.onLeave.male}`, `F: ${data.summary.sex.onLeave.female}`],
+    ["Clocked In Now", data.summary.clockedInNow, `M: ${data.summary.sex.clockedInNow.male}`, `F: ${data.summary.sex.clockedInNow.female}`],
+    ["With Activity Today", data.summary.withActivityToday, `M: ${data.summary.sex.withActivityToday.male}`, `F: ${data.summary.sex.withActivityToday.female}`],
   ];
 
   for (const team of data.teams) {
@@ -260,12 +270,12 @@ export function downloadAdminOperationsReportExcel(data: AdminOperationsReportDa
     rows.push(["Team Leader", leaderName]);
     rows.push(["Team Leader ID", team.teamLeader.employee_id]);
     rows.push(["Team Leader Activity Today", team.leaderActivity.todayDutySummary]);
-    rows.push(["Members", team.summary.totalMembers]);
-    rows.push(["Deployed", team.summary.deployed]);
-    rows.push(["On Standby", team.summary.onStandby]);
-    rows.push(["On Leave", team.summary.onLeave]);
-    rows.push(["Clocked In Now", team.summary.clockedInNow]);
-    rows.push(["With Activity Today", team.summary.withActivityToday]);
+    rows.push(["Members", team.summary.totalMembers, `M: ${team.summary.sex.totalMembers.male}`, `F: ${team.summary.sex.totalMembers.female}`]);
+    rows.push(["Deployed", team.summary.deployed, `M: ${team.summary.sex.deployed.male}`, `F: ${team.summary.sex.deployed.female}`]);
+    rows.push(["On Standby", team.summary.onStandby, `M: ${team.summary.sex.onStandby.male}`, `F: ${team.summary.sex.onStandby.female}`]);
+    rows.push(["On Leave", team.summary.onLeave, `M: ${team.summary.sex.onLeave.male}`, `F: ${team.summary.sex.onLeave.female}`]);
+    rows.push(["Clocked In Now", team.summary.clockedInNow, `M: ${team.summary.sex.clockedInNow.male}`, `F: ${team.summary.sex.clockedInNow.female}`]);
+    rows.push(["With Activity Today", team.summary.withActivityToday, `M: ${team.summary.sex.withActivityToday.male}`, `F: ${team.summary.sex.withActivityToday.female}`]);
     rows.push([]);
     rows.push([
       "No.",
@@ -273,6 +283,7 @@ export function downloadAdminOperationsReportExcel(data: AdminOperationsReportDa
       "Team Leader",
       "Employee ID",
       "Name",
+      "Sex",
       "Specialization",
       "Deployment Status",
       "Actual Task",
@@ -319,15 +330,16 @@ export function downloadMobilizationReportExcel(data: MobilizationReportData) {
     ["Generated", generated],
     [],
     ["SUMMARY"],
-    ["In Date Range", data.summary.totalInRange],
-    ["Mobilized Now", data.summary.mobilizedNow],
-    ["Demobilized Now", data.summary.demobilizedNow],
+    ["In Date Range", data.summary.totalInRange, `M: ${data.summary.sex.totalInRange.male}`, `F: ${data.summary.sex.totalInRange.female}`],
+    ["Mobilized Now", data.summary.mobilizedNow, `M: ${data.summary.sex.mobilizedNow.male}`, `F: ${data.summary.sex.mobilizedNow.female}`],
+    ["Demobilized Now", data.summary.demobilizedNow, `M: ${data.summary.sex.demobilizedNow.male}`, `F: ${data.summary.sex.demobilizedNow.female}`],
     [],
     ["PERSONNEL"],
     [
       "No.",
       "Employee ID",
       "Name",
+      "Sex",
       "Region",
       "Specialization",
       "Team Leader",
@@ -342,6 +354,7 @@ export function downloadMobilizationReportExcel(data: MobilizationReportData) {
         index + 1,
         employee.employee_id,
         getFullName(employee.first_name, employee.last_name, employee.middle_name),
+        formatSexLabel(employee.sex),
         employee.region ? `${employee.region.name} (${employee.region.code})` : "",
         employee.specialization?.name ?? "",
         getEmployeeTeamLeader(employee) ?? "",

@@ -1,6 +1,7 @@
 "use client";
 
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { SexBreakdown } from "@/components/shared/SexBreakdown";
 import type { AdminDashboardExtended } from "@/lib/types";
 import {
   Camera,
@@ -22,6 +23,7 @@ export function AdminExtendedStats({ extended }: AdminExtendedStatsProps) {
     {
       title: "Timed In Now",
       value: extended.clockedIn,
+      sex: extended.sex.clockedIn,
       sub: "On duty",
       icon: LogIn,
       color: "text-green-600",
@@ -30,6 +32,7 @@ export function AdminExtendedStats({ extended }: AdminExtendedStatsProps) {
     {
       title: "Today's Time In",
       value: extended.todayTimeIn,
+      sex: extended.sex.todayTimeIn,
       sub: "Records today",
       icon: Clock,
       color: "text-dswd-blue",
@@ -38,6 +41,7 @@ export function AdminExtendedStats({ extended }: AdminExtendedStatsProps) {
     {
       title: "Today's Time Out",
       value: extended.todayTimeOut,
+      sex: extended.sex.todayTimeOut,
       sub: "Records today",
       icon: LogOut,
       color: "text-amber-600",
@@ -46,6 +50,7 @@ export function AdminExtendedStats({ extended }: AdminExtendedStatsProps) {
     {
       title: "Deployment Rate",
       value: `${extended.deploymentRate}%`,
+      sex: null,
       sub: "Deployed / total",
       icon: Percent,
       color: "text-dswd-navy",
@@ -54,6 +59,7 @@ export function AdminExtendedStats({ extended }: AdminExtendedStatsProps) {
     {
       title: "Portal Accounts",
       value: extended.registeredAccounts,
+      sex: extended.sex.registeredAccounts,
       sub: "Self-registered",
       icon: UserCheck,
       color: "text-purple-600",
@@ -62,6 +68,7 @@ export function AdminExtendedStats({ extended }: AdminExtendedStatsProps) {
     {
       title: "With Photo",
       value: extended.withPhoto,
+      sex: extended.sex.withPhoto,
       sub: "Profile complete",
       icon: Camera,
       color: "text-rose-600",
@@ -70,6 +77,7 @@ export function AdminExtendedStats({ extended }: AdminExtendedStatsProps) {
     {
       title: "With GPS",
       value: extended.withGps,
+      sex: extended.sex.withGps,
       sub: "Location tracked",
       icon: MapPin,
       color: "text-teal-600",
@@ -78,6 +86,7 @@ export function AdminExtendedStats({ extended }: AdminExtendedStatsProps) {
     {
       title: "Monitoring",
       value: "Live",
+      sex: null,
       sub: "Auto-refresh 30s",
       icon: Users,
       color: "text-green-700",
@@ -99,6 +108,7 @@ export function AdminExtendedStats({ extended }: AdminExtendedStatsProps) {
           </CardHeader>
           <CardContent>
             <div className={`text-2xl font-bold ${card.color}`}>{card.value}</div>
+            {card.sex ? <SexBreakdown count={card.sex} /> : null}
             <p className="text-xs text-muted-foreground mt-1">{card.sub}</p>
           </CardContent>
         </Card>

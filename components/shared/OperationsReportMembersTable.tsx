@@ -1,6 +1,7 @@
 import { Badge } from "@/components/ui/badge";
 import { formatCoordinates, hasValidCoordinates } from "@/lib/geo";
 import { formatTime, getFullName } from "@/lib/utils";
+import { formatSexLabel } from "@/lib/sex-stats";
 import type { TeamDailyReportMember } from "@/lib/types";
 
 interface OperationsReportMembersTableProps {
@@ -23,6 +24,7 @@ export function OperationsReportMembersTable({
           <tr>
             <th className="text-left p-3 font-semibold text-dswd-navy">#</th>
             <th className="text-left p-3 font-semibold text-dswd-navy">Member</th>
+            <th className="text-left p-3 font-semibold text-dswd-navy">Sex</th>
             <th className="text-left p-3 font-semibold text-dswd-navy">Specialization</th>
             <th className="text-left p-3 font-semibold text-dswd-navy">Status</th>
             <th className="text-left p-3 font-semibold text-dswd-navy min-w-[160px]">
@@ -56,6 +58,7 @@ export function OperationsReportMembersTable({
                   <p className="font-medium text-dswd-navy">{memberName}</p>
                   <p className="text-xs font-mono text-muted-foreground">{employee.employee_id}</p>
                 </td>
+                <td className="p-3">{formatSexLabel(employee.sex)}</td>
                 <td className="p-3">{employee.specialization?.name ?? "—"}</td>
                 <td className="p-3">
                   {employee.status ? (

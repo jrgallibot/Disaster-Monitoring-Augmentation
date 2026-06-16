@@ -23,6 +23,7 @@ import {
   printAdminReport,
 } from "@/lib/report-export";
 import { formatDate, getFullName } from "@/lib/utils";
+import { SexBreakdown } from "@/components/shared/SexBreakdown";
 import type { AdminDashboardData, AdminOperationsReportData } from "@/lib/types";
 import {
   BookOpen,
@@ -178,19 +179,23 @@ export function AdminDashboardPanel({
               <p className="text-sm text-blue-100 mt-1">
                 {data.stats.deployed} of {data.stats.total} employees actively deployed
               </p>
+              <SexBreakdown count={data.stats.sex.deployed} className="text-blue-100" />
             </div>
             <div className="flex gap-6 text-center">
               <div>
                 <p className="text-2xl font-bold">{data.extended.clockedIn}</p>
                 <p className="text-xs text-blue-100">Timed In</p>
+                <SexBreakdown count={data.extended.sex.clockedIn} className="text-blue-100" />
               </div>
               <div>
                 <p className="text-2xl font-bold">{data.extended.todayTimeIn}</p>
                 <p className="text-xs text-blue-100">Time In Today</p>
+                <SexBreakdown count={data.extended.sex.todayTimeIn} className="text-blue-100" />
               </div>
               <div>
                 <p className="text-2xl font-bold">{data.extended.withGps}</p>
                 <p className="text-xs text-blue-100">GPS Tracked</p>
+                <SexBreakdown count={data.extended.sex.withGps} className="text-blue-100" />
               </div>
             </div>
           </div>

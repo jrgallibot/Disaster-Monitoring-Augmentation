@@ -51,6 +51,29 @@ export type MobilizationStatus = "mobilized" | "demobilized";
 
 export type MobilizationStatusFilter = "all" | MobilizationStatus;
 
+export type EmployeeSex = "male" | "female";
+
+export interface SexCount {
+  male: number;
+  female: number;
+}
+
+export interface DashboardSexStats {
+  total: SexCount;
+  deployed: SexCount;
+  onStandby: SexCount;
+  onLeave: SexCount;
+}
+
+export interface ExtendedSexStats {
+  clockedIn: SexCount;
+  withPhoto: SexCount;
+  withGps: SexCount;
+  registeredAccounts: SexCount;
+  todayTimeIn: SexCount;
+  todayTimeOut: SexCount;
+}
+
 export interface Employee {
   id: string;
   user_id: string | null;
@@ -58,6 +81,7 @@ export interface Employee {
   first_name: string;
   last_name: string;
   middle_name: string | null;
+  sex: EmployeeSex | null;
   email: string | null;
   phone: string | null;
   address: string | null;
@@ -95,8 +119,9 @@ export interface DashboardStats {
   deployed: number;
   onStandby: number;
   onLeave: number;
-  byStatus: { name: string; count: number; color: string }[];
-  byRegion: { name: string; code: string; count: number }[];
+  sex: DashboardSexStats;
+  byStatus: { name: string; count: number; color: string; male: number; female: number }[];
+  byRegion: { name: string; code: string; count: number; male: number; female: number }[];
 }
 
 export interface AdminDashboardExtended {
@@ -107,12 +132,13 @@ export interface AdminDashboardExtended {
   todayTimeIn: number;
   todayTimeOut: number;
   deploymentRate: number;
+  sex: ExtendedSexStats;
 }
 
 export interface AdminDashboardData {
   stats: DashboardStats;
   extended: AdminDashboardExtended;
-  bySpecialization: { name: string; count: number }[];
+  bySpecialization: { name: string; count: number; male: number; female: number }[];
   employees: EmployeeWithRelations[];
   clockedInEmployees: {
     id: string;
@@ -120,6 +146,7 @@ export interface AdminDashboardData {
     name: string;
     lastTimeIn: string;
     deployment_location: string | null;
+    sex: EmployeeSex | null;
   }[];
   regionTeams: RegionTeamOverview[];
   statuses: LibraryStatus[];
@@ -140,6 +167,15 @@ export interface TeamDailyReportMember {
   isClockedIn: boolean;
 }
 
+export interface TeamDailyReportSexStats {
+  totalMembers: SexCount;
+  deployed: SexCount;
+  onStandby: SexCount;
+  onLeave: SexCount;
+  clockedInNow: SexCount;
+  withActivityToday: SexCount;
+}
+
 export interface TeamDailyReportSummary {
   totalMembers: number;
   deployed: number;
@@ -147,6 +183,7 @@ export interface TeamDailyReportSummary {
   onLeave: number;
   clockedInNow: number;
   withActivityToday: number;
+  sex: TeamDailyReportSexStats;
 }
 
 export interface TeamDailyReportData {
@@ -222,6 +259,7 @@ export type EmployeeFormData = {
   first_name: string;
   last_name: string;
   middle_name?: string;
+  sex?: EmployeeSex;
   email?: string;
   phone?: string;
   address?: string;
@@ -246,6 +284,7 @@ export type EmployeeSelfUpdate = {
   first_name?: string;
   last_name?: string;
   middle_name?: string;
+  sex?: EmployeeSex;
   phone?: string;
   address?: string;
   specialization_id?: string;
@@ -336,10 +375,17 @@ export interface MobilizationReportRow {
   durationDays: number | null;
 }
 
+export interface MobilizationReportSexStats {
+  totalInRange: SexCount;
+  mobilizedNow: SexCount;
+  demobilizedNow: SexCount;
+}
+
 export interface MobilizationReportSummary {
   totalInRange: number;
   mobilizedNow: number;
   demobilizedNow: number;
+  sex: MobilizationReportSexStats;
 }
 
 export interface MobilizationReportData {

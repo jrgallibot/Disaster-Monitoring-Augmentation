@@ -26,6 +26,7 @@ import type {
   LibraryRegion,
   LibrarySpecialization,
   EmployeeFormData,
+  EmployeeSex,
 } from "@/lib/types";
 import { toast } from "@/lib/toast";
 
@@ -54,6 +55,7 @@ export function EmployeeForm({
   const [accessRole, setAccessRole] = useState<"employee" | "admin" | "team_leader">(
     portalRole ?? "employee"
   );
+  const [sex, setSex] = useState<EmployeeSex | "">(employee?.sex ?? "");
 
   const isEdit = !!employee;
   const isTeamLeaderMode = mode === "teamLeader";
@@ -78,6 +80,7 @@ export function EmployeeForm({
       first_name: form.get("first_name") as string,
       last_name: form.get("last_name") as string,
       middle_name: (form.get("middle_name") as string) || undefined,
+      sex: sex || undefined,
       email: (form.get("email") as string) || undefined,
       phone: (form.get("phone") as string) || undefined,
       address: (form.get("address") as string) || undefined,
@@ -168,6 +171,23 @@ export function EmployeeForm({
                 defaultValue={employee?.middle_name ?? ""}
               />
             </div>
+            {!isTeamLeaderMode && (
+              <div className="space-y-2">
+                <Label>Sex</Label>
+                <Select value={sex} onValueChange={(value) => setSex(value as EmployeeSex)}>
+                  <SelectTrigger>
+                    <SelectValue placeholder="Select sex" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="male">Male</SelectItem>
+                    <SelectItem value="female">Female</SelectItem>
+                  </SelectContent>
+                </Select>
+                <p className="text-xs text-muted-foreground">
+                  Used for sex-disaggregated dashboard monitoring.
+                </p>
+              </div>
+            )}
             <div className="space-y-2">
               <Label htmlFor="specialization_id">Specialization</Label>
               <Select value={specializationId} onValueChange={setSpecializationId}>

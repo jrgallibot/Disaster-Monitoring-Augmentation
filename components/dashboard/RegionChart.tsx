@@ -9,6 +9,7 @@ import {
   CartesianGrid,
   Tooltip,
   ResponsiveContainer,
+  Legend,
 } from "recharts";
 import type { DashboardStats } from "@/lib/types";
 
@@ -21,6 +22,8 @@ export function RegionChart({ stats }: RegionChartProps) {
     name: r.code,
     fullName: r.name,
     count: r.count,
+    male: r.male,
+    female: r.female,
   }));
 
   if (data.length === 0) {
@@ -55,12 +58,19 @@ export function RegionChart({ stats }: RegionChartProps) {
             />
             <YAxis allowDecimals={false} tick={{ fontSize: 12 }} />
             <Tooltip
-              formatter={(value) => [value, "Employees"]}
-              labelFormatter={(_, payload) =>
-                payload?.[0]?.payload?.fullName ?? ""
-              }
+              formatter={(value, name) => [
+                value,
+                name === "male" ? "Male" : name === "female" ? "Female" : String(name),
+              ]}
+              labelFormatter={(_label, payload) => {
+                const row = (payload as { payload?: { fullName?: string } }[] | undefined)?.[0]
+                  ?.payload;
+                return row?.fullName ?? "";
+              }}
             />
-            <Bar dataKey="count" fill="#0066CC" radius={[4, 4, 0, 0]} />
+            <Legend />
+            <Bar dataKey="male" stackId="sex" fill="#2563EB" radius={[0, 0, 0, 0]} name="Male" />
+            <Bar dataKey="female" stackId="sex" fill="#DB2777" radius={[4, 4, 0, 0]} name="Female" />
           </BarChart>
         </ResponsiveContainer>
       </CardContent>

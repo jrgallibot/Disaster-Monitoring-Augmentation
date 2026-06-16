@@ -4,6 +4,8 @@ import Link from "next/link";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { formatDate } from "@/lib/utils";
+import { SexBreakdown } from "@/components/shared/SexBreakdown";
+import { countSex } from "@/lib/sex-stats";
 import type { AdminDashboardData } from "@/lib/types";
 import { UserCheck } from "lucide-react";
 
@@ -17,6 +19,8 @@ export function ClockedInPanel({
   employees,
   employeeDetailPath = (id) => `/admin/employees/${id}/edit`,
 }: ClockedInPanelProps) {
+  const sexCount = countSex(employees);
+
   return (
     <Card>
       <CardHeader>
@@ -24,6 +28,7 @@ export function ClockedInPanel({
           <UserCheck className="h-5 w-5 text-green-600" />
           Currently Timed In ({employees.length})
         </CardTitle>
+        <SexBreakdown count={sexCount} />
       </CardHeader>
       <CardContent>
         {employees.length === 0 ? (

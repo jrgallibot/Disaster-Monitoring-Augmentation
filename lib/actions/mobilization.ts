@@ -15,6 +15,7 @@ import { getEmployeeRecordByUserId } from "@/lib/auth/team-leader";
 import { queryEmployeeRows } from "@/lib/supabase/employee-query";
 import { validateMobilizationUpdate } from "@/lib/mobilization";
 import { buildMobilizationReportData } from "@/lib/report/build-mobilization-report";
+import { countSex } from "@/lib/sex-stats";
 import type {
   ActionResult,
   DailyReportFilterOptions,
@@ -307,6 +308,19 @@ export async function getTeamMobilizationReportData(
       totalInRange: scopedRows.length,
       mobilizedNow: scopedRows.filter((row) => row.employee.mobilization_status === "mobilized").length,
       demobilizedNow: scopedRows.filter((row) => row.employee.mobilization_status === "demobilized").length,
+      sex: {
+        totalInRange: countSex(scopedRows.map((row) => row.employee)),
+        mobilizedNow: countSex(
+          scopedRows
+            .filter((row) => row.employee.mobilization_status === "mobilized")
+            .map((row) => row.employee)
+        ),
+        demobilizedNow: countSex(
+          scopedRows
+            .filter((row) => row.employee.mobilization_status === "demobilized")
+            .map((row) => row.employee)
+        ),
+      },
     },
     scopeLabel: report.scopeLabel || "My Team",
   };

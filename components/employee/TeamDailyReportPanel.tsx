@@ -5,6 +5,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { DailyReportFiltersBar } from "@/components/shared/DailyReportFiltersBar";
+import { SexBreakdown } from "@/components/shared/SexBreakdown";
 import { getTeamDailyReportData } from "@/lib/actions/team-leader";
 import { SYSTEM_NAME, CREATED_BY } from "@/lib/branding";
 import { formatCoordinates, hasValidCoordinates } from "@/lib/geo";
@@ -13,7 +14,8 @@ import {
   printTeamDailyReport,
 } from "@/lib/report-export";
 import { formatDate, formatTime, getFullName } from "@/lib/utils";
-import type { DailyReportFilterOptions, DailyReportFilters, TeamDailyReportData } from "@/lib/types";
+import { formatSexLabel } from "@/lib/sex-stats";
+import type { DailyReportFilterOptions, DailyReportFilters, SexCount, TeamDailyReportData } from "@/lib/types";
 import { Download, FileText, Printer, RefreshCw } from "lucide-react";
 
 interface TeamDailyReportPanelProps {
@@ -61,6 +63,18 @@ export function TeamDailyReportPanel({ initialData, allLedRegions }: TeamDailyRe
   const activityLabel = data.reportIsToday ? "Activity Today" : "Activity";
   const clockedInLabel = data.reportIsToday ? "Clocked In" : "Clocked In (Day End)";
   const attendanceNowLabel = data.reportIsToday ? "Now" : "End of Day";
+  const summaryItems: { label: string; value: number; sex: SexCount }[] = [
+    { label: "Team Members", value: data.summary.totalMembers, sex: data.summary.sex.totalMembers },
+    { label: "Deployed", value: data.summary.deployed, sex: data.summary.sex.deployed },
+    { label: "On Standby", value: data.summary.onStandby, sex: data.summary.sex.onStandby },
+    { label: "On Leave", value: data.summary.onLeave, sex: data.summary.sex.onLeave },
+    { label: clockedInLabel, value: data.summary.clockedInNow, sex: data.summary.sex.clockedInNow },
+    {
+      label: activityLabel,
+      value: data.summary.withActivityToday,
+      sex: data.summary.sex.withActivityToday,
+    },
+  ];
 
   return (
     <div className="space-y-4 team-daily-report" id="team-daily-report">
@@ -154,19 +168,13 @@ export function TeamDailyReportPanel({ initialData, allLedRegions }: TeamDailyRe
           </div>
 
           <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3">
-            {[
-              { label: "Team Members", value: data.summary.totalMembers },
-              { label: "Deployed", value: data.summary.deployed },
-              { label: "On Standby", value: data.summary.onStandby },
-              { label: "On Leave", value: data.summary.onLeave },
-              { label: clockedInLabel, value: data.summary.clockedInNow },
-              { label: activityLabel, value: data.summary.withActivityToday },
-            ].map((item) => (
+            {summaryItems.map((item) => (
               <div
                 key={item.label}
                 className="rounded-lg border border-dswd-border p-3 text-center bg-white"
               >
                 <p className="text-xl font-bold text-dswd-navy">{item.value}</p>
+                <SexBreakdown count={item.sex} className="mt-0.5" />
                 <p className="text-xs text-muted-foreground mt-1">{item.label}</p>
               </div>
             ))}
@@ -183,6 +191,7 @@ export function TeamDailyReportPanel({ initialData, allLedRegions }: TeamDailyRe
                   <tr>
                     <th className="text-left p-3 font-semibold text-dswd-navy">#</th>
                     <th className="text-left p-3 font-semibold text-dswd-navy">Member</th>
+                    <th className="text-left p-3 font-semibold text-dswd-navy">Sex</th>
                     <th className="text-left p-3 font-semibold text-dswd-navy">Specialization</th>
                     <th className="text-left p-3 font-semibold text-dswd-navy">Status</th>
                     <th className="text-left p-3 font-semibold text-dswd-navy min-w-[160px]">
@@ -218,6 +227,7 @@ export function TeamDailyReportPanel({ initialData, allLedRegions }: TeamDailyRe
                             {employee.employee_id}
                           </p>
                         </td>
+                        <td className="p-3">{formatSexLabel(employee.sex)}</td>
                         <td className="p-3">{employee.specialization?.name ?? "—"}</td>
                         <td className="p-3">
                           {employee.status ? (
