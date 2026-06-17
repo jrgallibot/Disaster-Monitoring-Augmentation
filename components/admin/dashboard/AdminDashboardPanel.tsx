@@ -12,10 +12,11 @@ import { AdminExtendedStats } from "@/components/admin/dashboard/AdminExtendedSt
 import { SpecializationChart } from "@/components/admin/dashboard/SpecializationChart";
 import { ClockedInPanel } from "@/components/admin/dashboard/ClockedInPanel";
 import { TeamLeaderOverviewPanel } from "@/components/admin/dashboard/TeamLeaderOverviewPanel";
+import { ReportPrintHeader } from "@/components/brand/ReportPrintHeader";
 import { AdminOperationsReportPanel } from "@/components/admin/AdminOperationsReportPanel";
 import { getAdminOperationsReportData } from "@/lib/actions/admin-reports";
 import { getAdminDashboardData } from "@/lib/actions/employees";
-import { SYSTEM_NAME, CREATED_BY } from "@/lib/branding";
+import { CREATED_BY } from "@/lib/branding";
 import {
   downloadAdminOperationsReportExcel,
   downloadAdminReportExcel,
@@ -84,14 +85,10 @@ export function AdminDashboardPanel({
 
   return (
     <div className="space-y-6 admin-dashboard-report" id="admin-dashboard-report">
-      <div className="hidden print:block mb-6 border-b-2 border-dswd-gold pb-4">
-        <h1 className="text-2xl font-bold text-dswd-navy">
-          {SYSTEM_NAME} Report
-        </h1>
-        <p className="text-sm text-muted-foreground">
-          Generated {formatDate(data.generatedAt)} · Developed by {CREATED_BY}
-        </p>
-      </div>
+      <ReportPrintHeader
+        reportTitle="Administrator Dashboard Report"
+        lines={[`Generated ${formatDate(data.generatedAt)} · Developed by ${CREATED_BY}`]}
+      />
 
       <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4 print:hidden">
         <div>

@@ -1,7 +1,7 @@
 import Link from "next/link";
-import { Shield } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { SYSTEM_NAME, SYSTEM_TAGLINE, SYSTEM_BANNER } from "@/lib/branding";
+import { SystemLogo } from "@/components/brand/SystemLogo";
+import { SYSTEM_BANNER } from "@/lib/branding";
 
 interface HeaderProps {
   showAdminLink?: boolean;
@@ -20,20 +20,10 @@ export function Header({
         <span>{SYSTEM_BANNER}</span>
         <span className="hidden sm:inline">Republic of the Philippines</span>
       </div>
-      <div className="container mx-auto px-4 py-4">
-        <div className="flex items-center justify-between gap-4">
-          <Link href={homeHref} className="flex items-center gap-3 min-w-0">
-            <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-full bg-dswd-navy text-white">
-              <Shield className="h-7 w-7" />
-            </div>
-            <div className="min-w-0">
-              <h1 className="text-lg sm:text-xl font-bold text-dswd-navy leading-tight truncate">
-                {SYSTEM_NAME}
-              </h1>
-              <p className="text-xs sm:text-sm text-muted-foreground truncate">
-                {SYSTEM_TAGLINE}
-              </p>
-            </div>
+      <div className="container mx-auto px-4 py-3 sm:py-4">
+        <div className="flex flex-wrap items-center justify-between gap-3 sm:gap-4">
+          <Link href={homeHref} className="min-w-0 max-w-full sm:max-w-[min(100%,42rem)]">
+            <SystemLogo variant="horizontal" size="md" showTagline />
           </Link>
           <div className="flex shrink-0 items-center gap-2 sm:gap-3">
             {showEmployeeLink && (

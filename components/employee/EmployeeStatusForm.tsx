@@ -52,11 +52,12 @@ export function EmployeeStatusForm({
   regions,
   statuses,
   logs,
-  deploymentLogs,
+  deploymentLogs: initialDeploymentLogs,
 }: EmployeeStatusFormProps) {
   const router = useRouter();
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [employee, setEmployee] = useState(initialEmployee);
+  const [deploymentLogs, setDeploymentLogs] = useState(initialDeploymentLogs);
   const [showDeploymentDialog, setShowDeploymentDialog] = useState(false);
   const [showMobilizationDialog, setShowMobilizationDialog] = useState(false);
   const [isPending, startTransition] = useTransition();
@@ -69,6 +70,10 @@ export function EmployeeStatusForm({
     setEmployee(initialEmployee);
     setSex(initialEmployee.sex ?? "");
   }, [initialEmployee]);
+
+  useEffect(() => {
+    setDeploymentLogs(initialDeploymentLogs);
+  }, [initialDeploymentLogs]);
 
   function handleDeploymentUpdated(updated: EmployeeWithRelations) {
     setEmployee(updated);
@@ -565,6 +570,7 @@ export function EmployeeStatusForm({
         logs={deploymentLogs}
         statuses={statuses}
         editableActualTask
+        onDeploymentLogsSaved={setDeploymentLogs}
       />
 
       <AdminDeploymentUpdateDialog

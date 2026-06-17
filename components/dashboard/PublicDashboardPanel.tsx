@@ -14,12 +14,14 @@ import { SpecializationChart } from "@/components/admin/dashboard/Specialization
 import { ClockedInPanel } from "@/components/admin/dashboard/ClockedInPanel";
 import { TeamLeaderOverviewPanel } from "@/components/admin/dashboard/TeamLeaderOverviewPanel";
 import { AdminOperationsReportPanel } from "@/components/admin/AdminOperationsReportPanel";
+import { ReportPrintHeader } from "@/components/brand/ReportPrintHeader";
+import { SystemLogo } from "@/components/brand/SystemLogo";
 import { EmployeePortalCTA } from "@/components/employee/EmployeePortalCTA";
 import {
   getPublicDashboardData,
   getPublicOperationsReportData,
 } from "@/lib/actions/public-dashboard";
-import { CREATED_BY, SYSTEM_NAME, SYSTEM_TAGLINE } from "@/lib/branding";
+import { CREATED_BY, SYSTEM_TAGLINE } from "@/lib/branding";
 import {
   downloadAdminOperationsReportExcel,
   downloadAdminReportExcel,
@@ -86,17 +88,17 @@ export function PublicDashboardPanel({
 
   return (
     <div className="space-y-6 public-dashboard-report" id="public-dashboard-report">
-      <div className="hidden print:block mb-6 border-b-2 border-dswd-gold pb-4">
-        <h1 className="text-2xl font-bold text-dswd-navy">{SYSTEM_NAME}</h1>
-        <p className="text-sm text-muted-foreground">
-          Public Monitoring Report · Generated {formatDate(data.generatedAt)} · {CREATED_BY}
-        </p>
-      </div>
+      <ReportPrintHeader
+        reportTitle="Public Monitoring Report"
+        lines={[`Generated ${formatDate(data.generatedAt)} · ${CREATED_BY}`]}
+      />
 
       <div className="flex flex-col lg:flex-row lg:items-start justify-between gap-4 print:hidden">
-        <div>
-          <div className="flex items-center gap-2 flex-wrap">
-            <h1 className="gov-section-title">Public Monitoring Dashboard</h1>
+        <div className="flex gap-4 items-start">
+          <SystemLogo variant="mark" size="lg" className="hidden sm:block shrink-0" />
+          <div>
+            <div className="flex items-center gap-2 flex-wrap">
+              <h1 className="gov-section-title">Public Monitoring Dashboard</h1>
             <span className="inline-flex items-center gap-1 text-xs font-medium text-green-700 bg-green-50 border border-green-200 px-2 py-1 rounded-full">
               <Radio className="h-3 w-3 animate-pulse" />
               Live Data
@@ -107,6 +109,7 @@ export function PublicDashboardPanel({
             Last updated: {formatDate(lastRefresh)}
             {isRefreshing && " · Refreshing..."}
           </p>
+          </div>
         </div>
         <div className="flex flex-wrap gap-2">
           <Button variant="outline" size="sm" onClick={refresh} disabled={isRefreshing}>

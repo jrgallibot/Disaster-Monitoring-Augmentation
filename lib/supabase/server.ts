@@ -1,5 +1,6 @@
 import { createServerClient } from "@supabase/ssr";
 import { cookies } from "next/headers";
+import { getSupabaseUser } from "@/lib/supabase/safe-auth";
 
 export async function createClient() {
   const cookieStore = await cookies();
@@ -24,4 +25,9 @@ export async function createClient() {
       },
     }
   );
+}
+
+export async function getServerUser() {
+  const supabase = await createClient();
+  return getSupabaseUser(supabase);
 }

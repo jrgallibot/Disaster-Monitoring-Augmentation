@@ -1,6 +1,7 @@
 "use server";
 
 import { createClient } from "@/lib/supabase/server";
+import { getSupabaseUser } from "@/lib/supabase/safe-auth";
 import { createServiceClient } from "@/lib/supabase/service";
 import { storePortalPasswordForAuthUser } from "@/lib/actions/employee-password";
 import { getUserRole, linkOrCreateEmployeeRecord, syncEmployeeRole, canUseEmployeePortal } from "@/lib/auth/employee-sync";
@@ -49,10 +50,7 @@ export type AdminPortalAccess = {
 
 export async function getAdminPortalAccess(): Promise<AdminPortalAccess | null> {
   const supabase = await createClient();
-  const {
-    data: { user },
-    error: authError,
-  } = await supabase.auth.getUser();
+  const { user, error: authError } = await getSupabaseUser(supabase);
 
   if (authError || !user) return null;
 
@@ -69,10 +67,7 @@ export async function getAdminPortalAccess(): Promise<AdminPortalAccess | null> 
 /** True when the signed-in user also has a linked employee profile (dual admin + employee). */
 export async function hasEmployeePortalShortcut(): Promise<boolean> {
   const supabase = await createClient();
-  const {
-    data: { user },
-    error: authError,
-  } = await supabase.auth.getUser();
+  const { user, error: authError } = await getSupabaseUser(supabase);
 
   if (authError || !user) return false;
 
@@ -226,7 +221,7 @@ export async function employeeLogout() {
 
 export async function getSession() {
   const supabase = await createClient();
-  const { data: { user } } = await supabase.auth.getUser();
+  const { user } = await getSupabaseUser(supabase);
   return user;
 }
 
@@ -241,7 +236,7 @@ export async function isAdmin(): Promise<boolean> {
 
 export async function requireAdmin(): Promise<{ user: User }> {
   const supabase = await createClient();
-  const { data: { user }, error: authError } = await supabase.auth.getUser();
+  const { user, error: authError } = await getSupabaseUser(supabase);
 
   if (authError || !user) {
     throw new Error("You must be logged in to perform this action.");
@@ -262,7 +257,7 @@ export async function requireAdmin(): Promise<{ user: User }> {
 /** For admin pages — allows full admin and view-only co-admin */
 export async function requireAdminForPage(): Promise<AdminPortalAccess> {
   const supabase = await createClient();
-  const { data: { user }, error: authError } = await supabase.auth.getUser();
+  const { user, error: authError } = await getSupabaseUser(supabase);
 
   if (authError || !user) {
     redirect("/admin/login");
@@ -285,7 +280,7 @@ export async function requireAdminForPage(): Promise<AdminPortalAccess> {
 
 export async function requireAdminPortalRead(): Promise<{ user: User }> {
   const supabase = await createClient();
-  const { data: { user }, error: authError } = await supabase.auth.getUser();
+  const { user, error: authError } = await getSupabaseUser(supabase);
 
   if (authError || !user) {
     throw new Error("You must be logged in to perform this action.");
@@ -312,7 +307,7 @@ export async function getEmployeeSession(): Promise<
   { user: User } | { error: string }
 > {
   const supabase = await createClient();
-  const { data: { user }, error: authError } = await supabase.auth.getUser();
+  const { user, error: authError } = await getSupabaseUser(supabase);
 
   if (authError || !user) {
     return { error: "You must be logged in to update your account." };
@@ -339,7 +334,7 @@ export async function getEmployeeSession(): Promise<
 /** For server pages — redirects instead of throwing runtime errors */
 export async function requireEmployeeForPage(): Promise<{ user: User }> {
   const supabase = await createClient();
-  const { data: { user }, error: authError } = await supabase.auth.getUser();
+  const { user, error: authError } = await getSupabaseUser(supabase);
 
   if (authError || !user) {
     redirect("/employee/login");

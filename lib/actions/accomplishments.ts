@@ -66,21 +66,16 @@ async function propagateAccomplishmentToTeamMembers(
   return memberIds.length;
 }
 
-async function assertOwnLeaderAccomplishment(
+async function assertOwnAccomplishment(
   userId: string,
   accomplishmentId: string
 ): Promise<
-  | { ok: true; employeeId: string; record: EmployeeAccomplishment }
+  | { ok: true; employeeId: string; record: EmployeeAccomplishment; isTeamLeader: boolean }
   | { ok: false; error: string }
 > {
   const employeeId = await getEmployeeIdForUser(userId);
   if (!employeeId) {
     return { ok: false, error: "No employee record linked to your account." };
-  }
-
-  const isLeader = await isTeamLeaderEmployee(employeeId, userId);
-  if (!isLeader) {
-    return { ok: false, error: "Only team leaders can manage shared accomplishments." };
   }
 
   const service = createServiceClient();
@@ -104,11 +99,12 @@ async function assertOwnLeaderAccomplishment(
   if (record.shared_by_team_leader_id) {
     return {
       ok: false,
-      error: "Accomplishments shared by another team leader cannot be edited here.",
+      error: "Accomplishments shared by your team leader cannot be edited here.",
     };
   }
 
-  return { ok: true, employeeId, record };
+  const isLeader = await isTeamLeaderEmployee(employeeId, userId);
+  return { ok: true, employeeId, record, isTeamLeader: isLeader };
 }
 
 async function updateMemberCopiesFromSource(
@@ -293,7 +289,7 @@ export async function updateMyAccomplishment(
     return { success: false, error: dateError };
   }
 
-  const access = await assertOwnLeaderAccomplishment(session.user.id, accomplishmentId);
+  const access = await assertOwnAccomplishment(session.user.id, accomplishmentId);
   if (!access.ok) {
     return { success: false, error: access.error };
   }
@@ -314,18 +310,20 @@ export async function updateMyAccomplishment(
   }
 
   let memberUpdateCount = 0;
-  try {
-    await updateMemberCopiesFromSource(accomplishmentId, trimmed, createdAt);
-    const { count } = await service
-      .from("employee_accomplishments")
-      .select("id", { count: "exact", head: true })
-      .eq("source_accomplishment_id", accomplishmentId);
-    memberUpdateCount = count ?? 0;
-  } catch (err) {
-    return {
-      success: false,
-      error: err instanceof Error ? err.message : "Failed to update team member copies.",
-    };
+  if (access.isTeamLeader) {
+    try {
+      await updateMemberCopiesFromSource(accomplishmentId, trimmed, createdAt);
+      const { count } = await service
+        .from("employee_accomplishments")
+        .select("id", { count: "exact", head: true })
+        .eq("source_accomplishment_id", accomplishmentId);
+      memberUpdateCount = count ?? 0;
+    } catch (err) {
+      return {
+        success: false,
+        error: err instanceof Error ? err.message : "Failed to update team member copies.",
+      };
+    }
   }
 
   revalidateAccomplishmentPaths();
@@ -340,19 +338,21 @@ export async function deleteMyAccomplishment(
     return { success: false, error: session.error };
   }
 
-  const access = await assertOwnLeaderAccomplishment(session.user.id, accomplishmentId);
+  const access = await assertOwnAccomplishment(session.user.id, accomplishmentId);
   if (!access.ok) {
     return { success: false, error: access.error };
   }
 
   let memberDeleteCount = 0;
-  try {
-    memberDeleteCount = await deleteMemberCopiesFromSource(accomplishmentId);
-  } catch (err) {
-    return {
-      success: false,
-      error: err instanceof Error ? err.message : "Failed to remove team member copies.",
-    };
+  if (access.isTeamLeader) {
+    try {
+      memberDeleteCount = await deleteMemberCopiesFromSource(accomplishmentId);
+    } catch (err) {
+      return {
+        success: false,
+        error: err instanceof Error ? err.message : "Failed to remove team member copies.",
+      };
+    }
   }
 
   const service = createServiceClient();

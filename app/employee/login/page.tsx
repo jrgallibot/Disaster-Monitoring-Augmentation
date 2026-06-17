@@ -2,9 +2,8 @@ import { Header } from "@/components/layout/Header";
 import { Footer } from "@/components/layout/Footer";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { EmployeeAuthPanel } from "@/components/employee/EmployeeAuthPanel";
+import { SystemLogo } from "@/components/brand/SystemLogo";
 import { getPublicLibraryLoadState } from "@/lib/actions/public-libraries";
-import { SYSTEM_TAGLINE } from "@/lib/branding";
-import { Shield } from "lucide-react";
 import Link from "next/link";
 
 const ERROR_MESSAGES: Record<string, string> = {
@@ -31,11 +30,11 @@ export default async function EmployeeLoginPage({ searchParams }: PageProps) {
         <div className="container mx-auto max-w-2xl">
           <Card>
             <CardHeader className="text-center border-b border-dswd-border pb-6">
-              <div className="mx-auto h-16 w-16 rounded-full bg-dswd-navy flex items-center justify-center mb-3">
-                <Shield className="h-9 w-9 text-white" />
-              </div>
-              <CardTitle className="text-2xl">Employee Portal</CardTitle>
-              <p className="text-sm text-muted-foreground mt-2">{SYSTEM_TAGLINE}</p>
+              <SystemLogo variant="stacked" size="lg" className="mx-auto" />
+              <CardTitle className="text-2xl mt-4">Employee Portal</CardTitle>
+              <p className="text-sm text-muted-foreground mt-2">
+                Sign in to update deployment status and submit daily reports
+              </p>
             </CardHeader>
             <CardContent className="pt-6">
               {!configured && (

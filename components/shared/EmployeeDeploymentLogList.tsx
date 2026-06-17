@@ -1,7 +1,7 @@
 "use client";
 
 import { Badge } from "@/components/ui/badge";
-import { DeploymentLogActualTaskEditor } from "@/components/shared/DeploymentLogActualTaskEditor";
+import { DeploymentLogEditor } from "@/components/shared/DeploymentLogEditor";
 import { YesterdayDeploymentBackfill } from "@/components/shared/YesterdayDeploymentBackfill";
 import { statusRequiresDeploymentLocation, statusRequiresDeploymentRemarks } from "@/lib/deployment";
 import { isDeploymentLogOnDateKey } from "@/lib/deployment-yesterday";
@@ -18,6 +18,7 @@ interface EmployeeDeploymentLogListProps {
   emptyMessage?: string;
   tabError?: string;
   editableActualTask?: boolean;
+  onDeploymentLogsSaved?: (logs: EmployeeDeploymentLog[]) => void;
 }
 
 function getStatusColor(statusId: string | null, statuses: LibraryStatus[]): string | undefined {
@@ -32,6 +33,7 @@ export function EmployeeDeploymentLogList({
   emptyMessage = "No deployment status changes logged yet.",
   tabError,
   editableActualTask = false,
+  onDeploymentLogsSaved,
 }: EmployeeDeploymentLogListProps) {
   const yesterdayKey = getYesterdayDateKey();
 
@@ -94,7 +96,11 @@ export function EmployeeDeploymentLogList({
       )}
 
       {editableActualTask && statuses.length > 0 && (
-        <YesterdayDeploymentBackfill logs={logs} statuses={statuses} />
+        <YesterdayDeploymentBackfill
+          logs={logs}
+          statuses={statuses}
+          onSaved={onDeploymentLogsSaved}
+        />
       )}
 
       <div>
@@ -109,10 +115,7 @@ export function EmployeeDeploymentLogList({
             {logs.map((log) => {
               const color = getStatusColor(log.status_id, statuses) ?? employee?.status?.color;
               const isYesterdayLog = isDeploymentLogOnDateKey(log, yesterdayKey);
-              const canEditLog =
-                editableActualTask &&
-                !isYesterdayLog &&
-                statusRequiresDeploymentLocation(log.status_name);
+              const canEditLog = editableActualTask && !isYesterdayLog;
 
               return (
                 <div key={log.id} className="border border-dswd-border rounded-lg p-4 space-y-2">
@@ -121,32 +124,40 @@ export function EmployeeDeploymentLogList({
                     <p className="text-xs text-muted-foreground">{formatDate(log.created_at)}</p>
                   </div>
                   {canEditLog ? (
-                    <DeploymentLogActualTaskEditor log={log} />
-                  ) : log.actual_task ? (
-                    <p className="text-sm text-muted-foreground">
-                      <span className="font-medium text-foreground">Actual Task:</span>{" "}
-                      {log.actual_task}
-                    </p>
-                  ) : null}
-                  {log.deployment_location ? (
-                    <p className="text-sm text-muted-foreground flex items-start gap-1">
-                      <MapPin className="h-4 w-4 shrink-0 mt-0.5" />
-                      <span>{log.deployment_location}</span>
-                    </p>
-                  ) : statusRequiresDeploymentRemarks(log.status_name) ? (
-                    <p className="text-xs text-muted-foreground">No deployment location recorded</p>
-                  ) : null}
-                  {log.deployment_remarks ? (
-                    <p className="text-sm text-muted-foreground flex items-start gap-1">
-                      <MessageSquare className="h-4 w-4 shrink-0 mt-0.5" />
-                      <span>
-                        <span className="font-medium text-foreground">Remarks:</span>{" "}
-                        {log.deployment_remarks}
-                      </span>
-                    </p>
-                  ) : statusRequiresDeploymentRemarks(log.status_name) ? (
-                    <p className="text-xs text-muted-foreground">No remarks recorded</p>
-                  ) : null}
+                    <DeploymentLogEditor
+                      log={log}
+                      statuses={statuses}
+                      onSaved={onDeploymentLogsSaved}
+                    />
+                  ) : (
+                    <>
+                      {log.actual_task ? (
+                        <p className="text-sm text-muted-foreground">
+                          <span className="font-medium text-foreground">Actual Task:</span>{" "}
+                          {log.actual_task}
+                        </p>
+                      ) : null}
+                      {log.deployment_location ? (
+                        <p className="text-sm text-muted-foreground flex items-start gap-1">
+                          <MapPin className="h-4 w-4 shrink-0 mt-0.5" />
+                          <span>{log.deployment_location}</span>
+                        </p>
+                      ) : statusRequiresDeploymentLocation(log.status_name) ? (
+                        <p className="text-xs text-muted-foreground">No deployment location recorded</p>
+                      ) : null}
+                      {log.deployment_remarks ? (
+                        <p className="text-sm text-muted-foreground flex items-start gap-1">
+                          <MessageSquare className="h-4 w-4 shrink-0 mt-0.5" />
+                          <span>
+                            <span className="font-medium text-foreground">Remarks:</span>{" "}
+                            {log.deployment_remarks}
+                          </span>
+                        </p>
+                      ) : statusRequiresDeploymentRemarks(log.status_name) ? (
+                        <p className="text-xs text-muted-foreground">No remarks recorded</p>
+                      ) : null}
+                    </>
+                  )}
                 </div>
               );
             })}

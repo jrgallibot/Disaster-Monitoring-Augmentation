@@ -7,8 +7,9 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { DailyReportFiltersBar } from "@/components/shared/DailyReportFiltersBar";
 import { OperationsReportMembersTable } from "@/components/shared/OperationsReportMembersTable";
 import { SexBreakdown } from "@/components/shared/SexBreakdown";
+import { ReportPrintHeader } from "@/components/brand/ReportPrintHeader";
 import { getAdminOperationsReportData } from "@/lib/actions/admin-reports";
-import { SYSTEM_NAME, CREATED_BY } from "@/lib/branding";
+import { CREATED_BY } from "@/lib/branding";
 import {
   downloadAdminOperationsReportExcel,
   printAdminOperationsReport,
@@ -76,17 +77,13 @@ export function AdminOperationsReportPanel({
 
   return (
     <div className="space-y-4 admin-operations-report" id="admin-operations-report">
-      <div className="hidden print:block mb-6 border-b-2 border-dswd-gold pb-4">
-        <h1 className="text-2xl font-bold text-dswd-navy">{SYSTEM_NAME}</h1>
-        <h2 className="text-lg font-semibold text-dswd-navy mt-1">
-          Daily Operations Report — {data.scopeLabel}
-        </h2>
-        <p className="text-sm text-muted-foreground mt-2">
-          Report Date: {data.reportDate}
-          {data.reportIsToday ? " (Today)" : ""} · Scope: {data.scopeLabel} · Generated{" "}
-          {formatDate(data.generatedAt)} · Developed by {CREATED_BY}
-        </p>
-      </div>
+      <ReportPrintHeader
+        reportTitle={`Daily Operations Report — ${data.scopeLabel}`}
+        lines={[
+          `Report Date: ${data.reportDate}${data.reportIsToday ? " (Today)" : ""} · Scope: ${data.scopeLabel}`,
+          `Generated ${formatDate(data.generatedAt)} · Developed by ${CREATED_BY}`,
+        ]}
+      />
 
       <Card>
         <CardHeader>
@@ -97,7 +94,7 @@ export function AdminOperationsReportPanel({
                 Daily Operations Report
               </CardTitle>
               <p className="text-sm text-muted-foreground mt-2">
-                Team leader and member actual duties, deployment status, locations, and{" "}
+                Team leader and member deployment status, locations, accomplishments, and{" "}
                 {data.reportIsToday ? "today's" : "selected day"} accomplishments for{" "}
                 <span className="font-medium text-foreground">{data.reportDate}</span>
                 {data.scopeLabel !== "All Teams" && (
@@ -275,8 +272,13 @@ export function AdminOperationsReportPanel({
                     </div>
                     <div className="p-4">
                       <OperationsReportMembersTable
+                        leaderRow={team.leaderActivity}
                         members={team.members}
-                        emptyMessage="No members assigned to this team leader."
+                        showAttendance={false}
+                        dutyColumnLabel={
+                          data.reportIsToday ? "Accomplishments Today" : "Accomplishments"
+                        }
+                        emptyMessage="No team personnel records to display."
                       />
                     </div>
                   </div>

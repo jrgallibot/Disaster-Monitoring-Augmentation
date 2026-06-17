@@ -3,10 +3,11 @@
 import { useCallback, useState, useTransition } from "react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { ReportPrintHeader } from "@/components/brand/ReportPrintHeader";
 import { MobilizationReportFiltersBar } from "@/components/shared/MobilizationReportFiltersBar";
 import { MobilizationStatusBadge } from "@/components/shared/MobilizationStatusBadge";
 import { SexBreakdown } from "@/components/shared/SexBreakdown";
-import { SYSTEM_NAME, CREATED_BY } from "@/lib/branding";
+import { CREATED_BY } from "@/lib/branding";
 import { formatMobilizationDate } from "@/lib/mobilization";
 import {
   downloadMobilizationReportExcel,
@@ -73,16 +74,14 @@ export function MobilizationReportPanel({
 
   return (
     <div className="space-y-4 mobilization-report" id="mobilization-report">
-      <div className="hidden print:block mb-6 border-b-2 border-dswd-gold pb-4">
-        <h1 className="text-2xl font-bold text-dswd-navy">{SYSTEM_NAME}</h1>
-        <h2 className="text-lg font-semibold text-dswd-navy mt-1">{title}</h2>
-        <p className="text-sm text-muted-foreground mt-2">
-          Period: {formatMobilizationDate(data.dateFrom)} — {formatMobilizationDate(data.dateTo)}
-        </p>
-        <p className="text-sm text-muted-foreground">Scope: {data.scopeLabel}</p>
-        <p className="text-sm text-muted-foreground">Generated: {formatDate(data.generatedAt)}</p>
-        <p className="text-xs text-muted-foreground mt-1">Developed by {CREATED_BY}</p>
-      </div>
+      <ReportPrintHeader
+        reportTitle={title}
+        lines={[
+          `Period: ${formatMobilizationDate(data.dateFrom)} — ${formatMobilizationDate(data.dateTo)}`,
+          `Scope: ${data.scopeLabel}`,
+          `Generated: ${formatDate(data.generatedAt)} · Developed by ${CREATED_BY}`,
+        ]}
+      />
 
       {showFilters && filterOptions && onRefresh && (
         <MobilizationReportFiltersBar

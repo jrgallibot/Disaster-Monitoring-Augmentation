@@ -1,6 +1,7 @@
 "use server";
 
-import { createClient } from "@/lib/supabase/server";
+import { createClient, getServerUser } from "@/lib/supabase/server";
+import { getSupabaseUser } from "@/lib/supabase/safe-auth";
 import { createServiceClient } from "@/lib/supabase/service";
 import { getRegions, getSpecializations } from "@/lib/actions/employees";
 import { querySingleEmployeeRow } from "@/lib/supabase/employee-query";
@@ -26,8 +27,18 @@ import {
   statusRequiresDeploymentRemarks,
   validateDeploymentFields,
 } from "@/lib/deployment";
-import { getYesterdayReportBounds } from "@/lib/deployment-yesterday";
-import { accomplishmentTimestampFromDateKey } from "@/lib/report/date-bounds";
+import {
+  getYesterdayReportBounds,
+  isDeploymentLogOnDateKey,
+  isLogEditableForBackfill,
+  pickDeploymentLogForDateKey,
+} from "@/lib/deployment-yesterday";
+import {
+  accomplishmentTimestampFromDateKey,
+  accomplishmentTimestampWithDateKey,
+  getManilaDateKey,
+  getYesterdayDateKey,
+} from "@/lib/report/date-bounds";
 import { getStatuses } from "@/lib/actions/employees";
 
 function buildChanges(
@@ -68,9 +79,10 @@ function buildChanges(
 }
 
 export async function getMyEmployee(): Promise<EmployeeWithRelations | null> {
-  const supabase = await createClient();
-  const { data: { user } } = await supabase.auth.getUser();
+  const { user } = await getServerUser();
   if (!user) return null;
+
+  const supabase = await createClient();
 
   const employee = await querySingleEmployeeRow(supabase, (select) =>
     supabase.from("employees").select(select).eq("user_id", user.id).maybeSingle()
@@ -101,9 +113,10 @@ export async function getMyEmployee(): Promise<EmployeeWithRelations | null> {
 }
 
 export async function getMyUpdateLogs(limit = 20): Promise<EmployeeUpdateLog[]> {
-  const supabase = await createClient();
-  const { data: { user } } = await supabase.auth.getUser();
+  const { user } = await getServerUser();
   if (!user) return [];
+
+  const supabase = await createClient();
 
   const { data: employee } = await supabase
     .from("employees")
@@ -125,9 +138,10 @@ export async function getMyUpdateLogs(limit = 20): Promise<EmployeeUpdateLog[]> 
 }
 
 export async function getMyDeploymentLogs(limit = 50): Promise<EmployeeDeploymentLog[]> {
-  const supabase = await createClient();
-  const { data: { user } } = await supabase.auth.getUser();
+  const { user } = await getServerUser();
   if (!user) return [];
+
+  const supabase = await createClient();
 
   const { data: employee } = await supabase
     .from("employees")
@@ -285,9 +299,7 @@ export async function updateDeploymentLogActualTask(
   }
 
   const authClient = await createClient();
-  const {
-    data: { user },
-  } = await authClient.auth.getUser();
+  const { user } = await getSupabaseUser(authClient);
   if (!user) {
     return { success: false, error: "You must be logged in." };
   }
@@ -344,130 +356,293 @@ export async function updateDeploymentLogActualTask(
   return { success: true };
 }
 
-export async function saveMyYesterdayDeployment(
+export async function updateMyDeploymentLog(
+  logId: string,
   statusId: string,
   deploymentLocation?: string,
   actualTask?: string,
-  deploymentRemarks?: string,
-  logId?: string
+  deploymentRemarks?: string
 ): Promise<ActionResult> {
-  const authClient = await createClient();
-  const {
-    data: { user },
-  } = await authClient.auth.getUser();
-  if (!user) {
-    return { success: false, error: "You must be logged in." };
-  }
+  try {
+    const authClient = await createClient();
+    const { user } = await getSupabaseUser(authClient);
+    if (!user) {
+      return { success: false, error: "You must be logged in." };
+    }
 
-  const { data: employee } = await authClient
-    .from("employees")
-    .select("id")
-    .eq("user_id", user.id)
-    .maybeSingle();
+    const { data: employee } = await authClient
+      .from("employees")
+      .select("id")
+      .eq("user_id", user.id)
+      .maybeSingle();
 
-  if (!employee) {
-    return { success: false, error: "Employee record not found." };
-  }
+    if (!employee) {
+      return { success: false, error: "Employee record not found." };
+    }
 
-  const statuses = await getStatuses();
-  const deploymentError = validateDeploymentFields(
-    statusId,
-    deploymentLocation,
-    statuses,
-    actualTask,
-    deploymentRemarks
-  );
-  if (deploymentError) {
-    return { success: false, error: deploymentError };
-  }
+    let db: Awaited<ReturnType<typeof createClient>>;
+    try {
+      db = createServiceClient();
+    } catch {
+      db = authClient;
+    }
 
-  const status = getStatusById(statusId, statuses);
-  if (!status) {
-    return { success: false, error: "Selected deployment status is invalid." };
-  }
-
-  const isDeployed = statusRequiresDeploymentLocation(status.name);
-  const nextLocation = isDeployed ? deploymentLocation?.trim() || null : null;
-  const nextActualTask = isDeployed ? actualTask?.trim() || null : null;
-  const nextRemarks = statusRequiresDeploymentRemarks(status.name)
-    ? deploymentRemarks?.trim() || null
-    : null;
-
-  const service = createServiceClient();
-  const { start, end } = getYesterdayReportBounds();
-
-  if (logId) {
-    const { data: log, error: logError } = await service
+    const { data: existingLog, error: logError } = await db
       .from("employee_deployment_logs")
-      .select("id, employee_id, created_at")
+      .select("*")
       .eq("id", logId)
-      .single();
+      .maybeSingle();
 
-    if (logError || !log) {
+    if (logError || !existingLog) {
       return { success: false, error: "Deployment log not found." };
     }
 
-    if (log.employee_id !== employee.id) {
+    if (existingLog.employee_id !== employee.id) {
       return { success: false, error: "You can only update your own deployment records." };
     }
 
-    const createdAt = new Date(log.created_at);
-    if (createdAt < new Date(start) || createdAt >= new Date(end)) {
-      return { success: false, error: "Only yesterday's deployment record can be updated here." };
+    const statuses = await getStatuses(false);
+    const deploymentError = validateDeploymentFields(
+      statusId,
+      deploymentLocation,
+      statuses,
+      actualTask,
+      deploymentRemarks
+    );
+    if (deploymentError) {
+      return { success: false, error: deploymentError };
     }
 
-    const { error: updateError } = await service
-      .from("employee_deployment_logs")
-      .update({
-        status_id: statusId,
-        status_name: status.name,
-        deployment_location: nextLocation,
-        actual_task: nextActualTask,
-        deployment_remarks: nextRemarks,
-      })
-      .eq("id", logId);
-
-    if (updateError) {
-      return { success: false, error: updateError.message };
-    }
-  } else {
-    const { data: existing } = await service
-      .from("employee_deployment_logs")
-      .select("id")
-      .eq("employee_id", employee.id)
-      .gte("created_at", start)
-      .lt("created_at", end)
-      .limit(1);
-
-    if (existing && existing.length > 0) {
-      return {
-        success: false,
-        error: "Yesterday's deployment is already recorded. Use Edit to update it.",
-      };
+    const status = getStatusById(statusId, statuses);
+    if (!status) {
+      return { success: false, error: "Selected deployment status is invalid." };
     }
 
-    const { error: insertError } = await service.from("employee_deployment_logs").insert({
-      employee_id: employee.id,
-      user_id: user.id,
+    const isDeployed = statusRequiresDeploymentLocation(status.name);
+    const nextLocation = isDeployed ? deploymentLocation?.trim() || null : null;
+    const nextActualTask = isDeployed ? actualTask?.trim() || null : null;
+    const nextRemarks = statusRequiresDeploymentRemarks(status.name)
+      ? deploymentRemarks?.trim() || null
+      : null;
+
+    const payload = {
       status_id: statusId,
       status_name: status.name,
       deployment_location: nextLocation,
       actual_task: nextActualTask,
       deployment_remarks: nextRemarks,
-      created_at: accomplishmentTimestampFromDateKey(getYesterdayReportBounds().dateKey),
-    });
+    };
 
-    if (insertError) {
-      return { success: false, error: insertError.message };
+    const { data: updated, error: updateError } = await db
+      .from("employee_deployment_logs")
+      .update(payload)
+      .eq("id", logId)
+      .select("id")
+      .maybeSingle();
+
+    if (updateError) {
+      return { success: false, error: updateError.message };
     }
-  }
+    if (!updated) {
+      return {
+        success: false,
+        error: "Deployment log could not be updated. Run migration 025 in Supabase if this persists.",
+      };
+    }
 
-  revalidatePath("/employee/dashboard");
-  revalidatePath("/admin/employees");
-  revalidatePath("/admin/dashboard");
-  revalidatePath("/employee/team");
-  revalidatePath("/employee/daily-report");
-  return { success: true };
+    const todayKey = getManilaDateKey();
+    if (isDeploymentLogOnDateKey(existingLog, todayKey)) {
+      const { data: latestLog } = await db
+        .from("employee_deployment_logs")
+        .select("id")
+        .eq("employee_id", employee.id)
+        .order("created_at", { ascending: false })
+        .limit(1)
+        .maybeSingle();
+
+      if (latestLog?.id === logId) {
+        await db
+          .from("employees")
+          .update({
+            status_id: statusId,
+            deployment_location: nextLocation,
+            actual_task: nextActualTask,
+            deployment_remarks: nextRemarks,
+            deployment_set_at: new Date().toISOString(),
+          })
+          .eq("id", employee.id);
+      }
+    }
+
+    revalidatePath("/employee/dashboard");
+    revalidatePath("/admin/employees");
+    revalidatePath("/admin/dashboard");
+    revalidatePath("/employee/team");
+    revalidatePath("/employee/daily-report");
+    return { success: true };
+  } catch (err) {
+    return {
+      success: false,
+      error: err instanceof Error ? err.message : "Failed to update deployment record.",
+    };
+  }
+}
+
+export async function saveMyYesterdayDeployment(
+  statusId: string,
+  targetDateKey: string,
+  deploymentLocation?: string,
+  actualTask?: string,
+  deploymentRemarks?: string,
+  logId?: string
+): Promise<ActionResult> {
+  try {
+    const authClient = await createClient();
+    const { user } = await getSupabaseUser(authClient);
+    if (!user) {
+      return { success: false, error: "You must be logged in." };
+    }
+
+    const { data: employee } = await authClient
+      .from("employees")
+      .select("id")
+      .eq("user_id", user.id)
+      .maybeSingle();
+
+    if (!employee) {
+      return { success: false, error: "Employee record not found." };
+    }
+
+    const yesterdayKey = getYesterdayDateKey();
+    if (targetDateKey !== yesterdayKey) {
+      return {
+        success: false,
+        error: `Only yesterday (${getYesterdayReportBounds().label}) can be saved here. Refresh the page and try again.`,
+      };
+    }
+
+    const statuses = await getStatuses(false);
+    const deploymentError = validateDeploymentFields(
+      statusId,
+      deploymentLocation,
+      statuses,
+      actualTask,
+      deploymentRemarks
+    );
+    if (deploymentError) {
+      return { success: false, error: deploymentError };
+    }
+
+    const status = getStatusById(statusId, statuses);
+    if (!status) {
+      return { success: false, error: "Selected deployment status is invalid." };
+    }
+
+    const isDeployed = statusRequiresDeploymentLocation(status.name);
+    const nextLocation = isDeployed ? deploymentLocation?.trim() || null : null;
+    const nextActualTask = isDeployed ? actualTask?.trim() || null : null;
+    const nextRemarks = statusRequiresDeploymentRemarks(status.name)
+      ? deploymentRemarks?.trim() || null
+      : null;
+
+    let db: Awaited<ReturnType<typeof createClient>>;
+    try {
+      db = createServiceClient();
+    } catch {
+      db = authClient;
+    }
+
+    const { data: recentLogs, error: recentError } = await db
+      .from("employee_deployment_logs")
+      .select("*")
+      .eq("employee_id", employee.id)
+      .order("created_at", { ascending: false })
+      .limit(40);
+
+    if (recentError) {
+      return { success: false, error: recentError.message };
+    }
+
+    const logs = (recentLogs ?? []) as EmployeeDeploymentLog[];
+    let existingLog =
+      (logId ? logs.find((log) => log.id === logId) : undefined) ??
+      pickDeploymentLogForDateKey(logs, targetDateKey);
+
+    if (existingLog && existingLog.employee_id !== employee.id) {
+      return { success: false, error: "You can only update your own deployment records." };
+    }
+
+    if (existingLog && !isLogEditableForBackfill(existingLog.created_at, targetDateKey)) {
+      return {
+        success: false,
+        error: "Only yesterday's deployment record can be updated here.",
+      };
+    }
+
+    const normalizedCreatedAt = existingLog
+      ? accomplishmentTimestampWithDateKey(targetDateKey, existingLog.created_at)
+      : accomplishmentTimestampFromDateKey(targetDateKey);
+
+    const payload = {
+      status_id: statusId,
+      status_name: status.name,
+      deployment_location: nextLocation,
+      actual_task: nextActualTask,
+      deployment_remarks: nextRemarks,
+      created_at: normalizedCreatedAt,
+    };
+
+    if (existingLog) {
+      const { data: updated, error: updateError } = await db
+        .from("employee_deployment_logs")
+        .update(payload)
+        .eq("id", existingLog.id)
+        .select("id")
+        .maybeSingle();
+
+      if (updateError) {
+        return { success: false, error: updateError.message };
+      }
+      if (!updated) {
+        return {
+          success: false,
+          error: "Deployment log could not be updated. Run migration 025 in Supabase if this persists.",
+        };
+      }
+    } else {
+      const { data: inserted, error: insertError } = await db
+        .from("employee_deployment_logs")
+        .insert({
+          employee_id: employee.id,
+          user_id: user.id,
+          ...payload,
+        })
+        .select("id")
+        .maybeSingle();
+
+      if (insertError) {
+        return { success: false, error: insertError.message };
+      }
+      if (!inserted) {
+        return {
+          success: false,
+          error: "Deployment log could not be saved. Run migration 025 in Supabase if this persists.",
+        };
+      }
+    }
+
+    revalidatePath("/employee/dashboard");
+    revalidatePath("/admin/employees");
+    revalidatePath("/admin/dashboard");
+    revalidatePath("/employee/team");
+    revalidatePath("/employee/daily-report");
+    return { success: true };
+  } catch (err) {
+    return {
+      success: false,
+      error: err instanceof Error ? err.message : "Failed to save yesterday's deployment.",
+    };
+  }
 }
 
 export async function getSpecializationsForEmployee() {

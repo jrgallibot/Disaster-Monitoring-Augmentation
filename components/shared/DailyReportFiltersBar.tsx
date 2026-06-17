@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -53,6 +53,18 @@ export function DailyReportFiltersBar({
     }
     return ALL_TEAMS;
   });
+
+  useEffect(() => {
+    if (appliedFilters.dateKey) {
+      setDateKey(appliedFilters.dateKey);
+    }
+    setRegionId(appliedFilters.regionId ?? ALL_REGIONS);
+    if (appliedFilters.teamLeaderId && appliedFilters.regionId) {
+      setTeamValue(toTeamValue(appliedFilters.regionId, appliedFilters.teamLeaderId));
+    } else {
+      setTeamValue(ALL_TEAMS);
+    }
+  }, [appliedFilters.dateKey, appliedFilters.regionId, appliedFilters.teamLeaderId]);
 
   const teamOptions = useMemo(() => {
     if (regionId === ALL_REGIONS) return filterOptions.teams;
@@ -116,8 +128,8 @@ export function DailyReportFiltersBar({
           </div>
           <p className="text-xs text-muted-foreground">
             {isTodaySelected
-              ? "Showing live data for today (Philippine time)."
-              : "Showing accomplishments and attendance for the selected date."}
+              ? "Showing live deployment and activity for today (Philippine time)."
+              : "Showing deployment history, accomplishments, and attendance for the selected date."}
           </p>
         </div>
 

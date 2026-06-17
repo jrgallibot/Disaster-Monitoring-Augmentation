@@ -21,11 +21,13 @@ import { MapPin, Pencil, Trash2, Users, X } from "lucide-react";
 interface TeamLeaderAccomplishmentHistoryProps {
   records: EmployeeAccomplishment[];
   emptyMessage?: string;
+  isTeamLeader?: boolean;
 }
 
 export function TeamLeaderAccomplishmentHistory({
   records,
   emptyMessage = "No accomplishments recorded yet.",
+  isTeamLeader = false,
 }: TeamLeaderAccomplishmentHistoryProps) {
   const router = useRouter();
   const [isPending, startTransition] = useTransition();
@@ -77,7 +79,9 @@ export function TeamLeaderAccomplishmentHistory({
 
   function handleDelete(record: EmployeeAccomplishment) {
     const confirmed = window.confirm(
-      "Delete this accomplishment? This will also remove the shared copy from all team members."
+      isTeamLeader
+        ? "Delete this accomplishment? This will also remove the shared copy from all team members."
+        : "Delete this accomplishment?"
     );
     if (!confirmed) return;
 
@@ -117,8 +121,9 @@ export function TeamLeaderAccomplishmentHistory({
         Accomplishment History ({records.length})
       </p>
       <p className="text-xs text-muted-foreground">
-        Edit or delete any accomplishment you submitted. Changes are applied to all assigned team
-        members automatically.
+        {isTeamLeader
+          ? "Edit or delete any accomplishment you submitted. Changes are applied to all assigned team members automatically."
+          : "Edit or delete accomplishments you submitted. Entries marked From Team Leader are read-only."}
       </p>
 
       {records.length === 0 ? (
@@ -141,7 +146,7 @@ export function TeamLeaderAccomplishmentHistory({
                         From Team Leader
                       </Badge>
                     )}
-                    {canManage && (
+                    {canManage && isTeamLeader && (
                       <Badge variant="outline" className="text-xs gap-1">
                         <Users className="h-3 w-3" />
                         Shared with team

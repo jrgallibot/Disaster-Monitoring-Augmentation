@@ -1,6 +1,6 @@
 "use client";
 
-import { SYSTEM_NAME } from "@/lib/branding";
+import { SystemLogo } from "@/components/brand/SystemLogo";
 import { useState, useTransition } from "react";
 import { useRouter, usePathname } from "next/navigation";
 import Link from "next/link";
@@ -61,9 +61,9 @@ export function AdminSidebar({
 
   const sidebar = (
     <div className="flex flex-col h-full">
-      <div className="p-4 border-b border-dswd-border">
+      <div className="p-4 border-b border-dswd-border space-y-2">
+        <SystemLogo variant="horizontal" size="sm" />
         <h2 className="font-bold text-dswd-navy text-sm">{portalTitle}</h2>
-        <p className="text-xs text-muted-foreground mt-1">{SYSTEM_NAME}</p>
         {!canWrite && (
           <p className="text-xs text-amber-700 bg-amber-50 border border-amber-200 rounded px-2 py-1 mt-2">
             {portalRole === "team_leader"

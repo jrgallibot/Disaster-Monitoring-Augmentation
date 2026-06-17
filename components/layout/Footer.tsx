@@ -1,5 +1,7 @@
+import Link from "next/link";
 import { MapPin } from "lucide-react";
-import { CREATED_BY, SYSTEM_NAME, SYSTEM_TAGLINE } from "@/lib/branding";
+import { SystemLogo } from "@/components/brand/SystemLogo";
+import { CREATED_BY, SYSTEM_TAGLINE } from "@/lib/branding";
 
 export function Footer() {
   return (
@@ -8,7 +10,7 @@ export function Footer() {
       <div className="container mx-auto px-4 py-8">
         <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
           <div>
-            <p className="font-bold text-dswd-gold mb-3">{SYSTEM_NAME}</p>
+            <SystemLogo variant="horizontal" size="sm" inverted className="mb-3" />
             <p className="text-sm text-white/80 leading-relaxed">{SYSTEM_TAGLINE}</p>
           </div>
 
@@ -17,7 +19,7 @@ export function Footer() {
             <div className="flex items-start gap-2 text-sm text-white/70">
               <MapPin className="h-4 w-4 mt-0.5 shrink-0 text-dswd-gold" />
               <div>
-                <p>Augmentation employee deployment and disaster response monitoring</p>
+                <p>Quick Response Team deployment and disaster monitoring</p>
               </div>
             </div>
           </div>
@@ -25,9 +27,15 @@ export function Footer() {
           <div className="md:text-right">
             <p className="font-semibold text-dswd-gold mb-2">Quick Access</p>
             <div className="flex flex-col gap-1 text-sm text-white/80 md:items-end">
-              <span>Public Monitoring Dashboard</span>
-              <span>Employee Self-Service Portal</span>
-              <span>Administrator Control Panel</span>
+              <Link href="/" className="hover:text-dswd-gold transition-colors">
+                Public Monitoring Dashboard
+              </Link>
+              <Link href="/employee/login" className="hover:text-dswd-gold transition-colors">
+                Employee Self-Service Portal
+              </Link>
+              <Link href="/admin/login" className="hover:text-dswd-gold transition-colors">
+                Administrator Control Panel
+              </Link>
             </div>
             <p className="text-xs text-white/50 mt-4">
               System developed by {CREATED_BY}

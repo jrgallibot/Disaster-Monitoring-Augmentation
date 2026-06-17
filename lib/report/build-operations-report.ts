@@ -1,6 +1,10 @@
 import { employeeIsVisibleTeamMember } from "@/lib/auth/team-leader";
-import { getEmployees, getRegions } from "@/lib/actions/employees";
+import { getEmployees, getRegions, getStatuses } from "@/lib/actions/employees";
 import { getReportDateBounds } from "@/lib/report/date-bounds";
+import {
+  applyDeploymentSnapshotForReport,
+  fetchLatestDeploymentLogsForDateKey,
+} from "@/lib/report/deployment-snapshot";
 import { countSex } from "@/lib/sex-stats";
 import {
   buildMemberReports,
@@ -64,7 +68,11 @@ export async function buildOperationsReportData(
   }
 
   const allMemberIds = employees.map((employee) => employee.id);
-  const maps = await fetchMemberReportMaps(allMemberIds, bounds.start, bounds.end);
+  const [maps, statuses, deploymentLogsByEmployee] = await Promise.all([
+    fetchMemberReportMaps(allMemberIds, bounds.start, bounds.end),
+    getStatuses(false),
+    fetchLatestDeploymentLogsForDateKey(allMemberIds, bounds.dateKey),
+  ]);
 
   const teams: AdminTeamLeaderReport[] = [];
 
@@ -80,14 +88,30 @@ export async function buildOperationsReportData(
       const teamLeader = employeeMap.get(leaderSummary.id);
       if (!teamLeader) continue;
 
-      const members = employees.filter((employee) =>
-        employeeIsVisibleTeamMember(
-          employee,
-          leaderSummary.id,
-          [region.id],
-          regionLeaderIds
-        )
+      const teamLeaderForReport = applyDeploymentSnapshotForReport(
+        teamLeader,
+        deploymentLogsByEmployee.get(teamLeader.id),
+        statuses,
+        bounds.isToday
       );
+
+      const members = employees
+        .filter((employee) =>
+          employeeIsVisibleTeamMember(
+            employee,
+            leaderSummary.id,
+            [region.id],
+            regionLeaderIds
+          )
+        )
+        .map((member) =>
+          applyDeploymentSnapshotForReport(
+            member,
+            deploymentLogsByEmployee.get(member.id),
+            statuses,
+            bounds.isToday
+          )
+        );
 
       const memberReports = buildMemberReports(
         members,
@@ -98,7 +122,7 @@ export async function buildOperationsReportData(
       );
 
       const leaderActivity = buildTeamDailyReportMember(
-        teamLeader,
+        teamLeaderForReport,
         maps.accomplishmentsByEmployee,
         maps.attendanceByEmployee,
         maps.latestAttendanceByEmployee,
@@ -107,7 +131,7 @@ export async function buildOperationsReportData(
 
       teams.push({
         region,
-        teamLeader,
+        teamLeader: teamLeaderForReport,
         leaderActivity,
         members: memberReports,
         summary: buildTeamSummary(memberReports),
@@ -123,7 +147,7 @@ export async function buildOperationsReportData(
 
   const allMembers = teams.flatMap((team) => team.members);
   const uniqueMemberIds = new Set(allMembers.map((member) => member.employee.id));
-  const uniqueMembers = employees.filter((employee) => uniqueMemberIds.has(employee.id));
+  const uniqueMembers = allMembers.map((member) => member.employee);
   const membersWithActivity = new Set(
     allMembers
       .filter((member) => member.todayAccomplishments.length > 0)

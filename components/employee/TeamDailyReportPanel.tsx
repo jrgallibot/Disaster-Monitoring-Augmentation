@@ -6,8 +6,9 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { DailyReportFiltersBar } from "@/components/shared/DailyReportFiltersBar";
 import { OperationsReportMembersTable } from "@/components/shared/OperationsReportMembersTable";
 import { SexBreakdown } from "@/components/shared/SexBreakdown";
+import { ReportPrintHeader } from "@/components/brand/ReportPrintHeader";
 import { getTeamDailyReportData } from "@/lib/actions/team-leader";
-import { SYSTEM_NAME, CREATED_BY } from "@/lib/branding";
+import { CREATED_BY } from "@/lib/branding";
 import {
   downloadTeamDailyReportExcel,
   printTeamDailyReport,
@@ -75,17 +76,13 @@ export function TeamDailyReportPanel({ initialData, allLedRegions }: TeamDailyRe
 
   return (
     <div className="space-y-4 team-daily-report" id="team-daily-report">
-      <div className="hidden print:block mb-6 border-b-2 border-dswd-gold pb-4">
-        <h1 className="text-2xl font-bold text-dswd-navy">{SYSTEM_NAME}</h1>
-        <h2 className="text-lg font-semibold text-dswd-navy mt-1">
-          Daily Team Report — {data.scopeLabel}
-        </h2>
-        <p className="text-sm text-muted-foreground mt-2">
-          Report Date: {data.reportDate}
-          {data.reportIsToday ? " (Today)" : ""} · Team Leader: {leaderName} · Region:{" "}
-          {data.scopeLabel} · Generated {formatDate(data.generatedAt)} · Developed by {CREATED_BY}
-        </p>
-      </div>
+      <ReportPrintHeader
+        reportTitle={`Daily Team Report — ${data.scopeLabel}`}
+        lines={[
+          `Report Date: ${data.reportDate}${data.reportIsToday ? " (Today)" : ""} · Team Leader: ${leaderName} · Region: ${data.scopeLabel}`,
+          `Generated ${formatDate(data.generatedAt)} · Developed by ${CREATED_BY}`,
+        ]}
+      />
 
       <Card>
         <CardHeader>

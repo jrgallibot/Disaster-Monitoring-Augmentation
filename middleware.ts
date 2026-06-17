@@ -1,28 +1,12 @@
 import { updateSession } from "@/lib/supabase/middleware";
 import { getUserRole, syncEmployeeRole, canUseEmployeePortal } from "@/lib/auth/employee-sync";
 import { isEmployeePortalRole, canAccessAdminPortal, canWriteAdminPortal } from "@/lib/auth/roles";
-import { createServerClient } from "@supabase/ssr";
 import { NextResponse, type NextRequest } from "next/server";
 
 function hasSupabaseEnv() {
   return (
     process.env.NEXT_PUBLIC_SUPABASE_URL &&
     process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY
-  );
-}
-
-function makeSupabase(request: NextRequest) {
-  return createServerClient(
-    process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
-    {
-      cookies: {
-        getAll() {
-          return request.cookies.getAll();
-        },
-        setAll() {},
-      },
-    }
   );
 }
 
@@ -33,7 +17,7 @@ function isAdminWriteRoute(pathname: string): boolean {
 }
 
 export async function middleware(request: NextRequest) {
-  const supabaseResponse = await updateSession(request);
+  const { response: supabaseResponse, user } = await updateSession(request);
   const pathname = request.nextUrl.pathname;
 
   if (!hasSupabaseEnv()) {
@@ -50,8 +34,6 @@ export async function middleware(request: NextRequest) {
       pathname === "/employee";
 
     if (isAdminRoute && !isAdminLogin) {
-      const supabase = makeSupabase(request);
-      const { data: { user } } = await supabase.auth.getUser();
       if (!user) {
         const url = request.nextUrl.clone();
         url.pathname = "/admin/login";
@@ -78,27 +60,21 @@ export async function middleware(request: NextRequest) {
       }
     }
 
-    if (isAdminLogin) {
-      const supabase = makeSupabase(request);
-      const { data: { user } } = await supabase.auth.getUser();
-      if (user) {
-        const role = await getUserRole(user.id);
-        const url = request.nextUrl.clone();
-        if (canAccessAdminPortal(role)) {
-          url.pathname = "/admin/dashboard";
-        } else if (isEmployeePortalRole(role)) {
-          url.pathname = "/employee/dashboard";
-        } else {
-          url.pathname = "/admin/login";
-          url.searchParams.set("error", "access_denied");
-        }
-        return NextResponse.redirect(url);
+    if (isAdminLogin && user) {
+      const role = await getUserRole(user.id);
+      const url = request.nextUrl.clone();
+      if (canAccessAdminPortal(role)) {
+        url.pathname = "/admin/dashboard";
+      } else if (isEmployeePortalRole(role)) {
+        url.pathname = "/employee/dashboard";
+      } else {
+        url.pathname = "/admin/login";
+        url.searchParams.set("error", "access_denied");
       }
+      return NextResponse.redirect(url);
     }
 
     if (isEmployeeRoute && !isEmployeePublic) {
-      const supabase = makeSupabase(request);
-      const { data: { user } } = await supabase.auth.getUser();
       if (!user) {
         const url = request.nextUrl.clone();
         url.pathname = "/employee/login";
@@ -121,40 +97,36 @@ export async function middleware(request: NextRequest) {
       }
     }
 
-    if (pathname === "/employee/login" || pathname === "/employee/register" || pathname === "/employee") {
-      const supabase = makeSupabase(request);
-      const { data: { user } } = await supabase.auth.getUser();
-      if (user) {
-        await syncEmployeeRole(user.id, user.email);
-        const role = await getUserRole(user.id);
-        const canUseEmployee = await canUseEmployeePortal(user.id, role);
+    if (
+      (pathname === "/employee/login" ||
+        pathname === "/employee/register" ||
+        pathname === "/employee") &&
+      user
+    ) {
+      await syncEmployeeRole(user.id, user.email);
+      const role = await getUserRole(user.id);
+      const canUseEmployee = await canUseEmployeePortal(user.id, role);
 
-        const url = request.nextUrl.clone();
-        if (canUseEmployee) {
-          url.pathname = "/employee/dashboard";
-          return NextResponse.redirect(url);
-        }
-        if (canAccessAdminPortal(role)) {
-          url.pathname = "/admin/dashboard";
-          return NextResponse.redirect(url);
-        }
+      const url = request.nextUrl.clone();
+      if (canUseEmployee) {
+        url.pathname = "/employee/dashboard";
+        return NextResponse.redirect(url);
+      }
+      if (canAccessAdminPortal(role)) {
+        url.pathname = "/admin/dashboard";
+        return NextResponse.redirect(url);
       }
     }
 
-    const isPublicMonitoring =
-      pathname === "/" || pathname.startsWith("/employees/");
+    const isPublicMonitoring = pathname === "/" || pathname.startsWith("/employees/");
 
-    if (isPublicMonitoring) {
-      const supabase = makeSupabase(request);
-      const { data: { user } } = await supabase.auth.getUser();
-      if (user) {
-        await syncEmployeeRole(user.id, user.email);
-        const role = await getUserRole(user.id);
-        if (isEmployeePortalRole(role)) {
-          const url = request.nextUrl.clone();
-          url.pathname = "/employee/dashboard";
-          return NextResponse.redirect(url);
-        }
+    if (isPublicMonitoring && user) {
+      await syncEmployeeRole(user.id, user.email);
+      const role = await getUserRole(user.id);
+      if (isEmployeePortalRole(role)) {
+        const url = request.nextUrl.clone();
+        url.pathname = "/employee/dashboard";
+        return NextResponse.redirect(url);
       }
     }
   } catch {

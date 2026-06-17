@@ -14,7 +14,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { saveMyYesterdayDeployment } from "@/lib/actions/employee-portal";
+import { saveMyYesterdayDeployment, getMyDeploymentLogs } from "@/lib/actions/employee-portal";
 import {
   getStatusById,
   statusRequiresDeploymentLocation,
@@ -31,9 +31,14 @@ import { Briefcase, CalendarDays, ClipboardList, MapPin, MessageSquare } from "l
 interface YesterdayDeploymentBackfillProps {
   logs: EmployeeDeploymentLog[];
   statuses: LibraryStatus[];
+  onSaved?: (logs: EmployeeDeploymentLog[]) => void;
 }
 
-export function YesterdayDeploymentBackfill({ logs, statuses }: YesterdayDeploymentBackfillProps) {
+export function YesterdayDeploymentBackfill({
+  logs,
+  statuses,
+  onSaved,
+}: YesterdayDeploymentBackfillProps) {
   const router = useRouter();
   const [isPending, startTransition] = useTransition();
   const [error, setError] = useState<string | null>(null);
@@ -62,7 +67,7 @@ export function YesterdayDeploymentBackfill({ logs, statuses }: YesterdayDeploym
       setExpanded(true);
     }
     setError(null);
-  }, [yesterdayLog]);
+  }, [yesterdayLog?.id, yesterdayLog?.status_id, yesterdayLog?.actual_task, yesterdayLog?.deployment_location, yesterdayLog?.deployment_remarks]);
 
   const selectedStatus = useMemo(
     () => getStatusById(statusId, statuses),
@@ -99,28 +104,40 @@ export function YesterdayDeploymentBackfill({ logs, statuses }: YesterdayDeploym
     }
 
     startTransition(async () => {
-      setError(null);
-      const result = await saveMyYesterdayDeployment(
-        statusId,
-        locationRequired ? deploymentLocation.trim() : undefined,
-        locationRequired ? actualTask.trim() : undefined,
-        remarksRequired ? deploymentRemarks.trim() : undefined,
-        yesterdayLog?.id
-      );
+      try {
+        setError(null);
+        const { dateKey } = getYesterdayReportBounds();
+        const result = await saveMyYesterdayDeployment(
+          statusId,
+          dateKey,
+          locationRequired ? deploymentLocation.trim() : undefined,
+          locationRequired ? actualTask.trim() : undefined,
+          remarksRequired ? deploymentRemarks.trim() : undefined,
+          yesterdayLog?.id
+        );
 
-      if (!result.success) {
-        setError(result.error);
-        toast.error(result.error);
-        return;
+        if (!result.success) {
+          setError(result.error);
+          toast.error(result.error);
+          return;
+        }
+
+        const refreshedLogs = await getMyDeploymentLogs();
+        onSaved?.(refreshedLogs);
+
+        toast.success(
+          yesterdayLog
+            ? "Yesterday's deployment record updated."
+            : "Yesterday's deployment recorded successfully."
+        );
+        setExpanded(false);
+        router.refresh();
+      } catch (err) {
+        const message =
+          err instanceof Error ? err.message : "Failed to save yesterday's deployment.";
+        setError(message);
+        toast.error(message);
       }
-
-      toast.success(
-        yesterdayLog
-          ? "Yesterday's deployment record updated."
-          : "Yesterday's deployment recorded successfully."
-      );
-      setExpanded(false);
-      router.refresh();
     });
   }
 

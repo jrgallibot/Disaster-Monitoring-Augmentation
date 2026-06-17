@@ -1,5 +1,8 @@
-export const SYSTEM_NAME = "DSWD Augmentation Disaster Monitoring";
+export const SYSTEM_NAME = "QRT Monitoring System";
 export const SYSTEM_TAGLINE =
-  "Disaster response monitoring for DSWD augmentation employees";
-export const SYSTEM_BANNER = "DSWD Augmentation | Disaster Monitoring System";
+  "Quick Response Team monitoring and deployment tracking";
+export const SYSTEM_BANNER = "QRT | Monitoring System";
 export const CREATED_BY = "Region Caraga";
+
+export const BAGONG_PILIPINAS_LOGO_SRC = "/Bagong_Pilipinas_logo.png";
+export const DSWD_LOGO_SRC = "/dswd_logo.jpg";

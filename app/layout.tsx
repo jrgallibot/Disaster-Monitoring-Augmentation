@@ -9,6 +9,10 @@ const inter = Inter({ subsets: ["latin"] });
 export const metadata: Metadata = {
   title: SYSTEM_NAME,
   description: SYSTEM_TAGLINE,
+  icons: {
+    icon: "/qrt-logo.svg",
+    apple: "/qrt-logo.svg",
+  },
 };
 
 export default function RootLayout({

@@ -22,6 +22,11 @@ import {
   buildTeamSummary,
   fetchMemberReportMaps,
 } from "@/lib/report/member-report";
+import {
+  applyDeploymentSnapshotForReport,
+  fetchLatestDeploymentLogsForDateKey,
+} from "@/lib/report/deployment-snapshot";
+import { getStatuses } from "@/lib/actions/employees";
 import type {
   ActionResult,
   DailyReportFilters,
@@ -208,15 +213,35 @@ export async function getTeamDailyReportData(
   const reportIds = Array.from(new Set([teamLeader.id, ...memberIds]));
 
   const maps = await fetchMemberReportMaps(reportIds, bounds.start, bounds.end);
-  const leaderActivity = buildTeamDailyReportMember(
+  const [statuses, deploymentLogsByEmployee] = await Promise.all([
+    getStatuses(false),
+    fetchLatestDeploymentLogsForDateKey(reportIds, bounds.dateKey),
+  ]);
+
+  const teamLeaderForReport = applyDeploymentSnapshotForReport(
     teamLeader,
+    deploymentLogsByEmployee.get(teamLeader.id),
+    statuses,
+    bounds.isToday
+  );
+  const membersForReport = members.map((member) =>
+    applyDeploymentSnapshotForReport(
+      member,
+      deploymentLogsByEmployee.get(member.id),
+      statuses,
+      bounds.isToday
+    )
+  );
+
+  const leaderActivity = buildTeamDailyReportMember(
+    teamLeaderForReport,
     maps.accomplishmentsByEmployee,
     maps.attendanceByEmployee,
     maps.latestAttendanceByEmployee,
     bounds.isToday
   );
   const reportMembers = buildMemberReports(
-    members,
+    membersForReport,
     maps.accomplishmentsByEmployee,
     maps.attendanceByEmployee,
     maps.latestAttendanceByEmployee,

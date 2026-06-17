@@ -96,7 +96,7 @@ export function downloadAdminReportExcel(data: AdminDashboardData) {
   const link = document.createElement("a");
   const stamp = new Date().toISOString().slice(0, 10);
   link.href = url;
-  link.download = `dswd-employee-report-${stamp}.csv`;
+  link.download = `qrt-employee-report-${stamp}.csv`;
   link.click();
   URL.revokeObjectURL(url);
 }
@@ -192,7 +192,7 @@ export function downloadTeamDailyReportExcel(data: TeamDailyReportData) {
   const stamp = data.reportDateKey;
   const regionSlug = regionLabel.replace(/[^a-z0-9]+/gi, "-").toLowerCase();
   link.href = url;
-  link.download = `dswd-team-daily-report-${regionSlug}-${stamp}.csv`;
+  link.download = `qrt-team-daily-report-${regionSlug}-${stamp}.csv`;
   link.click();
   URL.revokeObjectURL(url);
 }
@@ -201,9 +201,10 @@ export function printTeamDailyReport() {
   window.print();
 }
 
-function memberReportRow(
+function adminOperationsPersonRow(
   member: TeamDailyReportData["members"][0],
   index: number,
+  roleLabel: string,
   teamLeaderName: string,
   regionLabel: string
 ): (string | number)[] {
@@ -215,6 +216,7 @@ function memberReportRow(
 
   return [
     index + 1,
+    roleLabel,
     regionLabel,
     teamLeaderName,
     employee.employee_id,
@@ -278,6 +280,7 @@ export function downloadAdminOperationsReportExcel(data: AdminOperationsReportDa
     rows.push([]);
     rows.push([
       "No.",
+      "Role",
       "Region",
       "Team Leader",
       "Employee ID",
@@ -288,7 +291,7 @@ export function downloadAdminOperationsReportExcel(data: AdminOperationsReportDa
       "Actual Task",
       "Deployment Location",
       "Remarks",
-      "Actual Duty / Accomplishments Today",
+      "Accomplishments",
       "Time In Today",
       "Time Out Today",
       "Clocked In Now",
@@ -296,9 +299,16 @@ export function downloadAdminOperationsReportExcel(data: AdminOperationsReportDa
       "Last GPS",
     ]);
 
-    team.members.forEach((member, index) => {
-      rows.push(memberReportRow(member, index, leaderName, regionLabel));
-    });
+    const personnelRows = [
+      adminOperationsPersonRow(team.leaderActivity, 0, "Team Leader", leaderName, regionLabel),
+      ...team.members
+        .filter((member) => member.employee.id !== team.teamLeader.id)
+        .map((member, index) =>
+          adminOperationsPersonRow(member, index + 1, "Team Member", leaderName, regionLabel)
+        ),
+    ];
+
+    rows.push(...personnelRows);
   }
 
   const csv = rows.map((row) => row.map(escapeCsv).join(",")).join("\r\n");
@@ -307,7 +317,7 @@ export function downloadAdminOperationsReportExcel(data: AdminOperationsReportDa
   const link = document.createElement("a");
   const stamp = data.reportDateKey;
   link.href = url;
-  link.download = `dswd-admin-operations-report-${stamp}.csv`;
+  link.download = `qrt-admin-operations-report-${stamp}.csv`;
   link.click();
   URL.revokeObjectURL(url);
 }
@@ -371,7 +381,7 @@ export function downloadMobilizationReportExcel(data: MobilizationReportData) {
   const link = document.createElement("a");
   const stamp = `${data.dateFrom}_to_${data.dateTo}`;
   link.href = url;
-  link.download = `dswd-mobilization-report-${stamp}.csv`;
+  link.download = `qrt-mobilization-report-${stamp}.csv`;
   link.click();
   URL.revokeObjectURL(url);
 }

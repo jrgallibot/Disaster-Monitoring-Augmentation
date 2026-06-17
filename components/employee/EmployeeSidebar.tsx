@@ -1,6 +1,6 @@
 "use client";
 
-import { SYSTEM_TAGLINE } from "@/lib/branding";
+import { SystemLogo } from "@/components/brand/SystemLogo";
 import { useState, useTransition } from "react";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
@@ -46,9 +46,9 @@ export function EmployeeSidebar({
 
   const sidebar = (
     <div className="flex flex-col h-full">
-      <div className="p-4 border-b border-dswd-border">
+      <div className="p-4 border-b border-dswd-border space-y-2">
+        <SystemLogo variant="horizontal" size="sm" />
         <h2 className="font-bold text-dswd-navy text-sm">Employee Portal</h2>
-        <p className="text-xs text-muted-foreground mt-1">{SYSTEM_TAGLINE}</p>
       </div>
       <nav className="flex-1 p-3 space-y-1">
         <Link

@@ -7,7 +7,6 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { EmployeeAccomplishmentList } from "@/components/shared/EmployeeAccomplishmentList";
 import { TeamLeaderAccomplishmentHistory } from "@/components/employee/TeamLeaderAccomplishmentHistory";
 import { addMyAccomplishment } from "@/lib/actions/accomplishments";
 import { getTodayInputValue } from "@/lib/report/date-bounds";
@@ -85,7 +84,7 @@ export function EmployeeAccomplishmentPanel({
           (today or a previous day).
           {isTeamLeader
             ? " As a team leader, your submission is automatically copied to each assigned team member with the same date. You can edit or delete any accomplishment you submitted and it will update or remove the team member copies too."
-            : " Entries shared by your team leader appear here with a From Team Leader badge."}
+            : " You can edit or delete your own submissions below. Entries shared by your team leader appear with a From Team Leader badge and cannot be changed here."}
         </p>
       </CardHeader>
       <CardContent className="space-y-6">
@@ -148,11 +147,7 @@ export function EmployeeAccomplishmentPanel({
           </Button>
         </form>
 
-        {isTeamLeader ? (
-          <TeamLeaderAccomplishmentHistory records={records} />
-        ) : (
-          <EmployeeAccomplishmentList records={records} />
-        )}
+        <TeamLeaderAccomplishmentHistory records={records} isTeamLeader={isTeamLeader} />
       </CardContent>
     </Card>
   );

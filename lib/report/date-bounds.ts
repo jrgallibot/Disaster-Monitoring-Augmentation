@@ -61,19 +61,35 @@ export function getManilaDateKeyFromTimestamp(iso: string): string {
   }).format(new Date(iso));
 }
 
-/** Map a calendar date (PH) to a timestamp, using the current PH clock time. */
-export function accomplishmentTimestampFromDateKey(dateKeyInput?: string | null): string {
-  const dateKey =
-    dateKeyInput && DATE_KEY_PATTERN.test(dateKeyInput) ? dateKeyInput : getManilaDateKey();
-  const now = new Date();
-  const manilaTime = now.toLocaleString("en-GB", {
+function getManilaTimeParts(date: Date = new Date()): {
+  hour: string;
+  minute: string;
+  second: string;
+} {
+  const parts = new Intl.DateTimeFormat("en-GB", {
     timeZone: DEPLOYMENT_TIMEZONE,
     hour: "2-digit",
     minute: "2-digit",
     second: "2-digit",
     hour12: false,
-  });
-  return new Date(`${dateKey}T${manilaTime}+08:00`).toISOString();
+  }).formatToParts(date);
+
+  const get = (type: Intl.DateTimeFormatPartTypes) =>
+    parts.find((part) => part.type === type)?.value ?? "00";
+
+  return {
+    hour: get("hour"),
+    minute: get("minute"),
+    second: get("second"),
+  };
+}
+
+/** Map a calendar date (PH) to a timestamp, using the current PH clock time. */
+export function accomplishmentTimestampFromDateKey(dateKeyInput?: string | null): string {
+  const dateKey =
+    dateKeyInput && DATE_KEY_PATTERN.test(dateKeyInput) ? dateKeyInput : getManilaDateKey();
+  const { hour, minute, second } = getManilaTimeParts();
+  return new Date(`${dateKey}T${hour}:${minute}:${second}+08:00`).toISOString();
 }
 
 /** Change only the calendar date while keeping the original PH time-of-day. */
@@ -84,13 +100,6 @@ export function accomplishmentTimestampWithDateKey(
   if (!DATE_KEY_PATTERN.test(dateKeyInput)) {
     return existingIso;
   }
-  const existing = new Date(existingIso);
-  const manilaTime = existing.toLocaleString("en-GB", {
-    timeZone: DEPLOYMENT_TIMEZONE,
-    hour: "2-digit",
-    minute: "2-digit",
-    second: "2-digit",
-    hour12: false,
-  });
-  return new Date(`${dateKeyInput}T${manilaTime}+08:00`).toISOString();
+  const { hour, minute, second } = getManilaTimeParts(new Date(existingIso));
+  return new Date(`${dateKeyInput}T${hour}:${minute}:${second}+08:00`).toISOString();
 }
