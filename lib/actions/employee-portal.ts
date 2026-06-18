@@ -40,6 +40,9 @@ import {
   getYesterdayDateKey,
 } from "@/lib/report/date-bounds";
 import { getStatuses } from "@/lib/actions/employees";
+import {
+  notifyTeamLeaderOfEmployeeAction,
+} from "@/lib/actions/notifications";
 
 function buildChanges(
   before: EmployeeWithRelations,
@@ -474,6 +477,14 @@ export async function updateMyDeploymentLog(
       }
     }
 
+    await notifyTeamLeaderOfEmployeeAction(
+      employee.id,
+      "deployment_update",
+      "Deployment record updated",
+      `${status.name}${nextLocation ? ` — ${nextLocation}` : ""}`,
+      "/employee/team"
+    );
+
     revalidatePath("/employee/dashboard");
     revalidatePath("/admin/employees");
     revalidatePath("/admin/dashboard");
@@ -630,6 +641,14 @@ export async function saveMyYesterdayDeployment(
         };
       }
     }
+
+    await notifyTeamLeaderOfEmployeeAction(
+      employee.id,
+      "deployment_update",
+      "Yesterday deployment saved",
+      `${status.name}${nextLocation ? ` — ${nextLocation}` : ""}`,
+      "/employee/team"
+    );
 
     revalidatePath("/employee/dashboard");
     revalidatePath("/admin/employees");

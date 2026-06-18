@@ -442,3 +442,87 @@ export type EmployeeHistoryBundle = {
 };
 
 export type LibraryType = "specializations" | "regions" | "statuses";
+
+export type EmployeeNotificationType =
+  | "chat_message"
+  | "deployment_update"
+  | "accomplishment"
+  | "mobilization"
+  | "team_leader_action";
+
+export interface EmployeeNotification {
+  id: string;
+  recipient_user_id: string;
+  type: EmployeeNotificationType;
+  title: string;
+  body: string;
+  link: string | null;
+  metadata: Record<string, unknown>;
+  read_at: string | null;
+  created_at: string;
+}
+
+export type ChatConversationType = "team" | "direct" | "group";
+
+export interface ChatConversation {
+  id: string;
+  type: ChatConversationType;
+  name: string | null;
+  created_by_user_id: string | null;
+  region_id: string | null;
+  team_leader_employee_id: string | null;
+  created_at: string;
+}
+
+export interface ChatConversationMember {
+  id: string;
+  conversation_id: string;
+  user_id: string;
+  employee_id: string;
+  last_read_at: string | null;
+  joined_at: string;
+}
+
+export interface ChatMessage {
+  id: string;
+  conversation_id: string;
+  sender_user_id: string;
+  sender_employee_id: string;
+  body: string;
+  created_at: string;
+  edited_at?: string | null;
+  deleted_at?: string | null;
+  deleted_by_user_id?: string | null;
+  attachment_url?: string | null;
+  attachment_name?: string | null;
+  attachment_mime?: string | null;
+  sender?: {
+    first_name: string;
+    last_name: string;
+    employee_id: string;
+  } | null;
+}
+
+export interface ChatConversationMemberProfile {
+  id: string;
+  employee_id: string;
+  first_name: string;
+  last_name: string;
+  middle_name: string | null;
+  user_id: string;
+}
+
+export interface ChatConversationWithPreview extends ChatConversation {
+  last_message: ChatMessage | null;
+  unread_count: number;
+  member_count: number;
+}
+
+export interface MessageableEmployee {
+  id: string;
+  employee_id: string;
+  first_name: string;
+  last_name: string;
+  middle_name: string | null;
+  user_id: string | null;
+}

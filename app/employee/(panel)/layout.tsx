@@ -1,7 +1,12 @@
 import { Header } from "@/components/layout/Header";
 import { Footer } from "@/components/layout/Footer";
 import { EmployeeSidebar } from "@/components/employee/EmployeeSidebar";
-import { getAdminPortalAccess, requireEmployeeForPage } from "@/lib/actions/auth";
+import { EmployeePanelChrome } from "@/components/employee/EmployeePanelChrome";
+import { getAdminPortalAccess, getEmployeeSession, requireEmployeeForPage } from "@/lib/actions/auth";
+import {
+  getMyNotifications,
+  getUnreadNotificationCount,
+} from "@/lib/actions/notifications";
 import { getTeamLeaderContext } from "@/lib/actions/team-leader";
 
 export default async function EmployeePanelLayout({
@@ -10,14 +15,29 @@ export default async function EmployeePanelLayout({
   children: React.ReactNode;
 }) {
   await requireEmployeeForPage();
-  const [teamLeaderContext, adminAccess] = await Promise.all([
-    getTeamLeaderContext(),
-    getAdminPortalAccess(),
-  ]);
+  const session = await getEmployeeSession();
+  const [teamLeaderContext, adminAccess, unreadCount, initialNotifications] =
+    await Promise.all([
+      getTeamLeaderContext(),
+      getAdminPortalAccess(),
+      getUnreadNotificationCount(),
+      getMyNotifications(20),
+    ]);
+
+  const myEmployeeId = teamLeaderContext.myEmployee?.id ?? null;
+  const userId = "error" in session ? null : session.user.id;
 
   return (
     <>
       <Header showAdminLink={false} showEmployeeLink={false} homeHref="/employee/dashboard" />
+      {userId && myEmployeeId && (
+        <EmployeePanelChrome
+          userId={userId}
+          myEmployeeId={myEmployeeId}
+          initialNotifications={initialNotifications}
+          initialUnreadCount={unreadCount}
+        />
+      )}
       <div className="flex flex-1 min-h-0">
         <EmployeeSidebar
           showTeamLink={teamLeaderContext.isTeamLeader}

@@ -14,6 +14,10 @@ import {
   getManilaDateKey,
 } from "@/lib/report/date-bounds";
 import { revalidatePath } from "next/cache";
+import {
+  notifyEmployeeUser,
+  notifyTeamLeaderOfEmployeeAction,
+} from "@/lib/actions/notifications";
 
 async function getEmployeeIdForUser(userId: string): Promise<string | null> {
   const supabase = await createClient();
@@ -62,6 +66,37 @@ async function propagateAccomplishmentToTeamMembers(
     }
     throw new Error(error.message);
   }
+
+  const serviceForNotify = createServiceClient();
+  const [{ data: members }, { data: leader }] = await Promise.all([
+    serviceForNotify
+      .from("employees")
+      .select("id, user_id, first_name, last_name")
+      .in("id", memberIds),
+    serviceForNotify
+      .from("employees")
+      .select("first_name, last_name, middle_name")
+      .eq("id", leaderEmployeeId)
+      .maybeSingle(),
+  ]);
+
+  const leaderName = leader
+    ? `${leader.last_name}, ${leader.first_name}${leader.middle_name ? ` ${leader.middle_name}` : ""}`
+    : "Team Leader";
+
+  await Promise.all(
+    (members ?? []).map((member) =>
+      notifyEmployeeUser(
+        member.user_id,
+        "team_leader_action",
+        "Team leader shared an accomplishment",
+        content.length > 120 ? `${content.slice(0, 117)}...` : content,
+        "/employee/dashboard",
+        { actor_employee_id: leaderEmployeeId, source_accomplishment_id: sourceAccomplishmentId },
+        leaderName
+      )
+    )
+  );
 
   return memberIds.length;
 }
@@ -263,6 +298,14 @@ export async function addMyAccomplishment(
     } catch {
       // Leader record saved; sharing failure should not block submission.
     }
+  } else if (inserted?.id) {
+    await notifyTeamLeaderOfEmployeeAction(
+      employeeId,
+      "accomplishment",
+      "New accomplishment submitted",
+      trimmed.length > 120 ? `${trimmed.slice(0, 117)}...` : trimmed,
+      "/employee/team"
+    );
   }
 
   revalidateAccomplishmentPaths();

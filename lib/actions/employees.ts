@@ -31,6 +31,11 @@ import {
 } from "@/lib/supabase/employee-query";
 import { getTodayInputValue } from "@/lib/report/date-bounds";
 import { revalidatePath } from "next/cache";
+import {
+  notifyEmployeeUser,
+  notifyTeamLeaderOfEmployeeAction,
+} from "@/lib/actions/notifications";
+import { getEmployeeRecordByUserId } from "@/lib/auth/team-leader";
 
 export async function getEmployees(filters?: {
   search?: string;
@@ -780,6 +785,42 @@ export async function updateEmployeeDeployment(
       nextRemarks,
       before
     );
+
+    const actorRecord = await getEmployeeRecordByUserId(user.id);
+    if (actorRecord?.id === id) {
+      await notifyTeamLeaderOfEmployeeAction(
+        id,
+        "deployment_update",
+        "Deployment status updated",
+        `${status.name}${nextLocation ? ` — ${nextLocation}` : ""}`,
+        "/employee/team"
+      );
+    } else {
+      const { data: targetEmployee } = await supabase
+        .from("employees")
+        .select("user_id, first_name, last_name")
+        .eq("id", id)
+        .maybeSingle();
+      const { data: actorEmployee } = await supabase
+        .from("employees")
+        .select("first_name, last_name, middle_name")
+        .eq("id", actorRecord?.id ?? "")
+        .maybeSingle();
+      const actorName = actorEmployee
+        ? `${actorEmployee.last_name}, ${actorEmployee.first_name}${
+            actorEmployee.middle_name ? ` ${actorEmployee.middle_name}` : ""
+          }`
+        : "Team Leader";
+      await notifyEmployeeUser(
+        targetEmployee?.user_id,
+        "deployment_update",
+        "Your deployment status was updated",
+        `${status.name}${nextLocation ? ` — ${nextLocation}` : ""}`,
+        "/employee/dashboard",
+        undefined,
+        actorName
+      );
+    }
 
     revalidatePath("/");
     revalidatePath(`/employees/${id}`);

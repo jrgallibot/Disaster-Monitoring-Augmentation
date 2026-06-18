@@ -26,6 +26,10 @@ import type {
 } from "@/lib/types";
 import { getFullName, getRegionTeamLeaderSummaries } from "@/lib/utils";
 import { revalidatePath } from "next/cache";
+import {
+  notifyEmployeeUser,
+  notifyTeamLeaderOfEmployeeAction,
+} from "@/lib/actions/notifications";
 
 export type MobilizationUpdateInput = {
   status: MobilizationStatus;
@@ -136,6 +140,43 @@ export async function updateEmployeeMobilization(
         demobilized_at: string | null;
       }
     );
+
+    const actorRecord = await getEmployeeRecordByUserId(user.id);
+    const statusLabel = input.status === "mobilized" ? "Mobilized" : "Demobilized";
+    if (actorRecord?.id === id) {
+      await notifyTeamLeaderOfEmployeeAction(
+        id,
+        "mobilization",
+        "Mobilization status updated",
+        statusLabel,
+        "/employee/team"
+      );
+    } else {
+      const { data: targetEmployee } = await supabase
+        .from("employees")
+        .select("user_id")
+        .eq("id", id)
+        .maybeSingle();
+      const { data: actorEmployee } = await supabase
+        .from("employees")
+        .select("first_name, last_name, middle_name")
+        .eq("id", actorRecord?.id ?? "")
+        .maybeSingle();
+      const actorName = actorEmployee
+        ? `${actorEmployee.last_name}, ${actorEmployee.first_name}${
+            actorEmployee.middle_name ? ` ${actorEmployee.middle_name}` : ""
+          }`
+        : "Team Leader";
+      await notifyEmployeeUser(
+        targetEmployee?.user_id,
+        "mobilization",
+        "Your mobilization status was updated",
+        statusLabel,
+        "/employee/dashboard",
+        undefined,
+        actorName
+      );
+    }
 
     revalidateMobilizationPaths(id);
     return { success: true };
