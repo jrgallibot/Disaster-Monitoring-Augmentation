@@ -155,6 +155,7 @@ export interface AdminDashboardData {
 
 export interface RegionTeamOverview {
   region: LibraryRegion;
+  teamLeader: TeamLeaderSummary;
   members: EmployeeWithRelations[];
 }
 

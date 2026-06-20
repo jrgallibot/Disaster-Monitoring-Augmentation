@@ -98,7 +98,10 @@ export async function buildOperationsReportData(
       const members = employees
         .filter((employee) =>
           employeeIsVisibleTeamMember(
-            employee,
+            {
+              ...employee,
+              region: employee.region ?? region,
+            },
             leaderSummary.id,
             [region.id],
             regionLeaderIds
@@ -146,8 +149,9 @@ export async function buildOperationsReportData(
   });
 
   const allMembers = teams.flatMap((team) => team.members);
-  const uniqueMemberIds = new Set(allMembers.map((member) => member.employee.id));
-  const uniqueMembers = allMembers.map((member) => member.employee);
+  const uniqueEmployees = Array.from(
+    new Map(allMembers.map((member) => [member.employee.id, member.employee])).values()
+  );
   const membersWithActivity = new Set(
     allMembers
       .filter((member) => member.todayAccomplishments.length > 0)
@@ -174,29 +178,29 @@ export async function buildOperationsReportData(
     summary: {
       totalTeams: teams.length,
       totalTeamLeaders: teams.length,
-      totalMembers: uniqueMemberIds.size,
-      deployed: uniqueMembers.filter((employee) => employee.status?.name === "Deployed").length,
-      onStandby: uniqueMembers.filter((employee) => employee.status?.name === "On Standby")
+      totalMembers: uniqueEmployees.length,
+      deployed: uniqueEmployees.filter((employee) => employee.status?.name === "Deployed").length,
+      onStandby: uniqueEmployees.filter((employee) => employee.status?.name === "On Standby")
         .length,
-      onLeave: uniqueMembers.filter((employee) => employee.status?.name === "On Leave").length,
+      onLeave: uniqueEmployees.filter((employee) => employee.status?.name === "On Leave").length,
       clockedInNow: membersClockedIn.size,
       withActivityToday: membersWithActivity.size,
       sex: {
-        totalMembers: countSex(uniqueMembers),
+        totalMembers: countSex(uniqueEmployees),
         deployed: countSex(
-          uniqueMembers.filter((employee) => employee.status?.name === "Deployed")
+          uniqueEmployees.filter((employee) => employee.status?.name === "Deployed")
         ),
         onStandby: countSex(
-          uniqueMembers.filter((employee) => employee.status?.name === "On Standby")
+          uniqueEmployees.filter((employee) => employee.status?.name === "On Standby")
         ),
         onLeave: countSex(
-          uniqueMembers.filter((employee) => employee.status?.name === "On Leave")
+          uniqueEmployees.filter((employee) => employee.status?.name === "On Leave")
         ),
         clockedInNow: countSex(
-          uniqueMembers.filter((employee) => membersClockedIn.has(employee.id))
+          uniqueEmployees.filter((employee) => membersClockedIn.has(employee.id))
         ),
         withActivityToday: countSex(
-          uniqueMembers.filter((employee) => membersWithActivity.has(employee.id))
+          uniqueEmployees.filter((employee) => membersWithActivity.has(employee.id))
         ),
       },
     },

@@ -121,7 +121,12 @@ export async function getTeamMembersForLeader(
   );
 
   return employees.filter((employee) =>
-    employeeIsVisibleTeamMember(employee, myRecord.id, scopedRegionIds, teamLeaderIds)
+    employeeIsVisibleTeamMember(
+      employee,
+      myRecord.id,
+      scopedRegionIds,
+      teamLeaderIds
+    )
   );
 }
 

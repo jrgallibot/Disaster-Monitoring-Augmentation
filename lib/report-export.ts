@@ -2,8 +2,8 @@ import type { AdminDashboardData, AdminOperationsReportData, MobilizationReportD
 import { SYSTEM_NAME, CREATED_BY } from "@/lib/branding";
 import { formatCoordinates, hasValidCoordinates } from "@/lib/geo";
 import { formatMobilizationDate, getMobilizationStatusLabel } from "@/lib/mobilization";
-import { formatDate, formatTime, getEmployeeTeamLeader, getFullName } from "@/lib/utils";
-import { formatSexLabel } from "@/lib/sex-stats";
+import { formatDate, formatTime, getEmployeeTeamLeader, getFullName, getTeamLeaderDisplay } from "@/lib/utils";
+import { countSex, formatSexLabel } from "@/lib/sex-stats";
 
 function escapeCsv(value: string | number | null | undefined): string {
   const text = value == null ? "" : String(value);
@@ -11,8 +11,13 @@ function escapeCsv(value: string | number | null | undefined): string {
 }
 
 export function downloadAdminReportExcel(data: AdminDashboardData) {
-  const { stats, extended, employees } = data;
+  const { stats, extended, employees, regionTeams } = data;
   const generated = formatDate(data.generatedAt);
+  const monitoredMembers = regionTeams.flatMap((team) => team.members);
+  const uniqueMonitoredMembers = Array.from(
+    new Map(monitoredMembers.map((member) => [member.id, member])).values()
+  );
+  const monitoredSex = countSex(uniqueMonitoredMembers);
 
   const rows: (string | number)[][] = [
     [SYSTEM_NAME],
@@ -32,6 +37,29 @@ export function downloadAdminReportExcel(data: AdminDashboardData) {
     ["With GPS Location", extended.withGps, `M: ${extended.sex.withGps.male}`, `F: ${extended.sex.withGps.female}`],
     ["Registered Portal Accounts", extended.registeredAccounts, `M: ${extended.sex.registeredAccounts.male}`, `F: ${extended.sex.registeredAccounts.female}`],
     ["Deployment Rate (%)", extended.deploymentRate],
+    [],
+    ["TEAM LEADER MONITORING SUMMARY"],
+    ["Team Leaders", regionTeams.length],
+    [
+      "Assigned Team Members",
+      uniqueMonitoredMembers.length,
+      `M: ${monitoredSex.male}`,
+      `F: ${monitoredSex.female}`,
+    ],
+    [],
+    ["TEAM LEADER BREAKDOWN"],
+    ["Team Leader", "Employee ID", "Region", "Assigned Members", "Male", "Female"],
+    ...regionTeams.map(({ region, teamLeader, members }) => {
+      const memberSex = countSex(members);
+      return [
+        getTeamLeaderDisplay(teamLeader) ?? "",
+        teamLeader.employee_id,
+        `${region.name} (${region.code})`,
+        members.length,
+        memberSex.male,
+        memberSex.female,
+      ];
+    }),
     [],
     ["STATUS BREAKDOWN"],
     ["Status", "Total", "Male", "Female"],

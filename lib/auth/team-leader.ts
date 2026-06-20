@@ -143,9 +143,14 @@ export function employeeIsAssignedToLeader(
   return false;
 }
 
-/** All non-leader employees in regions this team leader oversees. */
+/** Team members assigned to this leader within their led regions. */
 export function employeeIsVisibleTeamMember(
-  employee: { id: string; region_id: string | null },
+  employee: {
+    id: string;
+    region_id: string | null;
+    assigned_team_leader_id?: string | null;
+    region?: LibraryRegion | null;
+  },
   leaderEmployeeId: string,
   ledRegionIds: string[],
   teamLeaderIds: Set<string>
@@ -153,7 +158,15 @@ export function employeeIsVisibleTeamMember(
   if (employee.id === leaderEmployeeId) return false;
   if (!employee.region_id || !ledRegionIds.includes(employee.region_id)) return false;
   if (teamLeaderIds.has(employee.id)) return false;
-  return true;
+  return employeeIsAssignedToLeader(
+    {
+      id: employee.id,
+      region_id: employee.region_id,
+      assigned_team_leader_id: employee.assigned_team_leader_id ?? null,
+      region: employee.region,
+    },
+    leaderEmployeeId
+  );
 }
 
 export async function getTeamMemberIdsForLeader(leaderEmployeeId: string): Promise<string[]> {

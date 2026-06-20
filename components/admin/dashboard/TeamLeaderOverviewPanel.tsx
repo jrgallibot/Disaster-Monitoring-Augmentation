@@ -8,7 +8,7 @@ import { Button } from "@/components/ui/button";
 import { AdminEmployeeHistoryDialog } from "@/components/admin/AdminEmployeeHistoryDialog";
 import { EmployeeAvatar } from "@/components/shared/EmployeeAvatar";
 import { TablePagination } from "@/components/shared/TablePagination";
-import { getFullName, getRegionTeamLeaderSummaries, getTeamLeaderDisplay } from "@/lib/utils";
+import { getFullName, getTeamLeaderDisplay } from "@/lib/utils";
 import { paginate } from "@/lib/pagination";
 import { SexBreakdown } from "@/components/shared/SexBreakdown";
 import { countSex } from "@/lib/sex-stats";
@@ -36,16 +36,14 @@ export function TeamLeaderOverviewPanel({
     setPage(1);
   }, [regionTeams]);
 
-  const regionPagination = paginate(regionTeams, page, regionsPerPage);
-  const pagedRegionTeams = regionPagination.items;
+  const teamPagination = paginate(regionTeams, page, regionsPerPage);
+  const pagedTeams = teamPagination.items;
 
   function memberHref(id: string) {
     return publicView ? `/employees/${id}` : `/admin/employees/${id}/edit`;
   }
 
-  const assignedCount = regionTeams.filter(
-    (item) => getRegionTeamLeaderSummaries(item.region).length > 0
-  ).length;
+  const assignedCount = regionTeams.length;
 
   return (
     <>
@@ -57,8 +55,9 @@ export function TeamLeaderOverviewPanel({
               Regional Team Leaders &amp; Monitored Members
             </CardTitle>
             <p className="text-sm text-muted-foreground mt-1">
-              {assignedCount} region{assignedCount === 1 ? "" : "s"} with team leaders ·{" "}
-              {regionTeams.length} region{regionTeams.length === 1 ? "" : "s"} shown
+              {assignedCount} team leader{assignedCount === 1 ? "" : "s"} ·{" "}
+              {regionTeams.reduce((total, team) => total + team.members.length, 0)} monitored member
+              {regionTeams.reduce((total, team) => total + team.members.length, 0) === 1 ? "" : "s"}
             </p>
           </div>
           {!publicView && (
@@ -81,162 +80,139 @@ export function TeamLeaderOverviewPanel({
             </div>
           ) : (
             <div className="space-y-4">
-              {pagedRegionTeams.map(({ region, members }) => {
-                const regionLeaders = getRegionTeamLeaderSummaries(region);
-
-                return (
-                  <div
-                    key={region.id}
-                    className="border border-dswd-border rounded-lg overflow-hidden"
-                  >
-                    <div className="bg-dswd-light px-4 py-3 flex flex-col gap-3">
-                      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-                        <div>
-                          <p className="font-semibold text-dswd-navy">
-                            {region.name}{" "}
-                            <span className="text-muted-foreground font-normal">({region.code})</span>
-                          </p>
-                          <p className="text-sm text-muted-foreground mt-0.5">
-                            {regionLeaders.length} team leader{regionLeaders.length === 1 ? "" : "s"}
-                          </p>
-                        </div>
-                        <Badge variant="outline" className="w-fit shrink-0">
-                          {members.length} monitored member{members.length === 1 ? "" : "s"}
-                        </Badge>
-                        <SexBreakdown count={countSex(members)} />
+              {pagedTeams.map(({ region, teamLeader, members }) => (
+                <div
+                  key={`${region.id}-${teamLeader.id}`}
+                  className="border border-dswd-border rounded-lg overflow-hidden"
+                >
+                  <div className="bg-dswd-light px-4 py-3 flex flex-col gap-3">
+                    <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                      <div>
+                        <p className="text-xs font-semibold text-dswd-navy uppercase tracking-wide">
+                          Team Leader
+                        </p>
+                        <Link
+                          href={memberHref(teamLeader.id)}
+                          className="font-semibold text-dswd-navy hover:text-dswd-blue hover:underline mt-0.5 inline-block"
+                        >
+                          {getTeamLeaderDisplay(teamLeader)}
+                        </Link>
+                        <p className="text-sm text-muted-foreground mt-0.5">
+                          {region.name}{" "}
+                          <span className="font-normal">({region.code})</span>
+                          {teamLeader.user_id && (
+                            <span className="text-green-700 ml-2">Portal active</span>
+                          )}
+                        </p>
                       </div>
-
-                      {regionLeaders.length > 0 ? (
-                        <div className="flex flex-wrap gap-2">
-                          {regionLeaders.map((leader) => (
-                            <Link
-                              key={leader.id}
-                              href={memberHref(leader.id)}
-                              className="inline-flex items-center gap-2 rounded-full border border-dswd-border bg-white px-3 py-1.5 text-xs hover:bg-dswd-light"
-                            >
-                              <span className="font-medium text-dswd-navy">
-                                {getTeamLeaderDisplay(leader)}
-                              </span>
-                              {leader.user_id && (
-                                <span className="text-green-700">Portal active</span>
-                              )}
-                            </Link>
-                          ))}
-                        </div>
-                      ) : (
-                        <p className="text-sm text-amber-700 font-medium">No team leaders assigned</p>
-                      )}
+                      <Badge variant="outline" className="w-fit shrink-0">
+                        {members.length} monitored member{members.length === 1 ? "" : "s"}
+                      </Badge>
+                      <SexBreakdown count={countSex(members)} />
                     </div>
+                  </div>
 
-                    {members.length === 0 ? (
-                      <p className="px-4 py-6 text-sm text-muted-foreground">
-                        No other employees in this region yet.
-                      </p>
-                    ) : (
-                      <div className="overflow-x-auto">
-                        <table className="w-full text-sm">
-                          <thead>
-                            <tr className="border-b border-dswd-border bg-white">
-                              <th className="text-left p-3 font-semibold text-dswd-navy">Member</th>
-                              <th className="text-left p-3 font-semibold text-dswd-navy">Employee ID</th>
-                              <th className="text-left p-3 font-semibold text-dswd-navy">Assigned Team Leader</th>
-                              <th className="text-left p-3 font-semibold text-dswd-navy">Specialization</th>
-                              <th className="text-left p-3 font-semibold text-dswd-navy">Status</th>
-                              <th className="text-left p-3 font-semibold text-dswd-navy">Account</th>
-                              <th className="text-left p-3 font-semibold text-dswd-navy">Actions</th>
-                            </tr>
-                          </thead>
-                          <tbody>
-                            {members.map((member) => (
-                              <tr
-                                key={member.id}
-                                className="border-b border-dswd-border last:border-0 hover:bg-dswd-light/40"
-                              >
-                                <td className="p-3">
-                                  <div className="flex items-center gap-3">
-                                    <EmployeeAvatar photoUrl={member.photo_url} size={36} />
-                                    {publicView ? (
-                                      <Link
-                                        href={memberHref(member.id)}
-                                        className="font-medium text-dswd-blue hover:underline"
-                                      >
-                                        {getFullName(
-                                          member.first_name,
-                                          member.last_name,
-                                          member.middle_name
-                                        )}
-                                      </Link>
-                                    ) : (
-                                      <button
-                                        type="button"
-                                        onClick={() => setHistoryEmployee(member)}
-                                        className="font-medium text-dswd-blue hover:underline text-left"
-                                      >
-                                        {getFullName(
-                                          member.first_name,
-                                          member.last_name,
-                                          member.middle_name
-                                        )}
-                                      </button>
-                                    )}
-                                  </div>
-                                </td>
-                                <td className="p-3 font-mono text-xs">{member.employee_id}</td>
-                                <td className="p-3 text-muted-foreground">
-                                  {getTeamLeaderDisplay(member.assigned_team_leader) ??
-                                    (regionLeaders.length === 1
-                                      ? getTeamLeaderDisplay(regionLeaders[0])
-                                      : "Not selected")}
-                                </td>
-                                <td className="p-3 text-muted-foreground">
-                                  {member.specialization?.name ?? "—"}
-                                </td>
-                                <td className="p-3">
-                                  {member.status ? (
-                                    <Badge color={member.status.color}>{member.status.name}</Badge>
-                                  ) : (
-                                    "—"
-                                  )}
-                                </td>
-                                <td className="p-3">
-                                  <Badge variant={member.user_id ? "default" : "outline"}>
-                                    {member.user_id ? "Registered" : "No account"}
-                                  </Badge>
-                                </td>
-                                <td className="p-3">
+                  {members.length === 0 ? (
+                    <p className="px-4 py-6 text-sm text-muted-foreground">
+                      No employees assigned to this team leader yet.
+                    </p>
+                  ) : (
+                    <div className="overflow-x-auto">
+                      <table className="w-full text-sm">
+                        <thead>
+                          <tr className="border-b border-dswd-border bg-white">
+                            <th className="text-left p-3 font-semibold text-dswd-navy">Member</th>
+                            <th className="text-left p-3 font-semibold text-dswd-navy">Employee ID</th>
+                            <th className="text-left p-3 font-semibold text-dswd-navy">Specialization</th>
+                            <th className="text-left p-3 font-semibold text-dswd-navy">Status</th>
+                            <th className="text-left p-3 font-semibold text-dswd-navy">Account</th>
+                            <th className="text-left p-3 font-semibold text-dswd-navy">Actions</th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {members.map((member) => (
+                            <tr
+                              key={member.id}
+                              className="border-b border-dswd-border last:border-0 hover:bg-dswd-light/40"
+                            >
+                              <td className="p-3">
+                                <div className="flex items-center gap-3">
+                                  <EmployeeAvatar photoUrl={member.photo_url} size={36} />
                                   {publicView ? (
                                     <Link
                                       href={memberHref(member.id)}
-                                      className="text-dswd-blue hover:underline text-xs"
+                                      className="font-medium text-dswd-blue hover:underline"
                                     >
-                                      View profile
+                                      {getFullName(
+                                        member.first_name,
+                                        member.last_name,
+                                        member.middle_name
+                                      )}
                                     </Link>
                                   ) : (
                                     <button
                                       type="button"
                                       onClick={() => setHistoryEmployee(member)}
-                                      className="text-dswd-blue hover:underline text-xs inline-flex items-center gap-1"
+                                      className="font-medium text-dswd-blue hover:underline text-left"
                                     >
-                                      <History className="h-3 w-3" />
-                                      History
+                                      {getFullName(
+                                        member.first_name,
+                                        member.last_name,
+                                        member.middle_name
+                                      )}
                                     </button>
                                   )}
-                                </td>
-                              </tr>
+                                </div>
+                              </td>
+                              <td className="p-3 font-mono text-xs">{member.employee_id}</td>
+                              <td className="p-3 text-muted-foreground">
+                                {member.specialization?.name ?? "—"}
+                              </td>
+                              <td className="p-3">
+                                {member.status ? (
+                                  <Badge color={member.status.color}>{member.status.name}</Badge>
+                                ) : (
+                                  "—"
+                                )}
+                              </td>
+                              <td className="p-3">
+                                <Badge variant={member.user_id ? "default" : "outline"}>
+                                  {member.user_id ? "Registered" : "No account"}
+                                </Badge>
+                              </td>
+                              <td className="p-3">
+                                {publicView ? (
+                                  <Link
+                                    href={memberHref(member.id)}
+                                    className="text-dswd-blue hover:underline text-xs"
+                                  >
+                                    View profile
+                                  </Link>
+                                ) : (
+                                  <button
+                                    type="button"
+                                    onClick={() => setHistoryEmployee(member)}
+                                    className="text-dswd-blue hover:underline text-xs inline-flex items-center gap-1"
+                                  >
+                                    <History className="h-3 w-3" />
+                                    History
+                                  </button>
+                                )}
+                              </td>
+                            </tr>
                           ))}
-                          </tbody>
-                        </table>
-                      </div>
-                    )}
-                  </div>
-                );
-              })}
+                        </tbody>
+                      </table>
+                    </div>
+                  )}
+                </div>
+              ))}
               <TablePagination
-                page={regionPagination.page}
-                pageSize={regionPagination.pageSize}
-                totalItems={regionPagination.totalItems}
+                page={teamPagination.page}
+                pageSize={teamPagination.pageSize}
+                totalItems={teamPagination.totalItems}
                 onPageChange={setPage}
-                itemLabel="regions"
+                itemLabel="teams"
               />
             </div>
           )}

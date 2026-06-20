@@ -3,7 +3,7 @@
 import { createClient } from "@/lib/supabase/server";
 import { createServiceClient } from "@/lib/supabase/service";
 import { requireAdmin, updateEmployeePortalRole } from "@/lib/actions/auth";
-import { canManageEmployee, canViewEmployeeInPortal } from "@/lib/auth/team-leader";
+import { canManageEmployee, canViewEmployeeInPortal, employeeIsAssignedToLeader } from "@/lib/auth/team-leader";
 import { getStatusById, statusRequiresDeploymentLocation, statusRequiresDeploymentRemarks, validateDeploymentFields } from "@/lib/deployment";
 import type {
   ActionResult,
@@ -409,27 +409,24 @@ function buildRegionTeamOverviews(
   regions: LibraryRegion[],
   employees: EmployeeWithRelations[]
 ): RegionTeamOverview[] {
-  const leaderIdsForRegion = (region: LibraryRegion) =>
-    new Set(getRegionTeamLeaderSummaries(region).map((leader) => leader.id));
+  const overviews: RegionTeamOverview[] = [];
 
-  return regions
-    .filter((region) => region.is_active)
-    .sort((a, b) => a.sort_order - b.sort_order)
-    .map((region) => {
-      const leaderIds = leaderIdsForRegion(region);
-      return {
-        region,
-        members: employees.filter(
-          (employee) =>
-            employee.region_id === region.id && !leaderIds.has(employee.id)
-        ),
-      };
-    })
-    .filter(
-      (overview) =>
-        getRegionTeamLeaderSummaries(overview.region).length > 0 ||
-        overview.members.length > 0
-    );
+  for (const region of regions
+    .filter((item) => item.is_active)
+    .sort((a, b) => a.sort_order - b.sort_order)) {
+    for (const teamLeader of getRegionTeamLeaderSummaries(region)) {
+      const members = employees.filter((employee) =>
+        employeeIsAssignedToLeader(
+          { ...employee, region: employee.region ?? region },
+          teamLeader.id
+        )
+      );
+
+      overviews.push({ region, teamLeader, members });
+    }
+  }
+
+  return overviews;
 }
 
 async function syncRegionTeamLeaders(
