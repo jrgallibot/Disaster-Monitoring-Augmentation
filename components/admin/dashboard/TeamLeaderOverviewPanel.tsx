@@ -1,13 +1,15 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import Link from "next/link";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { AdminEmployeeHistoryDialog } from "@/components/admin/AdminEmployeeHistoryDialog";
 import { EmployeeAvatar } from "@/components/shared/EmployeeAvatar";
+import { TablePagination } from "@/components/shared/TablePagination";
 import { getFullName, getRegionTeamLeaderSummaries, getTeamLeaderDisplay } from "@/lib/utils";
+import { paginate } from "@/lib/pagination";
 import { SexBreakdown } from "@/components/shared/SexBreakdown";
 import { countSex } from "@/lib/sex-stats";
 import type { EmployeeWithRelations, LibraryStatus, RegionTeamOverview } from "@/lib/types";
@@ -18,14 +20,24 @@ interface TeamLeaderOverviewPanelProps {
   statuses: LibraryStatus[];
   /** Public dashboard: view-only links, no admin history dialog */
   publicView?: boolean;
+  regionsPerPage?: number;
 }
 
 export function TeamLeaderOverviewPanel({
   regionTeams,
   statuses,
   publicView = false,
+  regionsPerPage = 3,
 }: TeamLeaderOverviewPanelProps) {
   const [historyEmployee, setHistoryEmployee] = useState<EmployeeWithRelations | null>(null);
+  const [page, setPage] = useState(1);
+
+  useEffect(() => {
+    setPage(1);
+  }, [regionTeams]);
+
+  const regionPagination = paginate(regionTeams, page, regionsPerPage);
+  const pagedRegionTeams = regionPagination.items;
 
   function memberHref(id: string) {
     return publicView ? `/employees/${id}` : `/admin/employees/${id}/edit`;
@@ -69,7 +81,7 @@ export function TeamLeaderOverviewPanel({
             </div>
           ) : (
             <div className="space-y-4">
-              {regionTeams.map(({ region, members }) => {
+              {pagedRegionTeams.map(({ region, members }) => {
                 const regionLeaders = getRegionTeamLeaderSummaries(region);
 
                 return (
@@ -219,6 +231,13 @@ export function TeamLeaderOverviewPanel({
                   </div>
                 );
               })}
+              <TablePagination
+                page={regionPagination.page}
+                pageSize={regionPagination.pageSize}
+                totalItems={regionPagination.totalItems}
+                onPageChange={setPage}
+                itemLabel="regions"
+              />
             </div>
           )}
         </CardContent>

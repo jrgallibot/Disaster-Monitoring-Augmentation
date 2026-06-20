@@ -36,7 +36,35 @@ import type {
   LibrarySpecialization,
   LibraryStatus,
 } from "@/lib/types";
+import { DashboardSection } from "@/components/dashboard/DashboardSection";
+import {
+  DashboardSectionNav,
+  type DashboardNavSection,
+} from "@/components/dashboard/DashboardSectionNav";
 import { Download, Printer, RefreshCw, Radio, Shield } from "lucide-react";
+
+const PUBLIC_DASHBOARD_SECTIONS: DashboardNavSection[] = [
+  {
+    id: "section-team-leaders",
+    label: "Regional Team Leaders & Monitored Members",
+    accent: "indigo",
+  },
+  {
+    id: "section-operations-report",
+    label: "Daily Operations Report",
+    accent: "emerald",
+  },
+  {
+    id: "section-recent-employees",
+    label: "Recently Updated Employees",
+    accent: "amber",
+  },
+  {
+    id: "section-all-employees",
+    label: "All Augmented Employees",
+    accent: "blue",
+  },
+];
 
 interface PublicDashboardPanelProps {
   initialData: AdminDashboardData;
@@ -147,6 +175,8 @@ export function PublicDashboardPanel({
 
       <EmployeePortalCTA />
 
+      <DashboardSectionNav sections={PUBLIC_DASHBOARD_SECTIONS} />
+
       <StatsCards stats={data.stats} />
 
       <Card className="bg-gradient-to-r from-dswd-navy to-dswd-blue text-white border-0">
@@ -198,67 +228,91 @@ export function PublicDashboardPanel({
         />
       </div>
 
-      <TeamLeaderOverviewPanel
-        regionTeams={data.regionTeams}
-        statuses={data.statuses}
-        publicView
-      />
+      <DashboardSection
+        id="section-team-leaders"
+        accent="indigo"
+        label="Regional Team Leaders & Monitored Members"
+      >
+        <TeamLeaderOverviewPanel
+          regionTeams={data.regionTeams}
+          statuses={data.statuses}
+          publicView
+        />
+      </DashboardSection>
 
-      <AdminOperationsReportPanel
-        initialData={operationsReport}
-        publicView
-        onRefresh={getPublicOperationsReportData}
-      />
+      <DashboardSection
+        id="section-operations-report"
+        accent="emerald"
+        label="Daily Operations Report"
+      >
+        <AdminOperationsReportPanel
+          initialData={operationsReport}
+          publicView
+          onRefresh={getPublicOperationsReportData}
+        />
+      </DashboardSection>
 
-      <Card>
-        <CardHeader>
-          <CardTitle>Recently Updated Employees</CardTitle>
-          <p className="text-sm text-muted-foreground">
-            Latest profile and deployment changes across all monitored personnel
-          </p>
-        </CardHeader>
-        <CardContent>
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-            {recent.map((emp) => (
-              <div
-                key={emp.id}
-                className="flex items-center justify-between p-3 border border-dswd-border rounded-lg hover:bg-dswd-light/40 transition-colors"
-              >
-                <div className="min-w-0">
-                  <Link
-                    href={`/employees/${emp.id}`}
-                    className="font-medium text-dswd-blue hover:underline print:text-black print:no-underline truncate block"
-                  >
-                    {getFullName(emp.first_name, emp.last_name, emp.middle_name)}
-                  </Link>
-                  <p className="text-xs text-muted-foreground font-mono mt-0.5">
-                    {emp.employee_id}
-                    {emp.region ? ` · ${emp.region.code}` : ""}
-                    {emp.specialization ? ` · ${emp.specialization.name}` : ""}
-                  </p>
+      <DashboardSection
+        id="section-recent-employees"
+        accent="amber"
+        label="Recently Updated Employees"
+      >
+        <Card className="border-0 shadow-none bg-transparent">
+          <CardHeader className="px-0 pt-0">
+            <CardTitle>Recently Updated Employees</CardTitle>
+            <p className="text-sm text-muted-foreground">
+              Latest profile and deployment changes across all monitored personnel
+            </p>
+          </CardHeader>
+          <CardContent className="px-0 pb-0">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+              {recent.map((emp) => (
+                <div
+                  key={emp.id}
+                  className="flex items-center justify-between p-3 border border-dswd-border rounded-lg bg-white hover:bg-dswd-light/40 transition-colors"
+                >
+                  <div className="min-w-0">
+                    <Link
+                      href={`/employees/${emp.id}`}
+                      className="font-medium text-dswd-blue hover:underline print:text-black print:no-underline truncate block"
+                    >
+                      {getFullName(emp.first_name, emp.last_name, emp.middle_name)}
+                    </Link>
+                    <p className="text-xs text-muted-foreground font-mono mt-0.5">
+                      {emp.employee_id}
+                      {emp.region ? ` · ${emp.region.code}` : ""}
+                      {emp.specialization ? ` · ${emp.specialization.name}` : ""}
+                    </p>
+                  </div>
+                  <div className="text-right shrink-0 ml-3">
+                    {emp.status && (
+                      <Badge color={emp.status.color}>{emp.status.name}</Badge>
+                    )}
+                    <p className="text-xs text-muted-foreground mt-1">
+                      {formatDate(emp.updated_at)}
+                    </p>
+                  </div>
                 </div>
-                <div className="text-right shrink-0 ml-3">
-                  {emp.status && (
-                    <Badge color={emp.status.color}>{emp.status.name}</Badge>
-                  )}
-                  <p className="text-xs text-muted-foreground mt-1">
-                    {formatDate(emp.updated_at)}
-                  </p>
-                </div>
-              </div>
-            ))}
-          </div>
-        </CardContent>
-      </Card>
+              ))}
+            </div>
+          </CardContent>
+        </Card>
+      </DashboardSection>
 
-      <EmployeeTable
-        employees={data.employees}
-        regions={regions}
-        statuses={statuses}
-        specializations={specializations}
-        publicEnriched
-        title="All Augmented Employees"
-      />
+      <DashboardSection
+        id="section-all-employees"
+        accent="blue"
+        label="All Augmented Employees"
+      >
+        <EmployeeTable
+          employees={data.employees}
+          regions={regions}
+          statuses={statuses}
+          specializations={specializations}
+          publicEnriched
+          title="All Augmented Employees"
+        />
+      </DashboardSection>
     </div>
   );
 }

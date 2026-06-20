@@ -24,7 +24,9 @@ import { EmployeeAvatar } from "@/components/shared/EmployeeAvatar";
 import { statusRequiresDeploymentLocation, statusRequiresDeploymentRemarks } from "@/lib/deployment";
 import { formatMobilizationDate } from "@/lib/mobilization";
 import { formatCoordinates, getMapUrl, hasValidCoordinates } from "@/lib/geo";
+import { TablePagination } from "@/components/shared/TablePagination";
 import { Search, History, MapPin, User, Briefcase, KeyRound, Eye, UserCheck } from "lucide-react";
+import { paginate } from "@/lib/pagination";
 import { getFullName, getEmployeeTeamLeader, getEmployeeTeamLeaderSearchText } from "@/lib/utils";
 import { formatSexLabel } from "@/lib/sex-stats";
 import type {
@@ -51,6 +53,7 @@ interface EmployeeTableProps {
   title?: string;
   hideRegionFilter?: boolean;
   hideTeamLeaderColumn?: boolean;
+  defaultPageSize?: number;
 }
 
 export function EmployeeTable({
@@ -66,6 +69,7 @@ export function EmployeeTable({
   title = "Augmented Employees",
   hideRegionFilter = false,
   hideTeamLeaderColumn = false,
+  defaultPageSize = 20,
 }: EmployeeTableProps) {
   const showAdminColumns = showActions || viewOnly || publicEnriched;
   const showHistory = showActions || viewOnly;
@@ -85,6 +89,8 @@ export function EmployeeTable({
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
   const [passwordEmployee, setPasswordEmployee] = useState<EmployeeWithRelations | null>(null);
   const [passwordMode, setPasswordMode] = useState<"view" | "reset" | null>(null);
+  const [page, setPage] = useState(1);
+  const [pageSize, setPageSize] = useState(defaultPageSize);
 
   function openPasswordDialog(emp: EmployeeWithRelations, mode: "view" | "reset") {
     setPasswordEmployee(emp);
@@ -100,6 +106,10 @@ export function EmployeeTable({
     setEmployees(initialEmployees);
     setSelectedIds(new Set());
   }, [initialEmployees]);
+
+  useEffect(() => {
+    setPage(1);
+  }, [search, regionFilter, statusFilter, mobilizationFilter, specFilter]);
 
   function toggleEmployeeSelection(id: string, checked: boolean) {
     setSelectedIds((prev) => {
@@ -298,6 +308,9 @@ export function EmployeeTable({
     return matchesSearch && matchesRegion && matchesStatus && matchesMobilization && matchesSpec;
   });
 
+  const pagination = paginate(filtered, page, pageSize);
+  const pagedEmployees = pagination.items;
+
   const selectedEmployees = useMemo(
     () => employees.filter((employee) => selectedIds.has(employee.id)),
     [employees, selectedIds]
@@ -403,7 +416,9 @@ export function EmployeeTable({
           )}
 
           <p className="text-sm text-muted-foreground mb-4">
-            Showing {filtered.length} of {employees.length} employees
+            {filtered.length === employees.length
+              ? `${employees.length} employee${employees.length === 1 ? "" : "s"} total`
+              : `${filtered.length} of ${employees.length} employees match filters`}
           </p>
 
           {/* Desktop table */}
@@ -450,7 +465,7 @@ export function EmployeeTable({
                 </tr>
               </thead>
               <tbody>
-                {filtered.map((emp) => (
+                {pagedEmployees.map((emp) => (
                   <tr key={emp.id} className="border-b border-dswd-border hover:bg-dswd-light/50">
                     {showActions && (
                       <td className="p-3">
@@ -596,7 +611,7 @@ export function EmployeeTable({
                 Select all visible ({filtered.length})
               </label>
             )}
-            {filtered.map((emp) => (
+            {pagedEmployees.map((emp) => (
               <div key={emp.id} className="gov-card p-4">
                 <div className="flex items-start justify-between gap-2">
                   <div className="flex items-center gap-3 min-w-0">
@@ -755,6 +770,20 @@ export function EmployeeTable({
             <div className="text-center py-12 text-muted-foreground">
               No employees match your filters.
             </div>
+          )}
+
+          {filtered.length > 0 && (
+            <TablePagination
+              page={pagination.page}
+              pageSize={pagination.pageSize}
+              totalItems={pagination.totalItems}
+              onPageChange={setPage}
+              onPageSizeChange={(size) => {
+                setPageSize(size);
+                setPage(1);
+              }}
+              itemLabel="employees"
+            />
           )}
         </CardContent>
       </Card>

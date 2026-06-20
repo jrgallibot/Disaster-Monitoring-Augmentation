@@ -25,7 +25,7 @@ import { toast } from "@/lib/toast";
 import { DEPLOYMENT_DAILY_RESET_NOTICE } from "@/lib/deployment-daily";
 import { formatMobilizationDate } from "@/lib/mobilization";
 import { formatCoordinates, getCurrentPosition, getMapUrl, hasValidCoordinates } from "@/lib/geo";
-import { formatDate, getEmployeeTeamLeader, getAutoAssignedTeamLeaderId, getRegionTeamLeaderSummaries, getTeamLeaderDisplay, shouldSelectTeamLeader } from "@/lib/utils";
+import { formatDate, getEmployeeTeamLeader, getAutoAssignedTeamLeaderId, getRegionTeamLeaderSummaries, getTeamLeaderDisplay } from "@/lib/utils";
 import type {
   EmployeeDeploymentLog,
   EmployeeSex,
@@ -92,7 +92,7 @@ export function EmployeeStatusForm({
     () => getRegionTeamLeaderSummaries(selectedRegion),
     [selectedRegion]
   );
-  const needsTeamLeaderSelection = shouldSelectTeamLeader(selectedRegion);
+  const hasMultipleTeamLeaders = regionLeaders.length > 1;
   const [assignedTeamLeaderId, setAssignedTeamLeaderId] = useState(
     employee.assigned_team_leader_id ??
       getAutoAssignedTeamLeaderId(selectedRegion) ??
@@ -140,7 +140,7 @@ export function EmployeeStatusForm({
       return;
     }
 
-    if (needsTeamLeaderSelection && !assignedTeamLeaderId) {
+    if (regionLeaders.length > 0 && !assignedTeamLeaderId) {
       const message = "Please select your team leader for this region.";
       setError(message);
       toast.error(message);
@@ -316,7 +316,7 @@ export function EmployeeStatusForm({
               <span className="text-xs"> (from {employee.region?.name ?? "home region"})</span>
             </p>
           )}
-          {needsTeamLeaderSelection && !teamLeader && (
+          {hasMultipleTeamLeaders && !teamLeader && (
             <p className="text-sm text-amber-700">
               Your region has multiple team leaders. Please select yours below.
             </p>
@@ -504,33 +504,23 @@ export function EmployeeStatusForm({
             {regionLeaders.length > 0 && (
               <div className="space-y-2">
                 <Label>Team Leader *</Label>
-                {needsTeamLeaderSelection ? (
-                  <Select
-                    value={assignedTeamLeaderId}
-                    onValueChange={setAssignedTeamLeaderId}
-                  >
-                    <SelectTrigger>
-                      <SelectValue placeholder="Select your team leader" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {regionLeaders.map((leader) => (
-                        <SelectItem key={leader.id} value={leader.id}>
-                          {getTeamLeaderDisplay(leader)}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                ) : (
-                  <Input
-                    value={getTeamLeaderDisplay(regionLeaders[0]) ?? ""}
-                    readOnly
-                    className="bg-dswd-light"
-                  />
-                )}
+                <Select
+                  value={assignedTeamLeaderId}
+                  onValueChange={setAssignedTeamLeaderId}
+                >
+                  <SelectTrigger>
+                    <SelectValue placeholder="Select your team leader" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {regionLeaders.map((leader) => (
+                      <SelectItem key={leader.id} value={leader.id}>
+                        {getTeamLeaderDisplay(leader)}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
                 <p className="text-xs text-muted-foreground">
-                  {needsTeamLeaderSelection
-                    ? "Choose the team leader assigned to monitor you in this region."
-                    : "Your team leader is assigned automatically for this region."}
+                  Choose the team leader assigned to monitor you in this region.
                 </p>
               </div>
             )}

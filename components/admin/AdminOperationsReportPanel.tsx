@@ -1,15 +1,17 @@
 "use client";
 
-import { useCallback, useState, useTransition } from "react";
+import { useCallback, useEffect, useState, useTransition } from "react";
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { DailyReportFiltersBar } from "@/components/shared/DailyReportFiltersBar";
 import { OperationsReportMembersTable } from "@/components/shared/OperationsReportMembersTable";
 import { SexBreakdown } from "@/components/shared/SexBreakdown";
+import { TablePagination } from "@/components/shared/TablePagination";
 import { ReportPrintHeader } from "@/components/brand/ReportPrintHeader";
 import { getAdminOperationsReportData } from "@/lib/actions/admin-reports";
 import { CREATED_BY } from "@/lib/branding";
+import { paginate } from "@/lib/pagination";
 import {
   downloadAdminOperationsReportExcel,
   printAdminOperationsReport,
@@ -25,6 +27,7 @@ interface AdminOperationsReportPanelProps {
   publicView?: boolean;
   showFilters?: boolean;
   onRefresh?: (filters?: DailyReportFilters) => Promise<AdminOperationsReportData>;
+  teamsPerPage?: number;
 }
 
 export function AdminOperationsReportPanel({
@@ -34,9 +37,15 @@ export function AdminOperationsReportPanel({
   publicView = false,
   showFilters = false,
   onRefresh,
+  teamsPerPage = 3,
 }: AdminOperationsReportPanelProps) {
   const [data, setData] = useState(initialData);
   const [isRefreshing, startRefresh] = useTransition();
+  const [teamPage, setTeamPage] = useState(1);
+
+  useEffect(() => {
+    setTeamPage(1);
+  }, [data.teams, data.reportDate, data.scopeLabel]);
 
   const loadReport = useCallback(
     (filters?: DailyReportFilters) => {
@@ -60,6 +69,8 @@ export function AdminOperationsReportPanel({
 
   const activityLabel = data.reportIsToday ? "Activity Today" : "Activity";
   const clockedInLabel = data.reportIsToday ? "Clocked In" : "Clocked In (Day End)";
+  const teamPagination = paginate(data.teams, teamPage, teamsPerPage);
+  const pagedTeams = teamPagination.items;
 
   const summaryItems: { label: string; value: number; sex?: SexCount }[] = [
     { label: "Team Leaders", value: data.summary.totalTeamLeaders },
@@ -214,7 +225,7 @@ export function AdminOperationsReportPanel({
             </div>
           ) : (
             <div className="space-y-6">
-              {data.teams.map((team) => {
+              {pagedTeams.map((team) => {
                 const leaderName = getFullName(
                   team.teamLeader.first_name,
                   team.teamLeader.last_name,
@@ -284,6 +295,13 @@ export function AdminOperationsReportPanel({
                   </div>
                 );
               })}
+              <TablePagination
+                page={teamPagination.page}
+                pageSize={teamPagination.pageSize}
+                totalItems={teamPagination.totalItems}
+                onPageChange={setTeamPage}
+                itemLabel="teams"
+              />
             </div>
           )}
         </CardContent>

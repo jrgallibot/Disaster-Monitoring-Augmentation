@@ -1,5 +1,10 @@
+"use client";
+
+import { useEffect, useMemo, useState } from "react";
 import { Badge } from "@/components/ui/badge";
+import { TablePagination } from "@/components/shared/TablePagination";
 import { formatCoordinates, hasValidCoordinates } from "@/lib/geo";
+import { paginate } from "@/lib/pagination";
 import { formatTime, getFullName } from "@/lib/utils";
 import { formatSexLabel } from "@/lib/sex-stats";
 import type { TeamDailyReportMember } from "@/lib/types";
@@ -11,6 +16,7 @@ interface OperationsReportMembersTableProps {
   showDutyColumn?: boolean;
   dutyColumnLabel?: string;
   emptyMessage?: string;
+  membersPerPage?: number;
 }
 
 function ReportMemberRow({
@@ -31,7 +37,6 @@ function ReportMemberRow({
 
   return (
     <tr
-      key={employee.id}
       className={`border-t border-dswd-border align-top ${isLeader ? "bg-dswd-light/70" : ""}`}
     >
       <td className="p-3 text-muted-foreground">{index + 1}</td>
@@ -105,60 +110,102 @@ export function OperationsReportMembersTable({
   showDutyColumn = true,
   dutyColumnLabel = "Actual Duty / Accomplishments Today",
   emptyMessage = "No team members assigned.",
+  membersPerPage = 10,
 }: OperationsReportMembersTableProps) {
-  const rows: { member: TeamDailyReportMember; isLeader: boolean }[] = [];
-  if (leaderRow) rows.push({ member: leaderRow, isLeader: true });
-  for (const member of members) {
-    if (leaderRow && member.employee.id === leaderRow.employee.id) continue;
-    rows.push({ member, isLeader: false });
-  }
+  const [page, setPage] = useState(1);
+  const [pageSize, setPageSize] = useState(membersPerPage);
 
-  if (rows.length === 0) {
+  const memberRows = useMemo(() => {
+    const rows: TeamDailyReportMember[] = [];
+    for (const member of members) {
+      if (leaderRow && member.employee.id === leaderRow.employee.id) continue;
+      rows.push(member);
+    }
+    return rows;
+  }, [members, leaderRow]);
+
+  useEffect(() => {
+    setPage(1);
+  }, [memberRows, leaderRow]);
+
+  const pagination = paginate(memberRows, page, pageSize);
+  const pagedMembers = pagination.items;
+  const leaderIndexOffset = leaderRow ? 1 : 0;
+  const memberRowOffset = leaderIndexOffset + (page - 1) * pageSize;
+
+  if (!leaderRow && memberRows.length === 0) {
     return <p className="text-sm text-muted-foreground">{emptyMessage}</p>;
   }
 
   return (
-    <div className="overflow-x-auto rounded-lg border border-dswd-border">
-      <table className="w-full text-sm">
-        <thead className="bg-dswd-light">
-          <tr>
-            <th className="text-left p-3 font-semibold text-dswd-navy">#</th>
-            <th className="text-left p-3 font-semibold text-dswd-navy">Personnel</th>
-            <th className="text-left p-3 font-semibold text-dswd-navy">Sex</th>
-            <th className="text-left p-3 font-semibold text-dswd-navy">Specialization</th>
-            <th className="text-left p-3 font-semibold text-dswd-navy">Status</th>
-            <th className="text-left p-3 font-semibold text-dswd-navy min-w-[160px]">
-              Actual Task
-            </th>
-            <th className="text-left p-3 font-semibold text-dswd-navy min-w-[140px]">
-              Deployment Location
-            </th>
-            <th className="text-left p-3 font-semibold text-dswd-navy min-w-[160px]">
-              Remarks
-            </th>
-            {showDutyColumn && (
-              <th className="text-left p-3 font-semibold text-dswd-navy min-w-[200px]">
-                {dutyColumnLabel}
+    <div className="space-y-0">
+      <div className="overflow-x-auto rounded-lg border border-dswd-border">
+        <table className="w-full text-sm">
+          <thead className="bg-dswd-light">
+            <tr>
+              <th className="text-left p-3 font-semibold text-dswd-navy">#</th>
+              <th className="text-left p-3 font-semibold text-dswd-navy">Personnel</th>
+              <th className="text-left p-3 font-semibold text-dswd-navy">Sex</th>
+              <th className="text-left p-3 font-semibold text-dswd-navy">Specialization</th>
+              <th className="text-left p-3 font-semibold text-dswd-navy">Status</th>
+              <th className="text-left p-3 font-semibold text-dswd-navy min-w-[160px]">
+                Actual Task
               </th>
+              <th className="text-left p-3 font-semibold text-dswd-navy min-w-[140px]">
+                Deployment Location
+              </th>
+              <th className="text-left p-3 font-semibold text-dswd-navy min-w-[160px]">
+                Remarks
+              </th>
+              {showDutyColumn && (
+                <th className="text-left p-3 font-semibold text-dswd-navy min-w-[200px]">
+                  {dutyColumnLabel}
+                </th>
+              )}
+              {showAttendance && (
+                <th className="text-left p-3 font-semibold text-dswd-navy">Attendance</th>
+              )}
+            </tr>
+          </thead>
+          <tbody>
+            {leaderRow && (
+              <ReportMemberRow
+                key={leaderRow.employee.id}
+                member={leaderRow}
+                index={0}
+                isLeader
+                showAttendance={showAttendance}
+                showDutyColumn={showDutyColumn}
+              />
             )}
-            {showAttendance && (
-              <th className="text-left p-3 font-semibold text-dswd-navy">Attendance</th>
-            )}
-          </tr>
-        </thead>
-        <tbody>
-          {rows.map(({ member, isLeader }, index) => (
-            <ReportMemberRow
-              key={member.employee.id}
-              member={member}
-              index={index}
-              isLeader={isLeader}
-              showAttendance={showAttendance}
-              showDutyColumn={showDutyColumn}
-            />
-          ))}
-        </tbody>
-      </table>
+            {pagedMembers.map((member, index) => (
+              <ReportMemberRow
+                key={member.employee.id}
+                member={member}
+                index={memberRowOffset + index}
+                showAttendance={showAttendance}
+                showDutyColumn={showDutyColumn}
+              />
+            ))}
+          </tbody>
+        </table>
+      </div>
+
+      {memberRows.length > 0 && pagination.totalPages > 1 && (
+        <TablePagination
+          className="print:hidden px-1"
+          page={pagination.page}
+          pageSize={pagination.pageSize}
+          totalItems={pagination.totalItems}
+          onPageChange={setPage}
+          onPageSizeChange={(size) => {
+            setPageSize(size);
+            setPage(1);
+          }}
+          pageSizeOptions={[10, 20, 50]}
+          itemLabel="members"
+        />
+      )}
     </div>
   );
 }

@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useTransition } from "react";
+import { useState, useTransition, useMemo } from "react";
 import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -8,7 +8,7 @@ import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Plus, Pencil, ToggleLeft, ToggleRight } from "lucide-react";
+import { Plus, Pencil, ToggleLeft, ToggleRight, Search } from "lucide-react";
 import {
   createSpecialization,
   updateSpecialization,
@@ -40,10 +40,14 @@ export function LibraryManager({
   statuses,
   employees,
 }: LibraryManagerProps) {
-  const teamLeaderOptions = employees.map((employee) => ({
-    id: employee.id,
-    label: `${employee.last_name}, ${employee.first_name} (${employee.employee_id})`,
-  }));
+  const teamLeaderOptions = employees
+    .map((employee) => ({
+      id: employee.id,
+      label: `${employee.last_name}, ${employee.first_name} (${employee.employee_id})`,
+    }))
+    .sort((a, b) =>
+      a.label.localeCompare(b.label, undefined, { sensitivity: "base" })
+    );
 
   return (
     <Tabs defaultValue="specializations">
@@ -180,15 +184,25 @@ function LibraryTable({
   const [showForm, setShowForm] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [teamLeaderIds, setTeamLeaderIds] = useState<string[]>([]);
+  const [teamLeaderSearchQuery, setTeamLeaderSearchQuery] = useState("");
   const [isPending, startTransition] = useTransition();
   const [error, setError] = useState<string | null>(null);
   const router = useRouter();
+
+  const filteredTeamLeaderOptions = useMemo(() => {
+    const query = teamLeaderSearchQuery.trim().toLowerCase();
+    if (!query) return teamLeaderOptions;
+    return teamLeaderOptions.filter((option) =>
+      option.label.toLowerCase().includes(query)
+    );
+  }, [teamLeaderOptions, teamLeaderSearchQuery]);
 
   const editingItem = items.find((i) => i.id === editingId);
 
   function openCreateForm() {
     setEditingId(null);
     setTeamLeaderIds([]);
+    setTeamLeaderSearchQuery("");
     setShowForm(true);
   }
 
@@ -196,6 +210,7 @@ function LibraryTable({
     const item = items.find((i) => i.id === id);
     setEditingId(id);
     setShowForm(false);
+    setTeamLeaderSearchQuery("");
     if (item && "team_leaders" in item) {
       setTeamLeaderIds((item.team_leaders ?? []).map((link) => link.employee_id));
     } else {
@@ -231,6 +246,7 @@ function LibraryTable({
       setShowForm(false);
       setEditingId(null);
       setTeamLeaderIds([]);
+      setTeamLeaderSearchQuery("");
       router.refresh();
     });
   }
@@ -330,11 +346,25 @@ function LibraryTable({
                   <Label htmlFor={field.key}>{field.label}</Label>
                   {field.type === "team_leaders_multi" ? (
                     <>
+                      <div className="relative">
+                        <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                        <Input
+                          value={teamLeaderSearchQuery}
+                          onChange={(event) => setTeamLeaderSearchQuery(event.target.value)}
+                          placeholder="Search by name or employee ID..."
+                          className="pl-9"
+                          aria-label="Search team leaders"
+                        />
+                      </div>
                       <div className="space-y-2 max-h-52 overflow-y-auto border border-dswd-border rounded-md p-3 bg-white">
                         {teamLeaderOptions.length === 0 ? (
                           <p className="text-sm text-muted-foreground">No employees available.</p>
+                        ) : filteredTeamLeaderOptions.length === 0 ? (
+                          <p className="text-sm text-muted-foreground">
+                            No employees match your search.
+                          </p>
                         ) : (
-                          teamLeaderOptions.map((option) => (
+                          filteredTeamLeaderOptions.map((option) => (
                             <label
                               key={option.id}
                               className="flex items-start gap-2 text-sm cursor-pointer"
@@ -390,6 +420,7 @@ function LibraryTable({
                   setShowForm(false);
                   setEditingId(null);
                   setTeamLeaderIds([]);
+                  setTeamLeaderSearchQuery("");
                 }}
               >
                 Cancel

@@ -202,31 +202,28 @@ export async function updateMyEmployee(data: EmployeeSelfUpdate): Promise<Action
       : employee.region;
 
   const regionLeaders = getRegionTeamLeaderSummaries(nextRegion);
-  let nextAssignedLeaderId = data.assigned_team_leader_id ?? employee.assigned_team_leader_id;
+  let nextAssignedLeaderId = data.assigned_team_leader_id ?? employee.assigned_team_leader_id ?? null;
 
-  if (data.region_id !== undefined && data.region_id !== employee.region_id) {
+  if (regionLeaders.length === 0) {
+    nextAssignedLeaderId = null;
+  } else if (data.assigned_team_leader_id) {
+    const isValid = regionLeaders.some((leader) => leader.id === data.assigned_team_leader_id);
+    if (!isValid) {
+      return { success: false, error: "Please select a valid team leader for your region." };
+    }
+    nextAssignedLeaderId = data.assigned_team_leader_id;
+  } else if (data.region_id !== undefined && data.region_id !== employee.region_id) {
     nextAssignedLeaderId = getAutoAssignedTeamLeaderId(nextRegion);
-  } else if (!nextAssignedLeaderId) {
-    nextAssignedLeaderId = getAutoAssignedTeamLeaderId(nextRegion);
-  }
-
-  if (regionLeaders.length > 1) {
-    if (data.assigned_team_leader_id) {
-      const isValid = regionLeaders.some((leader) => leader.id === data.assigned_team_leader_id);
-      if (!isValid) {
-        return { success: false, error: "Please select a valid team leader for your region." };
-      }
-      nextAssignedLeaderId = data.assigned_team_leader_id;
-    } else if (!employee.assigned_team_leader_id) {
+  } else if (!employee.assigned_team_leader_id) {
+    if (regionLeaders.length > 1) {
       return {
         success: false,
         error: "Please select your team leader. Your region has more than one team leader.",
       };
     }
-  } else if (regionLeaders.length === 1) {
     nextAssignedLeaderId = regionLeaders[0].id;
   } else {
-    nextAssignedLeaderId = null;
+    nextAssignedLeaderId = employee.assigned_team_leader_id;
   }
 
   if (!data.photo_url && !employee.photo_url) {
